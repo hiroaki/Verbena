@@ -1,0 +1,37 @@
+services:
+  db:
+    image: mariadb:10.6.10
+    environment:
+      TZ: Asia/Tokyo
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_USER: railsuser
+      MYSQL_PASSWORD: railspass
+    ports:
+      - '23306:3306'
+    volumes:
+      - 'db-data:/var/lib/mysql'
+      - ./initdb:/docker-entrypoint-initdb.d
+
+  web:
+    build: .
+    ports:
+      - '23000:3000'
+    volumes:
+      - '.:/verbena'
+      - 'bundle:/usr/local/bundle'
+    tty: true
+    stdin_open: true
+    depends_on:
+      - db
+    environment:
+      VERBENA_DELIVERY_METHOD: smtp
+      VERBENA_DELIVERY_SMTP_DOMAIN: localdomain
+      VERBENA_DELIVERY_SMTP_AUTHENTICATION: plain
+      VERBENA_DELIVERY_SMTP_USER_NAME: dummy
+      VERBENA_DELIVERY_SMTP_PASSWORD: dummy
+      VERBENA_DELIVERY_SMTP_ADDRESS: mailcatcher
+      VERBENA_DELIVERY_SMTP_PORT: 1025
+
+volumes:
+  db-data:
+  bundle:

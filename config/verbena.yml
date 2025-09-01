@@ -1,0 +1,20 @@
+production:
+  parallel:
+    type: in_threads
+    concurrency: 2
+  in_batches:
+    of: 100
+
+development:
+  parallel:
+    type: in_threads
+    concurrency: 2
+  in_batches:
+    of: 3
+
+test:
+  parallel:
+    type: in_threads
+    concurrency: 2
+  in_batches:
+    of: 3
