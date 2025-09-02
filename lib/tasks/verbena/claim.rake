@@ -30,7 +30,8 @@ namespace :verbena do
         stale_records.each do |record|
           age = record.claimed_at ? Time.current - record.claimed_at : 0
           age_str = format_duration(age)
-          puts "#{record.id}\t#{record.session_id[0..8]}...\t#{record.claimed_at}\t#{record.envelope_to}\t#{age_str}"
+          session_id_str = record.session_id ? "#{record.session_id[0..8]}..." : "(none)"
+          puts "#{record.id}\t#{session_id_str}\t#{record.claimed_at}\t#{record.envelope_to}\t#{age_str}"
         end
       else
         puts "No stale claimed records found."
