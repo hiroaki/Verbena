@@ -101,6 +101,10 @@ RSpec.describe MailQueue, type: :model do
           it '指定した session_id がレコードにセットされる' do
             expect(@row.session_id).to eq specific_session_id
           end
+
+          it 'claimed_at が現在時刻にセットされる' do
+            expect(@row.claimed_at).to be_within(1.second).of(genzai_jikoku)
+          end
         end
 
         context 'レコードがある場合： session_id が NULL 、 timer_at が現在時刻より後' do
@@ -174,7 +178,9 @@ RSpec.describe MailQueue, type: :model do
             let!(:specfic_id) { @row1.id }
             it 'レコード(1) に指定した session_id がレコードにセットされ、レコード(2)にはセットされない' do
               expect(@row1.session_id).to eq specific_session_id
+              expect(@row1.claimed_at).to be_within(1.second).of(genzai_jikoku)
               expect(@row2.session_id).not_to eq specific_session_id
+              expect(@row2.claimed_at).to be_nil
             end
           end
         end
@@ -219,6 +225,76 @@ RSpec.describe MailQueue, type: :model do
         it '属性 session_id が "sess" のレコードのリストが得られる' do
           is_expected.to eq([@row1.id, @row3.id, @row5.id])
         end
+      end
+    end
+
+    describe '.release_stale_claims!' do
+      let!(:current_time) { Time.zone.parse('2023-10-23 12:00:00') }
+      
+      before do
+        travel_to current_time
+        # 古い claim（2時間前）
+        @stale_row1 = FactoryBot.create(:mail_queue, session_id: 'stale1', claimed_at: 2.hours.ago)
+        @stale_row2 = FactoryBot.create(:mail_queue, session_id: 'stale2', claimed_at: 90.minutes.ago)
+        # 新しい claim（30分前）  
+        @fresh_row = FactoryBot.create(:mail_queue, session_id: 'fresh', claimed_at: 30.minutes.ago)
+        # claim されていない
+        @unclaimed_row = FactoryBot.create(:mail_queue, session_id: nil, claimed_at: nil)
+      end
+
+      context 'デフォルト（1時間前より古い）で実行する場合' do
+        it '1時間より古い claim が解放される' do
+          expect {
+            described_class.release_stale_claims!
+          }.to change { described_class.where(session_id: nil).count }.by(2)
+
+          @stale_row1.reload
+          @stale_row2.reload
+          @fresh_row.reload
+          @unclaimed_row.reload
+
+          expect(@stale_row1.session_id).to be_nil
+          expect(@stale_row1.claimed_at).to be_nil
+          expect(@stale_row2.session_id).to be_nil  
+          expect(@stale_row2.claimed_at).to be_nil
+          expect(@fresh_row.session_id).to eq('fresh')
+          expect(@fresh_row.claimed_at).not_to be_nil
+          expect(@unclaimed_row.session_id).to be_nil
+        end
+
+        it '解放されたレコード数を返す' do
+          result = described_class.release_stale_claims!
+          expect(result).to eq(2)
+        end
+      end
+
+      context 'カスタム時間（30分前）を指定する場合' do
+        it '30分より古い claim が解放される' do
+          expect {
+            described_class.release_stale_claims!(older_than: 30.minutes.ago)
+          }.to change { described_class.where(session_id: nil).count }.by(3)
+        end
+      end
+    end
+
+    describe '.claimed_but_undelivered' do
+      before do
+        # claim されて配送済み
+        @delivered_row = FactoryBot.create(:mail_queue, session_id: 'sess1')
+        FactoryBot.create(:delivery_response, mail_queue: @delivered_row)
+        
+        # claim されているが未配送
+        @stale_row1 = FactoryBot.create(:mail_queue, session_id: 'sess2')
+        @stale_row2 = FactoryBot.create(:mail_queue, session_id: 'sess3')
+        
+        # claim されていない
+        @unclaimed_row = FactoryBot.create(:mail_queue, session_id: nil)
+      end
+
+      subject { described_class.claimed_but_undelivered.map(&:id) }
+
+      it 'claim されているが配送結果がないレコードを返す' do
+        is_expected.to match_array([@stale_row1.id, @stale_row2.id])
       end
     end
   end
