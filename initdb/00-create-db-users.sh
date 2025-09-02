@@ -1,27 +1,45 @@
 #!/bin/sh
 
-# 安全な初期化（冪等化）: 既に権限が付与されている場合は再実行をスキップします。
-# Rails から接続するためのユーザを作成する想定です。
-# compose.yml にて環境変数 MYSQL_USER を設定していることで、
-# イメージ側でユーザが作成されるケースがあります。ここでは権限を付与します。
+# Database initialization script for Verbena development environment
+#
+# This script is designed to be idempotent - it can be run multiple times safely
+# without causing side effects. It checks for existing privileges before making changes.
+#
+# Environment variables required:
+#   MYSQL_ROOT_PASSWORD - Root password for MySQL database
+#   MYSQL_USER - Username for Rails application database access
+#
+# The script will:
+# 1. Validate required environment variables are set
+# 2. Check if privileges already exist for the specified databases
+# 3. Grant privileges only if they don't already exist
+# 4. Flush privileges only if changes were made
+#
+# Note: This script runs automatically via docker-entrypoint-initdb.d when the 
+# MySQL container is first created (when no existing volume data is present).
 
-set -eu
+set -eu  # Exit on error or undefined variables
 
-# 必須環境変数の検証
+# 必須環境変数の検証 (Validate required environment variables)
 : "${MYSQL_ROOT_PASSWORD?Need MYSQL_ROOT_PASSWORD env var}"
 : "${MYSQL_USER?Need MYSQL_USER env var}"
 
+# Flag to track if any changes were made (for FLUSH PRIVILEGES optimization)
 SKIP_FLUSH=1
 
-# helper: check if user has any entry in mysql.db for given database
+# Helper function: check if user has any privileges for the given database
+# Returns 0 (success) if privileges exist, 1 (failure) if they don't
 has_privs_for_db() {
 	db="$1"
+	# Query mysql.db table to check for existing privileges
+	# Use '|| echo 0' to handle cases where the query might fail
 	count=$(mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -sse "SELECT COUNT(*) FROM mysql.db WHERE User='${MYSQL_USER}' AND Db='${db}'" || echo 0)
 	[ "${count}" -gt 0 ]
 }
 
 echo "initdb: ensuring privileges for user ${MYSQL_USER}"
 
+# Check and grant privileges for development database
 if has_privs_for_db "verbena_development"; then
 	echo "initdb: privileges for ${MYSQL_USER} on verbena_development already present — skipping"
 else
@@ -30,6 +48,7 @@ else
 	SKIP_FLUSH=0
 fi
 
+# Check and grant privileges for test database
 if has_privs_for_db "verbena_test"; then
 	echo "initdb: privileges for ${MYSQL_USER} on verbena_test already present — skipping"
 else
@@ -38,12 +57,14 @@ else
 	SKIP_FLUSH=0
 fi
 
+# Only flush privileges if we made changes (optimization)
 if [ "${SKIP_FLUSH}" -eq 0 ]; then
 	echo "initdb: flushing privileges"
 	mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "FLUSH PRIVILEGES;"
 else
-	echo "initdb: no changes; skipping FLUSH PRIVILEGES"
+	echo "initdb: no changes made; skipping FLUSH PRIVILEGES"
 fi
 
+echo "initdb: database user initialization completed successfully"
 exit 0
 
