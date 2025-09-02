@@ -58,11 +58,10 @@ class MailQueue < ApplicationRecord
     batch_size = claim_batch_size
     max_retries = 5  # 1秒間隔で5回リトライ（最大5秒）
     total_claimed = 0
+    current_time = Time.current
     
     max_retries.times do |retry_count|
       begin
-        current_time = Time.current
-        
         # MySQL データベースでの原子的な更新操作を実行
         # session_id が NULL (未クレーム) の条件下で小バッチサイズの LIMIT 付き UPDATE を実行し、
         # 複数プロセスによる同時アクセス時の競合状態を回避する
