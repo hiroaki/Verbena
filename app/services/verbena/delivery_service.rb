@@ -89,7 +89,7 @@ module Verbena
     # NOTE:
     #   #claimed のレコードに限定しているのは、その印がないレコードはほかのセッションが処理している可能性があるためです。
     def reset_mail_queues(mail_queue_ids)
-      MailQueue.claimed(session_id).where(id: Array(mail_queue_ids)).update_all(session_id: nil, updated_at: Time.current)
+      MailQueue.claimed(session_id).where(id: Array(mail_queue_ids)).update_all(session_id: nil, claimed_at: nil, updated_at: Time.current)
     end
 
     # "claim されている" レコードを対象にした送信処理を実行します。
