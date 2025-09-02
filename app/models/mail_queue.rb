@@ -56,17 +56,17 @@ class MailQueue < ApplicationRecord
   # バッチ単位での安全な claim 処理
   def self.claim_in_batches(session_id, condition)
     batch_size = claim_batch_size
-    max_retries = 10
+    max_retries = 5  # 1秒間隔で5回リトライ（最大5秒）
     total_claimed = 0
     
     max_retries.times do |retry_count|
       begin
         current_time = Time.current
         
-        # MySQLでの原子的な更新: session_idがnilの条件付きUPDATE
-        # Rails の where().update_all() より安全な、LIMITを使った小バッチ更新
-        where_clause = build_where_clause(condition.merge(session_id: nil))
-        claimed_count = where(where_clause).limit(batch_size).update_all(
+        # MySQL データベースでの原子的な更新操作を実行
+        # session_id が NULL (未クレーム) の条件下で小バッチサイズの LIMIT 付き UPDATE を実行し、
+        # 複数プロセスによる同時アクセス時の競合状態を回避する
+        claimed_count = where(condition.merge(session_id: nil)).limit(batch_size).update_all(
           session_id: session_id,
           claimed_at: current_time,
           updated_at: current_time
@@ -80,11 +80,11 @@ class MailQueue < ApplicationRecord
       rescue ActiveRecord::Deadlocked, ActiveRecord::LockWaitTimeout => e
         if retry_count < max_retries - 1
           backoff_seconds = calculate_backoff_seconds(retry_count)
-          Rails.logger.warn("[MailQueue] Deadlock detected during claim, retrying in #{backoff_seconds}s (attempt #{retry_count + 1}/#{max_retries})")
+          Rails.logger.warn("[#{name}] Deadlock detected during claim, retrying in #{backoff_seconds}s (attempt #{retry_count + 1}/#{max_retries})")
           sleep(backoff_seconds)
           next
         else
-          Rails.logger.error("[MailQueue] Max retries exceeded for claim operation: #{e.message}")
+          Rails.logger.error("[#{name}] Max retries exceeded for claim operation: #{e.message}")
           raise
         end
       end
@@ -94,23 +94,9 @@ class MailQueue < ApplicationRecord
   end
   private_class_method :claim_in_batches
 
-  # condition ハッシュから WHERE 条件を構築（Rails の where() 形式）
-  def self.build_where_clause(condition)
-    # Railsの標準的なwhere条件形式に変換
-    condition
-  end
-  private_class_method :build_where_clause
-
-  # 指数バックオフの計算（SMTP風: 5分, 15分, 30分, 1時間, 3時間...）
+  # データベース claim 操作用の短時間リトライ（1秒間隔で最大5回）
   def self.calculate_backoff_seconds(retry_count)
-    case retry_count
-    when 0 then 5    # 5秒（開発・テスト用に短縮）
-    when 1 then 15   # 15秒
-    when 2 then 30   # 30秒  
-    when 3 then 60   # 1分
-    when 4 then 180  # 3分
-    else 300         # 5分以上
-    end
+    1  # 1秒間隔で統一（データベースロック競合の解決用）
   end
   private_class_method :calculate_backoff_seconds
 
@@ -128,11 +114,11 @@ class MailQueue < ApplicationRecord
 
   # 古い claim を解放します（デフォルト: 1時間以上前の claim）
   def self.release_stale_claims!(older_than: 1.hour.ago)
-    stale_count = where('claimed_at IS NOT NULL AND claimed_at < ?', older_than)
+    stale_count = where.not(claimed_at: nil).where(claimed_at: ...older_than)
                   .update_all(session_id: nil, claimed_at: nil, updated_at: Time.current)
     
     if stale_count > 0
-      Rails.logger.info("[MailQueue] Released #{stale_count} stale claims older than #{older_than}")
+      Rails.logger.info("[#{name}] Released #{stale_count} stale claims older than #{older_than}")
     end
     
     stale_count
