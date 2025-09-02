@@ -51,14 +51,14 @@ module Verbena
     # 一度も処理されていないレコードの中で、
     # 現在時刻がタイマー時刻を経過しているレコードを対象にした送信処理を実行します。
     def perform_by_timer
-      MailQueue.engage_by_timer!(session_id)
+      MailQueue.claim_by_timer!(session_id)
       perform
     end
 
     # 一度も処理されていないレコードの中で、
     # mail_queue_id で指定した mail_queues.id のレコードを対象にした送信処理を実行します。
     def perform_by_mail_queue_id(mail_queue_id)
-      MailQueue.engage_by_id!(session_id, mail_queue_id)
+      MailQueue.claim_by_id!(session_id, mail_queue_id)
       perform
     end
 
@@ -87,16 +87,16 @@ module Verbena
     # レコードの session_id をクリアします（ =「一度も処理していない」状態に戻します）。
     # この処理によって、該当するレコードを、新たなセッションで処理できるようになります。
     # NOTE:
-    #   #engaged のレコードに限定しているのは、その印がないレコードはほかのセッションが処理している可能性があるためです。
+    #   #claimed のレコードに限定しているのは、その印がないレコードはほかのセッションが処理している可能性があるためです。
     def reset_mail_queues(mail_queue_ids)
-      MailQueue.engaged(session_id).where(id: Array(mail_queue_ids)).update_all(session_id: nil, updated_at: Time.current)
+      MailQueue.claimed(session_id).where(id: Array(mail_queue_ids)).update_all(session_id: nil, updated_at: Time.current)
     end
 
-    # "engage されている" レコードを対象にした送信処理を実行します。
-    # 通常は engage されているレコードがない状況から始めることになるため、
+    # "claim されている" レコードを対象にした送信処理を実行します。
+    # 通常は claim されているレコードがない状況から始めることになるため、
     # このメソッドではなくいずれかの perform_by_... メソッドを利用します。
     def perform
-      MailQueue.engaged(session_id).in_batches(**config_for_in_batchs) do |rel|
+      MailQueue.claimed(session_id).in_batches(**config_for_in_batchs) do |rel|
         Parallel.each(rel.all, config_for_parallel) do |mail_queue|
           perform_one(mail_queue)
         end

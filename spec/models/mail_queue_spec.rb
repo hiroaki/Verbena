@@ -73,7 +73,7 @@ RSpec.describe MailQueue, type: :model do
       end
     end
 
-    describe '.engage_by_timer!' do
+  describe '.claim_by_timer!' do
       before do
         travel_to genzai_jikoku
       end
@@ -83,7 +83,7 @@ RSpec.describe MailQueue, type: :model do
 
         it '例外 ArgumentError が投げられる' do
           expect {
-            described_class.engage_by_timer!(specific_session_id)
+            described_class.claim_by_timer!(specific_session_id)
           }.to raise_error(ArgumentError)
         end
       end
@@ -94,7 +94,7 @@ RSpec.describe MailQueue, type: :model do
         context 'レコードがある場合： session_id が NULL 、 timer_at が現在時刻より前' do
           before do
             @row = FactoryBot.create(:mail_queue, :untouched, timer_at: genzai_jikoku - 1.hour)
-            described_class.engage_by_timer!(specific_session_id)
+            described_class.claim_by_timer!(specific_session_id)
             @row.reload
           end
 
@@ -106,7 +106,7 @@ RSpec.describe MailQueue, type: :model do
         context 'レコードがある場合： session_id が NULL 、 timer_at が現在時刻より後' do
           before do
             @row = FactoryBot.create(:mail_queue, :untouched, timer_at: genzai_jikoku + 1.hour)
-            described_class.engage_by_timer!(specific_session_id)
+            described_class.claim_by_timer!(specific_session_id)
             @row.reload
           end
 
@@ -118,7 +118,7 @@ RSpec.describe MailQueue, type: :model do
         context 'レコードがある場合： session_id が指定するものとは異なり 、 timer_at が現在時刻より前' do
           before do
             @row = FactoryBot.create(:mail_queue, session_id: 'different', timer_at: genzai_jikoku - 1.hour)
-            described_class.engage_by_timer!(specific_session_id)
+            described_class.claim_by_timer!(specific_session_id)
             @row.reload
           end
 
@@ -132,16 +132,16 @@ RSpec.describe MailQueue, type: :model do
             FactoryBot.create(:mail_queue, session_id: specific_session_id, timer_at: genzai_jikoku - 1.hour)
           end
 
-          it '例外 EngageByNotNewSessionError が投げられる' do
+          it '例外 ClaimByNotNewSessionError が投げられる' do
             expect {
-              described_class.engage_by_timer!(specific_session_id)
-            }.to raise_error(MailQueue::EngageByNotNewSessionError)
+              described_class.claim_by_timer!(specific_session_id)
+            }.to raise_error(MailQueue::ClaimByNotNewSessionError)
           end
         end
       end
     end
 
-    describe '.engage_by_id!' do
+    describe '.claim_by_id!' do
       before do
         travel_to genzai_jikoku
       end
@@ -151,7 +151,7 @@ RSpec.describe MailQueue, type: :model do
 
         it '例外 ArgumentError が投げられる' do
           expect {
-            described_class.engage_by_id!(specific_session_id, 1)
+            described_class.claim_by_id!(specific_session_id, 1)
           }.to raise_error(ArgumentError)
         end
       end
@@ -165,7 +165,7 @@ RSpec.describe MailQueue, type: :model do
           before do
             @row1 = FactoryBot.create(:mail_queue, :untouched, timer_at: genzai_jikoku + 1.hour)
             @row2 = FactoryBot.create(:mail_queue, :untouched, timer_at: genzai_jikoku + 1.hour)
-            described_class.engage_by_id!(specific_session_id, specfic_id)
+            described_class.claim_by_id!(specific_session_id, specfic_id)
             @row1.reload
             @row2.reload
           end
@@ -186,24 +186,24 @@ RSpec.describe MailQueue, type: :model do
 
           context 'レコードの session_id が、指定する session_id と同じ場合' do
             let!(:session_id) { specific_session_id }
-            it '例外 EngageByNotNewSessionError が投げられる' do
+            it '例外 ClaimByNotNewSessionError が投げられる' do
               expect {
-                described_class.engage_by_id!(specific_session_id, @row.id)
-              }.to raise_error(MailQueue::EngageByNotNewSessionError)
+                described_class.claim_by_id!(specific_session_id, @row.id)
+              }.to raise_error(MailQueue::ClaimByNotNewSessionError)
             end
           end
 
           context 'レコードの session_id が、指定する session_id と異なる場合' do
             let!(:session_id) { "not-#{specific_session_id}" }
             it '例外は投げられない' do
-              expect { described_class.engage_by_id!(specific_session_id, @row.id) }.not_to raise_error
+              expect { described_class.claim_by_id!(specific_session_id, @row.id) }.not_to raise_error
             end
           end
         end
       end
     end
 
-    describe '.engaged!' do
+    describe '.claimed!' do
       before do
         @row1 = FactoryBot.create(:mail_queue, session_id: 'sess')
         @row2 = FactoryBot.create(:mail_queue, session_id: 'other')
@@ -212,7 +212,7 @@ RSpec.describe MailQueue, type: :model do
         @row5 = FactoryBot.create(:mail_queue, session_id: 'sess')
       end
 
-      subject { described_class.engaged(specific_session_id).map(&:id) }
+      subject { described_class.claimed(specific_session_id).map(&:id) }
 
       context '引数 session_id に "sess" を渡す場合' do
         let!(:specific_session_id) { 'sess' }
