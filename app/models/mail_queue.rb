@@ -56,10 +56,10 @@ class MailQueue < ApplicationRecord
   # バッチ単位での安全な claim 処理
   def self.claim_in_batches(session_id, condition)
     batch_size = claim_batch_size
-    max_retries = 5  # 1秒間隔で5回リトライ（最大5秒）
+    max_retries = claim_max_retries
     total_claimed = 0
     current_time = Time.current
-    
+
     max_retries.times do |retry_count|
       begin
         # MySQL データベースでの原子的な更新操作を実行
@@ -83,7 +83,9 @@ class MailQueue < ApplicationRecord
           sleep(backoff_seconds)
           next
         else
-          Rails.logger.error("[#{name}] Max retries exceeded for claim operation: #{e.message}")
+          # このエラーメッセージを検出した場合は、 session_id の値で更新されているレコードをリカバリする必要があります。
+          # session_id と claimed_at を NULL にアップデートし、状態をリセットしてください。
+          Rails.logger.error("[#{name}] Max retries exceeded for claim operation for session_id=[#{session_id}]: #{e.message}")
           raise
         end
       end
@@ -93,11 +95,19 @@ class MailQueue < ApplicationRecord
   end
   private_class_method :claim_in_batches
 
-  # データベース claim 操作用の短時間リトライ（1秒間隔で最大5回）
+  # デッドロック検知やロックタイムアウトの際のリトライまでの待ち時間秒
+  # TODO: Verbena::Settings の項目にし、そこから得るようにします。
   def self.calculate_backoff_seconds(retry_count)
-    1  # 1秒間隔で統一（データベースロック競合の解決用）
+    1
   end
   private_class_method :calculate_backoff_seconds
+
+  # デッドロック検知やロックタイムアウトの際のリトライ最大数
+  # TODO: Verbena::Settings の項目にし、そこから得るようにします。
+  def self.claim_max_retries
+    5
+  end
+  private_class_method :claim_max_retries
 
   # claim 処理のバッチサイズを取得
   def self.claim_batch_size
@@ -125,9 +135,9 @@ class MailQueue < ApplicationRecord
 
   # claim されているが配送結果が存在しないレコードを返します（スタック検出用）
   def self.claimed_but_undelivered
-    joins('LEFT JOIN delivery_responses ON mail_queues.id = delivery_responses.mail_queue_id')
-      .where('mail_queues.session_id IS NOT NULL')
-      .where('delivery_responses.id IS NULL')
+    left_outer_joins(:delivery_responses)
+      .where.not(session_id: nil)
+      .where(delivery_responses: { id: nil })
   end
 
   # 結果がないレコードを返します。
