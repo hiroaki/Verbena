@@ -54,43 +54,96 @@ class MailQueue < ApplicationRecord
   private_class_method :claim!
 
   # バッチ単位での安全な claim 処理
+  # 目的:
+  # - 複数プロセス／ワーカーが同時に claim を実行しても重複して取得しないようにする
+  # - デッドロック時には指数バックオフで再試行する
+  #
+  # 改修前の問題点（LIMIT + update_all パターン）:
+  # - `where(...).limit(n).update_all(...)` のような書き方は DB アダプタ依存であり、
+  #   MySQL では `UPDATE ... LIMIT n` が動作するが PostgreSQL 等ではサポートされない。
+  #   そのためクロスデータベースでの互換性が失われる。
+  # - また、ORM レベルで LIMIT を含む update_all を組み合わせると、期待通りに行数が制限されない
+  #   ・silent な挙動差（期待した件数が更新されない or 全件更新される）を招く可能性がある。
+  # - 更に LIMIT を伴う更新は DB によって最適なロック戦略が異なり、デッドロックの温床になることがある。
+  #
+  # 改修後の方針（ID を先に取得してから ID セットで update_all）:
+  # 1. 小バッチ分のレコード ID を先に SELECT (pluck(:id)) する
+  # 2. 取得した ID に対して WHERE id IN (...) で update_all を実行する
+  #
+  # 長所:
+  # - PostgreSQL を含む主要 DB アダプタで動作する（portable）
+  # - SQL 上で明示的に id の集合で更新するため、どのアダプタでも挙動が安定する
+  # - update_all の戻り値で実際に更新された行数が分かるため、処理の健全性チェックが可能
+  #
+  # 注意点（残る制約）:
+  # - pluck と update_all の間に TOCTOU (time-of-check-to-time-of-use) の窓があり、
+  #   他プロセスが同じ id を同時に pluck して更新を試みる可能性は残る。
+  #   ただし WHERE id IN (...) による更新は "現在その id を持つ行のみ" を更新するため、
+  #   二重更新は発生しにくく、戻り値（更新件数）により実際に claim できた数を正確に把握できます。
+  # - 完全に競合を排除するには SELECT ... FOR UPDATE 等を使う手もあるが、
+  #   本実装はパフォーマンスと移植性のバランスを優先した実用的な選択です。
   def self.claim_in_batches(session_id, condition)
     batch_size = claim_batch_size
     max_retries = claim_max_retries
     total_claimed = 0
     current_time = Time.current
 
-    max_retries.times do |retry_count|
+    retries = 0
+
+    loop do
+      ids = where(condition.merge(session_id: nil)).order(:id).limit(batch_size).pluck(:id)
+      break if ids.empty?
+
       begin
-        # MySQL データベースでの原子的な更新操作を実行
-        # session_id が NULL (未クレーム) の条件下で小バッチサイズの LIMIT 付き UPDATE を実行し、
-        # 複数プロセスによる同時アクセス時の競合状態を回避する
-        claimed_count = where(condition.merge(session_id: nil)).limit(batch_size).update_all(
+        # Update by id set — portable and atomic across adapters
+        claimed_count = where(id: ids).update_all(
           session_id: session_id,
           claimed_at: current_time,
           updated_at: current_time
         )
-        
+
         total_claimed += claimed_count
-        
-        # バッチサイズ未満なら全て処理完了
-        break if claimed_count < batch_size
-        
+
+        # If we fetched fewer than batch_size ids, we've exhausted available rows
+        break if ids.length < batch_size
+
+        # reset retry counter after a successful batch
+        retries = 0
       rescue ActiveRecord::Deadlocked, ActiveRecord::LockWaitTimeout => e
-        if retry_count < max_retries - 1
-          backoff_seconds = calculate_backoff_seconds(retry_count)
-          Rails.logger.warn("[#{name}] Deadlock detected during claim, retrying in #{backoff_seconds}s (attempt #{retry_count + 1}/#{max_retries})")
+        if retries < max_retries - 1
+          backoff_seconds = calculate_backoff_seconds(retries)
+          Rails.logger.warn("[#{name}] Deadlock detected during claim, retrying in #{backoff_seconds}s (attempt #{retries + 1}/#{max_retries})")
           sleep(backoff_seconds)
+          retries += 1
           next
         else
-          # このエラーメッセージを検出した場合は、 session_id の値で更新されているレコードをリカバリする必要があります。
-          # session_id と claimed_at を NULL にアップデートし、状態をリセットしてください。
+          # Max retries を超えた場合の対応（オペレーション上の推奨手順）:
+          # - まず該当 session_id で更新されているレコードの一覧（id のサンプル、件数）をログに残す
+          # - 自動で即座にクリアするのではなく、人の判断で回復処理を実行することを想定する
+          # - 回復処理は以下のポリシーで実装するのが安全
+          #     * 対象を "未配送（delivery_responses が無い）かつ 十分に古い claimed_at" に限定する
+          #     * 実行前に dry-run が可能（どのレコードを消すかを確認できる）
+          #     * 実行ログ（誰が実行したか、何件、どの session_id）を残す
+          # - 具体的な回復アクション例:
+          #     MailQueue.left_outer_joins(:delivery_responses)
+          #              .where(session_id: session_id)
+          #              .where(delivery_responses: { id: nil })
+          #              .where('claimed_at < ?', 5.minutes.ago)
+          #              .update_all(session_id: nil, claimed_at: nil, updated_at: Time.current)
+          #
+          # 将来的に自動化するには rake タスクを用意します（手動トリガー前提）:
+          # - タスク名例: `verbena:claim:recover[SESSION_ID,only_undelivered,older_than,dry_run]`
+          # - オプション: --dry-run, only_undelivered=true/false, older_than=5.minutes
+          # - タスクはまず dry-run を表示し、確認後に実行できるフローにする
+          # - テスト: ユニットテスト（recover メソッド）と rake タスクの統合テストを用意する
+          #
+          # ここではログ出力のみ行い、例外を再送出して上位（呼び出し元）に処理を委ねます。
           Rails.logger.error("[#{name}] Max retries exceeded for claim operation for session_id=[#{session_id}]: #{e.message}")
           raise
         end
       end
     end
-    
+
     total_claimed
   end
   private_class_method :claim_in_batches
