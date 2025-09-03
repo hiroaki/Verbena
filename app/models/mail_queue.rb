@@ -83,7 +83,9 @@ class MailQueue < ApplicationRecord
           sleep(backoff_seconds)
           next
         else
-          Rails.logger.error("[#{name}] Max retries exceeded for claim operation: #{e.message}")
+          # このエラーメッセージを検出した場合は、 session_id の値で更新されているレコードをリカバリする必要があります。
+          # session_id と claimed_at を NULL にアップデートし、状態をリセットしてください。
+          Rails.logger.error("[#{name}] Max retries exceeded for claim operation for session_id=[#{session_id}]: #{e.message}")
           raise
         end
       end
