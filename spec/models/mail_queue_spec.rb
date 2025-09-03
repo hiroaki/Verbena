@@ -73,7 +73,7 @@ RSpec.describe MailQueue, type: :model do
       end
     end
 
-  describe '.claim_by_timer!' do
+    describe '.claim_by_timer!' do
       before do
         travel_to genzai_jikoku
       end
@@ -228,15 +228,48 @@ RSpec.describe MailQueue, type: :model do
       end
     end
 
+    describe '.calculate_backoff_seconds' do
+      it 'returns a non-negative Float' do
+        expect(described_class.send(:calculate_backoff_seconds, 0)).to be >= 0.0
+      end
+
+      it 'increases the possible max delay exponentially but capped' do
+        # retry 0 -> max_delay == base
+        base = 1.0
+        cap  = 300.0
+
+        # For retry_count small, max delay should be base * 2**n
+        max0 = [base * (2 ** 0), cap].min
+        max1 = [base * (2 ** 1), cap].min
+        max2 = [base * (2 ** 2), cap].min
+
+        # stub the randomness via the class helper for deterministic assertions
+        allow(described_class).to receive(:random_fraction).and_return(0.0)
+        expect(described_class.send(:calculate_backoff_seconds, 0)).to eq 0.0
+        expect(described_class.send(:calculate_backoff_seconds, 1)).to eq 0.0
+
+        allow(described_class).to receive(:random_fraction).and_return(0.999)
+        expect(described_class.send(:calculate_backoff_seconds, 0)).to be_within(0.01).of(max0 * 0.999)
+        expect(described_class.send(:calculate_backoff_seconds, 1)).to be_within(0.01).of(max1 * 0.999)
+        expect(described_class.send(:calculate_backoff_seconds, 2)).to be_within(0.01).of(max2 * 0.999)
+
+        # And when retry_count is large, ensure cap applies
+        large_retry = 100
+        allow(described_class).to receive(:random_fraction).and_return(0.5)
+        expect(described_class.send(:calculate_backoff_seconds, large_retry)).to be <= cap
+        allow(described_class).to receive(:random_fraction).and_call_original
+      end
+    end
+
     describe '.release_stale_claims!' do
       let!(:current_time) { Time.zone.parse('2023-10-23 12:00:00') }
-      
+
       before do
         travel_to current_time
         # 古い claim（2時間前）
         @stale_row1 = FactoryBot.create(:mail_queue, session_id: 'stale1', claimed_at: 2.hours.ago)
         @stale_row2 = FactoryBot.create(:mail_queue, session_id: 'stale2', claimed_at: 90.minutes.ago)
-        # 新しい claim（30分前）  
+        # 新しい claim（30分前）
         @fresh_row = FactoryBot.create(:mail_queue, session_id: 'fresh', claimed_at: 30.minutes.ago)
         # claim されていない
         @unclaimed_row = FactoryBot.create(:mail_queue, session_id: nil, claimed_at: nil)
@@ -255,7 +288,7 @@ RSpec.describe MailQueue, type: :model do
 
           expect(@stale_row1.session_id).to be_nil
           expect(@stale_row1.claimed_at).to be_nil
-          expect(@stale_row2.session_id).to be_nil  
+          expect(@stale_row2.session_id).to be_nil
           expect(@stale_row2.claimed_at).to be_nil
           expect(@fresh_row.session_id).to eq('fresh')
           expect(@fresh_row.claimed_at).not_to be_nil
@@ -282,11 +315,11 @@ RSpec.describe MailQueue, type: :model do
         # claim されて配送済み
         @delivered_row = FactoryBot.create(:mail_queue, session_id: 'sess1')
         FactoryBot.create(:delivery_response, mail_queue: @delivered_row)
-        
+
         # claim されているが未配送
         @stale_row1 = FactoryBot.create(:mail_queue, session_id: 'sess2')
         @stale_row2 = FactoryBot.create(:mail_queue, session_id: 'sess3')
-        
+
         # claim されていない
         @unclaimed_row = FactoryBot.create(:mail_queue, session_id: nil)
       end
@@ -304,7 +337,7 @@ RSpec.describe MailQueue, type: :model do
         multi_delivered = FactoryBot.create(:mail_queue, session_id: 'multi')
         FactoryBot.create(:delivery_response, mail_queue: multi_delivered)
         FactoryBot.create(:delivery_response, mail_queue: multi_delivered)
-        
+
         expect(described_class.claimed_but_undelivered.map(&:id)).to match_array([@stale_row1.id, @stale_row2.id])
       end
     end
@@ -325,13 +358,13 @@ RSpec.describe MailQueue, type: :model do
       it '同時実行時に重複してclaimされない' do
         # 最初のセッションでclaim
         claimed_count_1 = MailQueue.claim_by_timer!(session_id_1)
-        
+
         # 2番目のセッションでclaim（残りがあれば取得）
         claimed_count_2 = MailQueue.claim_by_timer!(session_id_2)
-        
+
         # 合計が元のレコード数と一致
         expect(claimed_count_1 + claimed_count_2).to eq(@available_records.length)
-        
+
         # それぞれのセッションのレコードに重複がない
         session_1_ids = MailQueue.claimed(session_id_1).pluck(:id)
         session_2_ids = MailQueue.claimed(session_id_2).pluck(:id)

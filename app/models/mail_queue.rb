@@ -98,9 +98,26 @@ class MailQueue < ApplicationRecord
   # デッドロック検知やロックタイムアウトの際のリトライまでの待ち時間秒
   # TODO: Verbena::Settings の項目にし、そこから得るようにします。
   def self.calculate_backoff_seconds(retry_count)
-    1
+    # 教科書的で安全な指数バックオフ + full jitter 実装
+    # - base: 初期待ち時間（秒）
+    # - cap: 最大待ち時間（秒）
+    # full jitter: 0..max_delay を一様ランダムに取る
+    base = 1.0
+    cap  = 300.0
+
+    # retry_count が大きくなるごとに指数的に増加するが cap を超えない
+    max_delay = [base * (2 ** retry_count), cap].min
+
+    # full jitter: 0 から max_delay までのランダム値を返す
+    random_fraction * max_delay
   end
   private_class_method :calculate_backoff_seconds
+
+  # Random fraction generator wrapped for easier testing (can be stubbed)
+  def self.random_fraction
+    rand
+  end
+  private_class_method :random_fraction
 
   # デッドロック検知やロックタイムアウトの際のリトライ最大数
   # TODO: Verbena::Settings の項目にし、そこから得るようにします。
