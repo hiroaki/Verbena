@@ -19,7 +19,7 @@ namespace :verbena do
     desc '現在 claim されているが配送結果がないレコードを表示（スタック検出）'
     task :show_stale => :environment do
       stale_records = MailQueue.claimed_but_undelivered
-                               .select(:id, :session_id, :claimed_at, :envelope_to, :created_at)
+                               .select('mail_queues.id', :session_id, :claimed_at, :envelope_to, :created_at)
                                .order(:claimed_at)
       
       if stale_records.any?
