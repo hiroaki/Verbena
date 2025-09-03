@@ -149,16 +149,13 @@ class MailQueue < ApplicationRecord
   private_class_method :claim_in_batches
 
   # デッドロック検知やロックタイムアウトの際のリトライまでの待ち時間秒
-  # TODO: Verbena::Settings の項目にし、そこから得るようにします。
   def self.calculate_backoff_seconds(retry_count)
-    # 教科書的で安全な指数バックオフ + full jitter 実装
-    # - base: 初期待ち時間（秒）
-    # - cap: 最大待ち時間（秒）
-    # full jitter: 0..max_delay を一様ランダムに取る
-    base = 1.0
-    cap  = 300.0
+    # 指数バックオフ（ジッタ付き）によるリトライ待ち時間の実装
+    # base/cap は設定経由で取得可能（Verbena::Settings）
+    base = Verbena::Settings.claim_backoff_base_seconds
+    cap  = Verbena::Settings.claim_backoff_cap_seconds
 
-    # retry_count が大きくなるごとに指数的に増加するが cap を超えない
+    # retry_count に応じて指数的に増加（cap を超えない）
     max_delay = [base * (2 ** retry_count), cap].min
 
     # full jitter: 0 から max_delay までのランダム値を返す
@@ -173,15 +170,13 @@ class MailQueue < ApplicationRecord
   private_class_method :random_fraction
 
   # デッドロック検知やロックタイムアウトの際のリトライ最大数
-  # TODO: Verbena::Settings の項目にし、そこから得るようにします。
   def self.claim_max_retries
-    5
+    Verbena::Settings.claim_max_retries
   end
   private_class_method :claim_max_retries
 
   # claim 処理のバッチサイズを取得
   def self.claim_batch_size
-    # 環境設定から取得、デフォルトは20（競合を避けるため小さめ）
     Verbena::Settings.in_batches_config[:of] || 20
   end
   private_class_method :claim_batch_size
