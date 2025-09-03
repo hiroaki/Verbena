@@ -148,6 +148,9 @@ class MailQueue < ApplicationRecord
 
   private
     def set_timer_at_if_blank
+      # 部分 SELECT で生成される部分属性オブジェクトでは timer_at カラム自体が無い場合があります。
+      return unless has_attribute?(:timer_at)
+
       if timer_at.blank?
         self.timer_at = Time.current
       end
