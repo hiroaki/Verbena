@@ -125,9 +125,9 @@ class MailQueue < ApplicationRecord
 
   # claim されているが配送結果が存在しないレコードを返します（スタック検出用）
   def self.claimed_but_undelivered
-    joins('LEFT JOIN delivery_responses ON mail_queues.id = delivery_responses.mail_queue_id')
-      .where('mail_queues.session_id IS NOT NULL')
-      .where('delivery_responses.id IS NULL')
+    left_outer_joins(:delivery_responses)
+      .where.not(session_id: nil)
+      .where(delivery_responses: { id: nil })
   end
 
   # 結果がないレコードを返します。
