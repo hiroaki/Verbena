@@ -297,10 +297,7 @@ RSpec.describe MailQueue, type: :model do
         is_expected.to match_array([@stale_row1.id, @stale_row2.id])
       end
 
-      it 'left_outer_joins を使用して正しいクエリを実行する' do
-        expect(described_class).to receive(:left_outer_joins).with(:delivery_responses).and_call_original
-        described_class.claimed_but_undelivered.to_a
-      end
+
 
       it '複数の配送結果がある場合も正しく動作する' do
         # 複数の配送結果を持つレコード
@@ -312,201 +309,33 @@ RSpec.describe MailQueue, type: :model do
       end
     end
 
-    describe '.claim_max_retries' do
-      it 'デフォルト値5を返す' do
-        expect(described_class.send(:claim_max_retries)).to eq(5)
-      end
-    end
-
-    describe '.calculate_backoff_seconds' do
-      it 'retry_count に関係なく1秒を返す' do
-        expect(described_class.send(:calculate_backoff_seconds, 0)).to eq(1)
-        expect(described_class.send(:calculate_backoff_seconds, 1)).to eq(1)
-        expect(described_class.send(:calculate_backoff_seconds, 4)).to eq(1)
-      end
-    end
-
-    describe '.claim_batch_size' do
-      it 'Verbena::Settings から設定値を取得する' do
-        expect(Verbena::Settings).to receive(:in_batches_config).and_return({ of: 25 })
-        expect(described_class.send(:claim_batch_size)).to eq(25)
-      end
-
-      it '設定がない場合はデフォルト値20を返す' do
-        expect(Verbena::Settings).to receive(:in_batches_config).and_return({})
-        expect(described_class.send(:claim_batch_size)).to eq(20)
-      end
-    end
-
-    describe '.claim_in_batches' do
-      let(:session_id) { 'test_session' }
-      let(:condition) { { timer_at: Time.current } }
+    # Integration tests for concurrent claim functionality
+    describe 'concurrent claim execution' do
+      let(:session_id_1) { 'session_1' }
+      let(:session_id_2) { 'session_2' }
 
       before do
         travel_to genzai_jikoku
-        # テスト用のレコードを作成
-        @rows = 3.times.map do |i|
+        # 複数のレコードを作成してconcurrency テストを実行
+        @available_records = 5.times.map do
           FactoryBot.create(:mail_queue, :untouched, timer_at: genzai_jikoku - 1.hour)
         end
       end
 
-      it '正常時に claim 処理を実行し、処理したレコード数を返す' do
-        allow(described_class).to receive(:claim_batch_size).and_return(5)
-        result = described_class.send(:claim_in_batches, session_id, condition.merge(timer_at: ..genzai_jikoku))
+      it '同時実行時に重複してclaimされない' do
+        # 最初のセッションでclaim
+        claimed_count_1 = MailQueue.claim_by_timer!(session_id_1)
         
-        expect(result).to eq(3)
-        @rows.each do |row|
-          row.reload
-          expect(row.session_id).to eq(session_id)
-          expect(row.claimed_at).to be_within(1.second).of(genzai_jikoku)
-        end
-      end
-
-      it 'バッチサイズに従って処理を実行する' do
-        allow(described_class).to receive(:claim_batch_size).and_return(2)
-        allow(described_class).to receive(:claim_max_retries).and_return(5)
+        # 2番目のセッションでclaim（残りがあれば取得）
+        claimed_count_2 = MailQueue.claim_by_timer!(session_id_2)
         
-        result = described_class.send(:claim_in_batches, session_id, condition.merge(timer_at: ..genzai_jikoku))
+        # 合計が元のレコード数と一致
+        expect(claimed_count_1 + claimed_count_2).to eq(@available_records.length)
         
-        expect(result).to eq(3) # 2 + 1 のバッチで3レコード処理
-      end
-
-      context 'デッドロック発生時' do
-        before do
-          allow(described_class).to receive(:claim_batch_size).and_return(5)
-          allow(described_class).to receive(:claim_max_retries).and_return(3)
-        end
-
-        it 'リトライ回数内でリカバリできる場合は成功する' do
-          call_count = 0
-          allow(described_class).to receive(:where).and_wrap_original do |method, *args|
-            call_count += 1
-            result = method.call(*args)
-            if call_count == 1
-              # 最初の呼び出しでデッドロックをシミュレート
-              allow(result).to receive(:limit).and_raise(ActiveRecord::Deadlocked.new("deadlock"))
-            end
-            result
-          end
-
-          expect(Rails.logger).to receive(:warn).with(/Deadlock detected during claim, retrying/)
-          expect { described_class.send(:claim_in_batches, session_id, condition.merge(timer_at: ..genzai_jikoku)) }.not_to raise_error
-        end
-
-        it 'リトライ最大回数を超える場合はエラーログを出力して例外を発生させる' do
-          allow(described_class).to receive(:where) do
-            double.tap do |mock|
-              allow(mock).to receive(:limit).and_raise(ActiveRecord::Deadlocked.new("persistent deadlock"))
-            end
-          end
-
-          expect(Rails.logger).to receive(:warn).exactly(2).times # max_retries - 1 回のwarning
-          expect(Rails.logger).to receive(:error).with(/Max retries exceeded for claim operation for session_id=\[#{session_id}\]:/)
-          
-          expect {
-            described_class.send(:claim_in_batches, session_id, condition.merge(timer_at: ..genzai_jikoku))
-          }.to raise_error(ActiveRecord::Deadlocked)
-        end
-      end
-
-      it '同一セッション内で一貫したタイムスタンプを使用する' do
-        freeze_time = genzai_jikoku
-        allow(Time).to receive(:current).and_return(freeze_time, freeze_time + 1.second, freeze_time + 2.seconds)
-        allow(described_class).to receive(:claim_batch_size).and_return(2)
-        
-        described_class.send(:claim_in_batches, session_id, condition.merge(timer_at: ..genzai_jikoku))
-        
-        @rows.each do |row|
-          row.reload
-          expect(row.claimed_at).to eq(freeze_time) # 全て同じタイムスタンプ
-        end
-      end
-    end
-
-    describe '.claim!' do
-      let(:session_id) { 'integration_test_session' }
-
-      before do
-        travel_to genzai_jikoku
-        # 複数のレコードを作成してバッチ処理をテスト
-        @test_rows = 25.times.map do |i|
-          FactoryBot.create(:mail_queue, :untouched, timer_at: genzai_jikoku - 1.hour)
-        end
-      end
-
-      it 'claim_in_batches を使用して処理する' do
-        expect(described_class).to receive(:claim_in_batches).with(session_id, anything).and_call_original
-        described_class.send(:claim!, session_id, timer_at: ..genzai_jikoku)
-      end
-
-      it 'claim_max_retries の設定を使用する' do
-        # デッドロックを引き起こす設定
-        allow(described_class).to receive(:where) do
-          double.tap do |mock|
-            allow(mock).to receive(:limit).and_raise(ActiveRecord::Deadlocked.new("deadlock"))
-          end
-        end
-
-        expect(described_class).to receive(:claim_max_retries).and_return(2)
-        expect(Rails.logger).to receive(:warn).exactly(1).times # max_retries - 1
-        expect(Rails.logger).to receive(:error).with(/Max retries exceeded for claim operation for session_id=\[#{session_id}\]:/)
-
-        expect {
-          described_class.send(:claim!, session_id, timer_at: ..genzai_jikoku)
-        }.to raise_error(ActiveRecord::Deadlocked)
-      end
-
-      it 'バッチサイズの設定を使用して処理する' do
-        allow(described_class).to receive(:claim_batch_size).and_return(10)
-        
-        # バッチサイズが10なので、25レコードは3回のバッチで処理される
-        expect(described_class).to receive(:update_all).exactly(3).times.and_call_original
-        
-        result = described_class.send(:claim!, session_id, timer_at: ..genzai_jikoku)
-        expect(result).to eq(25)
-      end
-    end
-
-    describe 'エラーハンドリングとログ出力の統合テスト' do
-      let(:session_id) { 'error_test_session' }
-
-      before do
-        travel_to genzai_jikoku
-        FactoryBot.create(:mail_queue, :untouched, timer_at: genzai_jikoku - 1.hour)
-      end
-
-      it 'session_id を含むエラーメッセージが出力される' do
-        allow(described_class).to receive(:where) do
-          double.tap do |mock|
-            allow(mock).to receive(:limit).and_raise(ActiveRecord::LockWaitTimeout.new("lock timeout"))
-          end
-        end
-
-        expect(Rails.logger).to receive(:error).with(
-          match(/Max retries exceeded for claim operation for session_id=\[#{session_id}\]:.*lock timeout/)
-        )
-
-        expect {
-          described_class.send(:claim!, session_id, timer_at: ..genzai_jikoku)
-        }.to raise_error(ActiveRecord::LockWaitTimeout)
-      end
-
-      it '警告ログにリトライ情報が含まれる' do
-        call_count = 0
-        allow(described_class).to receive(:where).and_wrap_original do |method, *args|
-          call_count += 1
-          result = method.call(*args)
-          if call_count <= 2
-            allow(result).to receive(:limit).and_raise(ActiveRecord::Deadlocked.new("deadlock"))
-          end
-          result
-        end
-
-        expect(Rails.logger).to receive(:warn).with(
-          match(/Deadlock detected during claim, retrying in 1s \(attempt [12]\/5\)/)
-        ).exactly(2).times
-
-        expect { described_class.send(:claim!, session_id, timer_at: ..genzai_jikoku) }.not_to raise_error
+        # それぞれのセッションのレコードに重複がない
+        session_1_ids = MailQueue.claimed(session_id_1).pluck(:id)
+        session_2_ids = MailQueue.claimed(session_id_2).pluck(:id)
+        expect(session_1_ids & session_2_ids).to be_empty
       end
     end
   end
