@@ -24,7 +24,7 @@ namespace :verbena do
                                .order(:claimed_at)
       
       if stale_records.any?
-        puts "Found #{stale_records.count('mail_queues.id')} claimed but undelivered records:"
+        puts "Found #{stale_records.size} claimed but undelivered records:"
         puts "ID\tSession ID\tClaimed At\tEnvelope To\tAge"
         puts "-" * 80
         
