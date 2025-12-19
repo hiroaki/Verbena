@@ -6,7 +6,7 @@ This document describes the enhanced `MailQueue.claim!` implementation that prov
 
 The original `claim!` method used a simple `update_all` operation that could cause race conditions in concurrent environments. The enhanced implementation addresses these issues through:
 
-1. **Atomic Batch Processing**: Uses small batches with MySQL `LIMIT` to reduce lock contention
+1. **Atomic Batch Processing**: Uses small batches by first selecting IDs then updating by ID set to reduce lock contention
 2. **Deadlock Recovery**: Implements exponential backoff retry logic for deadlock scenarios  
 3. **Stale Detection**: Tracks claim time with `claimed_at` column for automatic recovery
 4. **Monitoring Tools**: Provides rake tasks for maintenance and monitoring
@@ -51,39 +51,47 @@ The enhanced `claim!` method now:
 
 ```ruby
 # Internal method - processes claims in batches
+# Select IDs in small batches, then update by ID set
+# Timestamps:
+# - claimed_at: per-session consistent timestamp
+# - updated_at: set via Time.current when updating
+
 def self.claim_in_batches(session_id, condition)
-  batch_size = claim_batch_size
-  max_retries = 10
+  batch_size   = claim_batch_size
+  max_retries  = claim_max_retries
   total_claimed = 0
-  
-  max_retries.times do |retry_count|
+  current_time = Time.current
+
+  retries = 0
+
+  loop do
+    ids = where(condition.merge(session_id: nil)).order(:id).limit(batch_size).pluck(:id)
+    break if ids.empty?
+
     begin
-      current_time = Time.current
-      
-      # Rails-based atomic update with LIMIT
-      where_clause = build_where_clause(condition.merge(session_id: nil))
-      claimed_count = where(where_clause).limit(batch_size).update_all(
+      claimed_count = where(id: ids).update_all(
         session_id: session_id,
         claimed_at: current_time,
-        updated_at: current_time
+        updated_at: Time.current
       )
-      
+
       total_claimed += claimed_count
-      break if claimed_count < batch_size
-      
+      break if ids.length < batch_size
+      retries = 0
     rescue ActiveRecord::Deadlocked, ActiveRecord::LockWaitTimeout => e
-      # Exponential backoff retry logic
-      if retry_count < max_retries - 1
-        backoff_seconds = calculate_backoff_seconds(retry_count)
+      if retries < max_retries - 1
+        backoff_seconds = calculate_backoff_seconds(retries)
         Rails.logger.warn("[MailQueue] Deadlock detected, retrying in #{backoff_seconds}s")
         sleep(backoff_seconds)
+        retries += 1
+        next
       else
         Rails.logger.error("[MailQueue] Max retries exceeded: #{e.message}")
         raise
       end
     end
   end
-  
+
   total_claimed
 end
 ```
@@ -150,10 +158,10 @@ For claim operations, a smaller default (20) is used to reduce lock contention, 
 
 ### Retry Configuration
 
-The retry logic is built-in with exponential backoff:
+The retry logic is built-in with exponential backoff and full jitter:
 
-- **Max retries**: 10 attempts
-- **Backoff schedule**: 5s → 15s → 30s → 1m → 3m → 5m (then 5m for remaining attempts)
+- **Max retries**: 5 attempts (configurable via `VERBENA_CLAIM_MAX_RETRIES`)
+- **Backoff strategy**: `base * 2^retry_count` capped at `cap`, with full jitter in `[0, maxDelay]` (defaults: base=1s, cap=300s). Approximate wait ranges: 0–1s, 0–2s, 0–4s, 0–8s, 0–16s, etc.
 - **Exception handling**: `ActiveRecord::Deadlocked`, `ActiveRecord::LockWaitTimeout`
 
 ## Deployment Guide

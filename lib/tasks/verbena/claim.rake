@@ -41,7 +41,8 @@ namespace :verbena do
 
   # Rake helper methods (local to this file)
   def truthy?(val)
-    %w[1 true yes y t].include?(val.to_s.strip.downcase)
+    # Rails-native boolean casting: true => 1,true,t,on,yes | false => 0,false,f,off,no
+    ActiveModel::Type::Boolean.new.cast(val)
   end
 
   def format_duration(seconds)

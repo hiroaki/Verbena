@@ -24,7 +24,7 @@ RSpec.describe 'verbena:claim rake tasks' do
     end
 
     context 'デフォルト設定（1時間）でドライランの場合' do
-      it '解放対象のレコード数を表示し、実際には解放しない' do
+      it 'true を渡すと解放対象の件数のみを表示（変更なし）' do
         expect { task.invoke(nil, 'true') }.to output(/DRY RUN: Would release 2 stale claims/).to_stdout
         
         # レコードは変更されていない
@@ -35,6 +35,11 @@ RSpec.describe 'verbena:claim rake tasks' do
         expect(@fresh_record.session_id).to eq('fresh')
         expect(@stale_record1.session_id).to eq('stale1')
         expect(@stale_record2.session_id).to eq('stale2')
+      end
+
+      it 'on を渡しても true と同じ挙動（ActiveModel::Boolean）' do
+        task.reenable
+        expect { task.invoke(nil, 'on') }.to output(/DRY RUN: Would release 2 stale claims/).to_stdout
       end
     end
 

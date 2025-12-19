@@ -99,7 +99,7 @@ class MailQueue < ApplicationRecord
         claimed_count = where(id: ids).update_all(
           session_id: session_id,
           claimed_at: current_time,
-          updated_at: current_time
+          updated_at: Time.current
         )
 
         total_claimed += claimed_count
