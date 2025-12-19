@@ -299,6 +299,17 @@ RSpec.describe MailQueue, type: :model do
           result = described_class.release_stale_claims!
           expect(result).to eq(2)
         end
+
+        it '配送済みの claim は解放対象に含めない' do
+          delivered = FactoryBot.create(:mail_queue, session_id: 'delivered', claimed_at: 2.hours.ago)
+          FactoryBot.create(:delivery_response, mail_queue: delivered)
+
+          result = described_class.release_stale_claims!
+
+          expect(result).to eq(2)
+          expect(delivered.reload.session_id).to eq('delivered')
+          expect(delivered.claimed_at).not_to be_nil
+        end
       end
 
       context 'カスタム時間（30分前）を指定する場合' do

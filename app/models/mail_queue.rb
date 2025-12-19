@@ -192,15 +192,18 @@ class MailQueue < ApplicationRecord
     where(session_id: session_id)
   end
 
-  # 古い claim を解放します（デフォルト: 1時間以上前の claim）
+  # 古い claim を解放します（デフォルト: 1時間以上前の claim）。配送済みレコードは対象外。
   def self.release_stale_claims!(older_than: 1.hour.ago)
-    stale_count = where(claimed_at: ..older_than).where.not(session_id: nil)
-                  .update_all(session_id: nil, claimed_at: nil, updated_at: Time.current)
-    
+    stale_relation = where(claimed_at: ..older_than)
+                     .where.not(session_id: nil)
+                     .where.missing(:delivery_responses)
+
+    stale_count = stale_relation.update_all(session_id: nil, claimed_at: nil, updated_at: Time.current)
+
     if stale_count > 0
       Rails.logger.info("[#{name}] Released #{stale_count} stale claims older than #{older_than}")
     end
-    
+
     stale_count
   end
 
