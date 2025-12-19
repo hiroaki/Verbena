@@ -96,7 +96,8 @@ class MailQueue < ApplicationRecord
 
       begin
         # Update by id set — portable and atomic across adapters
-        claimed_count = where(id: ids).update_all(
+        # Guard with session_id: nil to prevent concurrent processes from overwriting claims
+        claimed_count = where(id: ids, session_id: nil).update_all(
           session_id: session_id,
           claimed_at: current_time,
           updated_at: Time.current
@@ -188,7 +189,7 @@ class MailQueue < ApplicationRecord
 
   # 古い claim を解放します（デフォルト: 1時間以上前の claim）
   def self.release_stale_claims!(older_than: 1.hour.ago)
-    stale_count = where.not(claimed_at: nil).where(claimed_at: ..older_than)
+    stale_count = where.not(claimed_at: nil).where(claimed_at: ..older_than).where.not(session_id: nil)
                   .update_all(session_id: nil, claimed_at: nil, updated_at: Time.current)
     
     if stale_count > 0

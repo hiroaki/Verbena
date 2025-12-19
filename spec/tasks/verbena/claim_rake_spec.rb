@@ -46,7 +46,7 @@ RSpec.describe 'verbena:claim rake tasks' do
     context '実際に解放を実行する場合' do
       it '指定した時間より古い claim を解放する' do
         task.reenable
-        expect { task.invoke('1.5', 'false') }.to output(/Released 2 stale claims older than 1.5 hour/).to_stdout
+        expect { task.invoke('1.5', 'false') }.to output(/Released 2 stale claims older than 1\.5 hours/).to_stdout
         
         # 1.5時間より古いレコードが解放される
         @fresh_record.reload

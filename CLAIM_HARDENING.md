@@ -101,7 +101,9 @@ end
 ```ruby
 # Release claims older than specified time (default: 1 hour)
 def self.release_stale_claims!(older_than: 1.hour.ago)
-  stale_count = where('claimed_at IS NOT NULL AND claimed_at < ?', older_than)
+  stale_count = where.not(claimed_at: nil)
+                .where(claimed_at: ..older_than)
+                .where.not(session_id: nil)
                 .update_all(session_id: nil, claimed_at: nil, updated_at: Time.current)
   
   Rails.logger.info("[MailQueue] Released #{stale_count} stale claims") if stale_count > 0
@@ -110,9 +112,9 @@ end
 
 # Find records that are claimed but have no delivery results (stuck processing)
 def self.claimed_but_undelivered
-  joins('LEFT JOIN delivery_responses ON mail_queues.id = delivery_responses.mail_queue_id')
-    .where('mail_queues.session_id IS NOT NULL')
-    .where('delivery_responses.id IS NULL')
+  left_outer_joins(:delivery_responses)
+    .where.not(session_id: nil)
+    .where(delivery_responses: { id: nil })
 end
 ```
 

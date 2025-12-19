@@ -48,8 +48,8 @@ module Verbena
         # General limits
         attr_accessor :eml_max_bytes
 
-  # Claim/backoff tuning
-  attr_accessor :claim_backoff_base_seconds, :claim_backoff_cap_seconds, :claim_max_retries
+        # Claim/backoff tuning
+        attr_accessor :claim_backoff_base_seconds, :claim_backoff_cap_seconds, :claim_max_retries
 
         # Cleanup TTL (days)
         attr_accessor :cleanup_ttl_days
