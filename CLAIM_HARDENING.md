@@ -101,8 +101,7 @@ end
 ```ruby
 # Release claims older than specified time (default: 1 hour)
 def self.release_stale_claims!(older_than: 1.hour.ago)
-  stale_count = where.not(claimed_at: nil)
-                .where(claimed_at: ..older_than)
+  stale_count = where(claimed_at: ..older_than)
                 .where.not(session_id: nil)
                 .update_all(session_id: nil, claimed_at: nil, updated_at: Time.current)
   
