@@ -75,13 +75,18 @@ class MailQueue < ApplicationRecord
   # - SQL 上で明示的に id の集合で更新するため、どのアダプタでも挙動が安定する
   # - update_all の戻り値で実際に更新された行数が分かるため、処理の健全性チェックが可能
   #
-  # 注意点（残る制約）:
+  # 注意点:
   # - pluck と update_all の間に TOCTOU (time-of-check-to-time-of-use) の窓があり、
-  #   他プロセスが同じ id を同時に pluck して更新を試みる可能性は残る。
-  #   ただし WHERE id IN (...) による更新は "現在その id を持つ行のみ" を更新するため、
-  #   二重更新は発生しにくく、戻り値（更新件数）により実際に claim できた数を正確に把握できます。
-  # - 完全に競合を排除するには SELECT ... FOR UPDATE 等を使う手もあるが、
-  #   本実装はパフォーマンスと移植性のバランスを優先した実用的な選択です。
+  #   他プロセスが同じ id を同時に pluck して update を試みる可能性は残る。
+  #   しかし、update_all の WHERE 条件に session_id: nil を加えているため、
+  #   どちらか一方のプロセスだけがそのレコードの session_id をセットできる。
+  #   既に他プロセスが session_id をセット済みの場合は update 件数にカウントされず、
+  #   実質的に重複 claim は発生しない。
+  # - 完全な競合排除にはトランザクション内で SELECT ... FOR UPDATE などの排他ロックを使う方法もあるが、
+  #   これはパフォーマンスやポータビリティ（移植性）に劣るため、本実装では update_all の WHERE 条件で
+  #   排他制御を実現している（session_id: nil でガード）。この方式は、ロック保持時間が短く、
+  #   高並列環境でもデッドロックや待ちが発生しにくいため、スケーラビリティの面でも優れている。
+  #   ロジック上は排他的に update できており、実用上十分な安全性・移植性・スケーラビリティのバランスを取っている。
   def self.claim_in_batches(session_id, condition)
     batch_size = claim_batch_size
     max_retries = claim_max_retries
