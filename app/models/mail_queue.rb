@@ -111,7 +111,7 @@ class MailQueue < ApplicationRecord
         # reset retry counter after a successful batch
         retries = 0
       rescue ActiveRecord::Deadlocked, ActiveRecord::LockWaitTimeout => e
-        if retries < max_retries - 1
+        if retries < max_retries
           backoff_seconds = calculate_backoff_seconds(retries)
           Rails.logger.warn("[#{name}] Deadlock detected during claim, retrying in #{backoff_seconds}s (attempt #{retries + 1}/#{max_retries})")
           sleep(backoff_seconds)

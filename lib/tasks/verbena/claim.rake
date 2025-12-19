@@ -6,7 +6,7 @@ namespace :verbena do
       older_than = older_than_hours.hours.ago
       dry_run = truthy?(args[:dry])
       
-      hour_unit = 'hour'.pluralize(older_than_hours.to_i)
+      hour_unit = 'hour'.pluralize(older_than_hours)
       if dry_run
         stale_count = MailQueue.where('claimed_at IS NOT NULL AND claimed_at < ?', older_than).count
         puts "DRY RUN: Would release #{stale_count} stale claims older than #{older_than_hours} #{hour_unit}"
