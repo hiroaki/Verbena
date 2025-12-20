@@ -20,9 +20,15 @@
 
 set -eu  # Exit on error or undefined variables
 
-# 必須環境変数の検証 (Validate required environment variables)
+# Validate required environment variables
 : "${MYSQL_ROOT_PASSWORD?Need MYSQL_ROOT_PASSWORD env var}"
 : "${MYSQL_USER?Need MYSQL_USER env var}"
+
+# Validate MYSQL_USER (allow only alphanumeric and underscore)
+if ! echo "$MYSQL_USER" | grep -Eq '^[A-Za-z0-9_]+$'; then
+	echo "Error: MYSQL_USER contains invalid characters. Only alphanumeric and underscore are allowed." >&2
+	exit 1
+fi
 
 # Flag to track if any changes were made (for FLUSH PRIVILEGES optimization)
 SKIP_FLUSH=1
