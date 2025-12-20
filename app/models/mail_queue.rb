@@ -9,7 +9,8 @@ class MailQueue < ApplicationRecord
   validates :timer_at, presence: true
   validates :envelope_to, presence: true
 
-  # 部分 SELECT で timer_at カラムが欠けることがあるため、その場合はコールバックを実行しない
+  # 永続化するには timer_at は必須ですが、部分 SELECT で timer_at カラムが欠けることがあるため、
+  # その場合はコールバックを実行しないようにします。
   after_initialize :set_timer_at_if_blank, if: -> { has_attribute?(:timer_at) }
 
   delegate :eml, to: :eml_source
@@ -174,9 +175,9 @@ class MailQueue < ApplicationRecord
   private
 
     def set_timer_at_if_blank
-       if timer_at.blank?
-         self.timer_at = Time.current
-       end
+      if timer_at.blank?
+        self.timer_at = Time.current
+      end
     end
 
   public
