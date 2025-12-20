@@ -99,6 +99,49 @@ def self.claim_in_batches(session_id, condition)
 end
 ```
 
+### Implementation Details: Batch Claim Strategy
+
+#### Why ID-first approach instead of LIMIT + update_all?
+
+**Previous approach problems (LIMIT + update_all pattern)**:
+- `where(...).limit(n).update_all(...)` is database-adapter dependent:
+  - Works in MySQL with `UPDATE ... LIMIT n` syntax
+  - Not supported in PostgreSQL and other databases
+  - Breaks cross-database compatibility
+- ORM-level `update_all` with `LIMIT` may not restrict rows as expected:
+  - Silent behavior differences (fewer/more rows updated than intended)
+  - Can update all rows instead of limited subset
+- UPDATE with LIMIT can be a deadlock hotspot due to varying lock strategies across databases
+
+**Current approach (fetch IDs first, then update by ID set)**:
+1. First SELECT a small batch of record IDs using `pluck(:id)`
+2. Then execute `update_all` with `WHERE id IN (...)` on those specific IDs
+
+**Advantages**:
+- **Portable**: Works across PostgreSQL, MySQL, and other major database adapters
+- **Predictable**: Explicitly updates a specific set of IDs, consistent behavior across adapters
+- **Verifiable**: `update_all` return value shows actual rows updated, enabling sanity checks
+
+**TOCTOU and Race Condition Handling**:
+- There is a TOCTOU (time-of-check-to-time-of-use) window between `pluck` and `update_all`
+- Multiple processes may `pluck` the same IDs and attempt concurrent updates
+- **However**: The `update_all` WHERE clause includes `session_id: nil` guard condition
+  - Only one process can successfully set `session_id` for each record
+  - Records already claimed by another process won't be counted in the update
+  - Effectively prevents duplicate claims without explicit row locks
+
+**Why not SELECT ... FOR UPDATE?**:
+- SELECT ... FOR UPDATE provides complete race prevention but has trade-offs:
+  - **Performance**: Holds locks longer, reducing throughput
+  - **Portability**: Lock syntax and semantics vary across databases
+  - **Scalability**: More prone to lock waits and deadlocks under high concurrency
+- The current approach using `session_id: nil` guard achieves:
+  - **Short lock duration**: Minimal lock holding time
+  - **Low deadlock rate**: Rarely causes deadlocks even under high parallelism
+  - **Good scalability**: Better throughput in high-concurrency environments
+  - **Logical exclusivity**: Achieves exclusive update through WHERE conditions
+  - **Practical balance**: Sufficient safety, portability, and scalability for production use
+
 ### Stale Record Management
 
 ```ruby
@@ -259,6 +302,52 @@ The new implementation is **backward compatible**:
 ### Breaking Changes: None
 
 The enhancement maintains full API compatibility while improving internal implementation robustness.
+
+## Max Retries Exceeded: Recovery Procedures
+
+When the maximum retry count is exceeded during claim operations (after encountering repeated deadlocks), the operation will log an error and raise an exception. This is an exceptional situation that requires operational intervention.
+
+### Recommended Operational Response
+
+1. **First, log the affected records**: Collect a sample of IDs and the total count of records updated with the problematic `session_id`
+2. **Do not automatically clear immediately**: Recovery should be executed with human judgment rather than automatic cleanup
+3. **Implement recovery with the following safety policies**:
+   - **Limit scope**: Only target records that are "undelivered (no delivery_responses) AND have sufficiently old claimed_at timestamps"
+   - **Enable dry-run**: Allow verification of which records will be affected before execution
+   - **Maintain execution logs**: Record who executed the recovery, how many records, and which session_id
+
+### Manual Recovery Example
+
+If you need to manually recover stuck records from a specific session:
+
+```ruby
+# Example: Clear claims for undelivered records older than 5 minutes
+MailQueue.left_outer_joins(:delivery_responses)
+         .where(session_id: problem_session_id)
+         .where(delivery_responses: { id: nil })
+         .where('claimed_at < ?', 5.minutes.ago)
+         .update_all(session_id: nil, claimed_at: nil, updated_at: Time.current)
+```
+
+### Future Automation via Rake Task
+
+For future enhancement, a rake task can be implemented (with manual trigger requirement):
+
+- **Task name example**: `verbena:claim:recover[SESSION_ID,only_undelivered,older_than,dry_run]`
+- **Options**: `--dry-run`, `only_undelivered=true/false`, `older_than=5.minutes`
+- **Workflow**: Display dry-run results first, then allow execution after confirmation
+- **Testing**: Include unit tests (recover method) and rake task integration tests
+
+### Current Implementation
+
+Currently, the code only logs the error and re-raises the exception, delegating recovery decisions to the caller (operator):
+
+```ruby
+Rails.logger.error("[MailQueue] Max retries exceeded for claim operation for session_id=[#{session_id}]: #{e.message}")
+raise
+```
+
+This design ensures that critical situations requiring manual intervention are not automatically resolved, preventing potential data loss or incorrect state transitions.
 
 ## Troubleshooting
 

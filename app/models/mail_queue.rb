@@ -54,40 +54,9 @@ class MailQueue < ApplicationRecord
   end
   private_class_method :claim!
 
-  # バッチ単位での安全な claim 処理
-  # 目的:
-  # - 複数プロセス／ワーカーが同時に claim を実行しても重複して取得しないようにする
-  # - デッドロック時には指数バックオフで再試行する
-  #
-  # 改修前の問題点（LIMIT + update_all パターン）:
-  # - `where(...).limit(n).update_all(...)` のような書き方は DB アダプタ依存であり、
-  #   MySQL では `UPDATE ... LIMIT n` が動作するが PostgreSQL 等ではサポートされない。
-  #   そのためクロスデータベースでの互換性が失われる。
-  # - また、ORM レベルで LIMIT を含む update_all を組み合わせると、期待通りに行数が制限されない
-  #   ・silent な挙動差（期待した件数が更新されない or 全件更新される）を招く可能性がある。
-  # - 更に LIMIT を伴う更新は DB によって最適なロック戦略が異なり、デッドロックの温床になることがある。
-  #
-  # 改修後の方針（ID を先に取得してから ID セットで update_all）:
-  # 1. 小バッチ分のレコード ID を先に SELECT (pluck(:id)) する
-  # 2. 取得した ID に対して WHERE id IN (...) で update_all を実行する
-  #
-  # 長所:
-  # - PostgreSQL を含む主要 DB アダプタで動作する（portable）
-  # - SQL 上で明示的に id の集合で更新するため、どのアダプタでも挙動が安定する
-  # - update_all の戻り値で実際に更新された行数が分かるため、処理の健全性チェックが可能
-  #
-  # 注意点:
-  # - pluck と update_all の間に TOCTOU (time-of-check-to-time-of-use) の窓があり、
-  #   他プロセスが同じ id を同時に pluck して update を試みる可能性は残る。
-  #   しかし、update_all の WHERE 条件に session_id: nil を加えているため、
-  #   どちらか一方のプロセスだけがそのレコードの session_id をセットできる。
-  #   既に他プロセスが session_id をセット済みの場合は update 件数にカウントされず、
-  #   実質的に重複 claim は発生しない。
-  # - 完全な競合排除にはトランザクション内で SELECT ... FOR UPDATE などの排他ロックを使う方法もあるが、
-  #   これはパフォーマンスやポータビリティ（移植性）に劣るため、本実装では update_all の WHERE 条件で
-  #   排他制御を実現している（session_id: nil でガード）。この方式は、ロック保持時間が短く、
-  #   高並列環境でもデッドロックや待ちが発生しにくいため、スケーラビリティの面でも優れている。
-  #   ロジック上は排他的に update できており、実用上十分な安全性・移植性・スケーラビリティのバランスを取っている。
+  # Processes claims in small batches with deadlock retry.
+  # Uses ID-first approach (pluck then update by ID set) for portability and race-safety.
+  # See CLAIM_HARDENING.md "Implementation Details" for rationale.
   def self.claim_in_batches(session_id, condition)
     batch_size = claim_batch_size
     max_retries = claim_max_retries
@@ -124,27 +93,8 @@ class MailQueue < ApplicationRecord
           retries += 1
           next
         else
-          # Max retries を超えた場合の対応（オペレーション上の推奨手順）:
-          # - まず該当 session_id で更新されているレコードの一覧（id のサンプル、件数）をログに残す
-          # - 自動で即座にクリアするのではなく、人の判断で回復処理を実行することを想定する
-          # - 回復処理は以下のポリシーで実装するのが安全
-          #     * 対象を "未配送（delivery_responses が無い）かつ 十分に古い claimed_at" に限定する
-          #     * 実行前に dry-run が可能（どのレコードを消すかを確認できる）
-          #     * 実行ログ（誰が実行したか、何件、どの session_id）を残す
-          # - 具体的な回復アクション例:
-          #     MailQueue.left_outer_joins(:delivery_responses)
-          #              .where(session_id: session_id)
-          #              .where(delivery_responses: { id: nil })
-          #              .where('claimed_at < ?', 5.minutes.ago)
-          #              .update_all(session_id: nil, claimed_at: nil, updated_at: Time.current)
-          #
-          # 将来的に自動化するには rake タスクを用意します（手動トリガー前提）:
-          # - タスク名例: `verbena:claim:recover[SESSION_ID,only_undelivered,older_than,dry_run]`
-          # - オプション: --dry-run, only_undelivered=true/false, older_than=5.minutes
-          # - タスクはまず dry-run を表示し、確認後に実行できるフローにする
-          # - テスト: ユニットテスト（recover メソッド）と rake タスクの統合テストを用意する
-          #
-          # ここではログ出力のみ行い、例外を再送出して上位（呼び出し元）に処理を委ねます。
+          # Max retries exceeded: Log error and re-raise for manual intervention.
+          # See CLAIM_HARDENING.md "Max Retries Exceeded: Recovery Procedures" for operational guidance.
           Rails.logger.error("[#{name}] Max retries exceeded for claim operation for session_id=[#{session_id}]: #{e.message}")
           raise
         end
