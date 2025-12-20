@@ -143,11 +143,14 @@ end
 
 ### スタックレコード管理
 
+解放対象は配送結果が存在しないレコードに限定します（`delivery_responses` があるものは解放しません）。
+
 ```ruby
 # 指定時間より古いクレームを解放（デフォルト1時間）
 def self.release_stale_claims!(older_than: 1.hour.ago)
   stale_count = where(claimed_at: ..older_than)
                 .where.not(session_id: nil)
+                .where.missing(:delivery_responses)
                 .update_all(session_id: nil, claimed_at: nil, updated_at: Time.current)
 
   Rails.logger.info("[MailQueue] Released #{stale_count} stale claims") if stale_count > 0

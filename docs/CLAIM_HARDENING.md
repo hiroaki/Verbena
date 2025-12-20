@@ -144,11 +144,14 @@ end
 
 ### Stale Record Management
 
+Only records without delivery responses are eligible for release (records with delivery_responses are not released).
+
 ```ruby
 # Release claims older than specified time (default: 1 hour)
 def self.release_stale_claims!(older_than: 1.hour.ago)
   stale_count = where(claimed_at: ..older_than)
                 .where.not(session_id: nil)
+                .where.missing(:delivery_responses)
                 .update_all(session_id: nil, claimed_at: nil, updated_at: Time.current)
 
   Rails.logger.info("[MailQueue] Released #{stale_count} stale claims") if stale_count > 0

@@ -154,7 +154,7 @@ Rakeタスクも用意されています：
 rails verbena:claim:release_stale[24]
 
 # 状況確認（解放はしない）
-rails verbena:claim:show_stale[24]
+rails verbena:claim:show_stale
 ```
 
 詳細は [CLAIM_HARDENING.md](CLAIM_HARDENING.md) を参照してください。
@@ -183,7 +183,7 @@ rails verbena:claim:show_stale[24]
 
 2. **stale claim の確認**
    ```bash
-   rails verbena:claim:show_stale[1]  # 1時間以上古いものを表示
+   rails verbena:claim:show_stale  # 現在 claim 中で未配送のレコードを表示
    ```
 
 3. **ログの確認**
