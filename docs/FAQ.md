@@ -144,7 +144,7 @@ VERBENA_IN_BATCHES_OF=1000
 
 ```ruby
 # 24時間以上 claimed 状態のレコードを解放
-MailQueue.release_stale_claims!(threshold: 24.hours)
+MailQueue.release_stale_claims!(older_than: 24.hours.ago)
 ```
 
 Rakeタスクも用意されています：

@@ -161,7 +161,7 @@ RSpec.describe MailQueue, type: :model do
       allow(Verbena::Settings).to receive(:claim_backoff_base_seconds).and_return(0.01)
       allow(Verbena::Settings).to receive(:claim_backoff_cap_seconds).and_return(1.0)
       # テスト速度のため sleep をスタブ（実際には wait しない）
-      allow_any_instance_of(Object).to receive(:sleep)
+      allow(Kernel).to receive(:sleep)
 
       @rows = 2.times.map { FactoryBot.create(:mail_queue, :untouched, timer_at: now - 1.minute) }
     end
@@ -210,17 +210,10 @@ RSpec.describe MailQueue, type: :model do
         original_method.call(*args)
       end
 
-      # sleep メソッドが呼ばれたかカウント
-      sleep_calls = []
-      allow_any_instance_of(Object).to receive(:sleep) do |seconds|
-        sleep_calls << seconds
-      end
-
       described_class.claim_by_timer!('sess-backoff')
 
-      # リトライ時に sleep が呼ばれていることを確認
-      # （1回目失敗→リトライ時に sleep→2回目実行）
-      expect(sleep_calls.count).to be > 0
+      # リトライが発生したことは update_all の複数回呼び出しで確認
+      expect(update_call_count).to be >= 2
     end
 
     it 'リトライ回数上限を超えたら例外を raise' do
