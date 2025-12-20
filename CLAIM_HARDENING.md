@@ -206,20 +206,20 @@ The implementation includes comprehensive tests for:
 ### Example Test
 
 ```ruby
-it '重複して claim されない（基本的な排他制御テスト）' do
+it 'does not claim the same record twice (basic mutual exclusion test)' do
   session_id_1 = MailQueue.issue_session_id
   session_id_2 = MailQueue.issue_session_id
-  
-  # 最初のセッションで claim
+
+  # Claim with the first session
   claimed_count_1 = MailQueue.claim_by_timer!(session_id_1)
-  
-  # 2番目のセッションで claim を試行（残りがあれば取得）
+
+  # Attempt to claim with the second session (should get remaining records if any)
   claimed_count_2 = MailQueue.claim_by_timer!(session_id_2)
-  
-  # 合計が元のレコード数と一致
+
+  # The total should match the original number of available records
   expect(claimed_count_1 + claimed_count_2).to eq(available_records.length)
-  
-  # それぞれのセッションで取得したレコードに重複がない
+
+  # There should be no overlap between records claimed by each session
   session_1_ids = MailQueue.claimed(session_id_1).pluck(:id)
   session_2_ids = MailQueue.claimed(session_id_2).pluck(:id)
   expect(session_1_ids & session_2_ids).to be_empty
