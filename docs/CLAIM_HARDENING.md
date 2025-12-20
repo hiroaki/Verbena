@@ -10,7 +10,7 @@ This document describes the enhanced `MailQueue.claim!` implementation that prov
 The original `claim!` method used a simple `update_all` operation that could cause race conditions in concurrent environments. The enhanced implementation addresses these issues through:
 
 1. **Atomic Batch Processing**: Uses small batches by first selecting IDs then updating by ID set to reduce lock contention
-2. **Deadlock Recovery**: Implements exponential backoff with full jitter for deadlock scenarios (defaults: base=1s, cap=300s; expected wait ranges per attempt: 0–1s, 0–2s, 0–4s, 0–8s, 0–16s, ...)
+2. **Deadlock Recovery**: Implements exponential backoff with full jitter for deadlock scenarios (defaults: base=1s, cap=300s; maximum possible wait ranges per attempt with randomization: 0–1s, 0–2s, 0–4s, 0–8s, 0–16s, ...)
 3. **Stale Detection**: Tracks claim time with `claimed_at` column for automatic recovery
 4. **Monitoring Tools**: Provides rake tasks for maintenance and monitoring
 
@@ -48,7 +48,7 @@ end
 The enhanced `claim!` method now:
 
 1. **Processes in small batches** (default 20 records) to reduce lock duration
-2. **Retries on deadlock** with exponential backoff (5s, 15s, 30s, 1m, 3m, 5m+)
+2. **Retries on deadlock** with exponential backoff and full jitter (configurable via `VERBENA_CLAIM_BACKOFF_BASE_SECONDS` and `VERBENA_CLAIM_BACKOFF_CAP_SECONDS`; defaults: base=1s, cap=300s)
 3. **Sets `claimed_at`** timestamp for stale detection
 4. **Uses atomic operations** to prevent race conditions
 
@@ -165,7 +165,7 @@ For claim operations, a smaller default (20) is used to reduce lock contention, 
 The retry logic is built-in with exponential backoff and full jitter:
 
 - **Max retries**: Configurable via `VERBENA_CLAIM_MAX_RETRIES` (default 5). The value is the number of *retries* after the initial attempt, so the total number of attempts is `VERBENA_CLAIM_MAX_RETRIES + 1` (e.g., 5 → 1 initial attempt + up to 5 retries = 6 total attempts).
-- **Backoff strategy**: `base * 2^retry_count` capped at `cap`, with full jitter in `[0, maxDelay]` (defaults: base=1s, cap=300s). Approximate wait ranges: 0–1s, 0–2s, 0–4s, 0–8s, 0–16s, etc.
+- **Backoff strategy**: `base * 2^retry_count` capped at `cap`. Full jitter is applied (wait = `rand * max_delay`, where `rand ∈ [0, 1)`). Defaults: base=1s, cap=300s. The listed ranges (0–1s, 0–2s, ...) are the maximum possible waits per attempt; the actual wait is a uniformly random value in `[0, max_delay)`.
 - **Exception handling**: `ActiveRecord::Deadlocked`, `ActiveRecord::LockWaitTimeout`
 
 ## Deployment Guide
