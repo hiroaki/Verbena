@@ -43,3 +43,6 @@ coverage
 
 # Ignore VS Code project settings
 .vscode/
+
+# No project-wide copilot-instructions.md is provided; create and use your own if needed.
+/.github/copilot-instructions.md

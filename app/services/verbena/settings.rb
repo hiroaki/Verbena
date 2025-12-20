@@ -48,6 +48,9 @@ module Verbena
         # General limits
         attr_accessor :eml_max_bytes
 
+        # Claim/backoff tuning
+        attr_accessor :claim_backoff_base_seconds, :claim_backoff_cap_seconds, :claim_max_retries
+
         # Cleanup TTL (days)
         attr_accessor :cleanup_ttl_days
 
@@ -119,6 +122,19 @@ module Verbena
       def in_batches_config
         of = config.in_batches_of.presence || rails_in_batches_of
         of.present? ? { of: of.to_i } : (Rails.configuration.verbena[:in_batches].presence || {})
+      end
+
+      # Claim/backoff readers
+      def claim_backoff_base_seconds
+        (config.claim_backoff_base_seconds || 1.0).to_f
+      end
+
+      def claim_backoff_cap_seconds
+        (config.claim_backoff_cap_seconds || 300.0).to_f
+      end
+
+      def claim_max_retries
+        integer_cast(config.claim_max_retries, 5)
       end
 
       # General readers
