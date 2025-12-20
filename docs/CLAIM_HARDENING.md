@@ -1,3 +1,6 @@
+(GPT-4.1 作成)
+---
+
 # MailQueue.claim! Hardening Implementation
 
 This document describes the enhanced `MailQueue.claim!` implementation that provides robust concurrent execution safety and automatic stale record recovery.
@@ -19,7 +22,7 @@ The original `claim!` method used a simple `update_all` operation that could cau
 class AddClaimedAtToMailQueues < ActiveRecord::Migration[7.1]
   def change
     add_column :mail_queues, :claimed_at, :datetime
-    
+
     # Add indexes for efficient querying during claim operations
     add_index :mail_queues, :session_id
     add_index :mail_queues, :claimed_at
@@ -34,7 +37,7 @@ end
 
 **New Indexes:**
 - `session_id`: Speeds up session-based queries
-- `claimed_at`: Enables efficient stale record detection  
+- `claimed_at`: Enables efficient stale record detection
 - `session_id + claimed_at`: Composite index for session cleanup
 - `timer_at + session_id`: Optimizes timer-based claim queries
 
@@ -104,7 +107,7 @@ def self.release_stale_claims!(older_than: 1.hour.ago)
   stale_count = where(claimed_at: ..older_than)
                 .where.not(session_id: nil)
                 .update_all(session_id: nil, claimed_at: nil, updated_at: Time.current)
-  
+
   Rails.logger.info("[MailQueue] Released #{stale_count} stale claims") if stale_count > 0
   stale_count
 end
@@ -125,7 +128,7 @@ end
 # Release stale claims older than 1 hour (dry run)
 rails verbena:claim:release_stale[1,dry]
 
-# Release stale claims older than 2 hours (execute)  
+# Release stale claims older than 2 hours (execute)
 rails verbena:claim:release_stale[2]
 
 # Show currently stale claimed records
