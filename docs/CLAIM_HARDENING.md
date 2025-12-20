@@ -207,7 +207,8 @@ For claim operations, a smaller default (20) is used to reduce lock contention, 
 
 The retry logic is built-in with exponential backoff and full jitter:
 
-- **Max retries**: Configurable via `VERBENA_CLAIM_MAX_RETRIES` (default 5). The value is the number of *retries* after the initial attempt, so the total number of attempts is `VERBENA_CLAIM_MAX_RETRIES + 1` (e.g., 5 → 1 initial attempt + up to 5 retries = 6 total attempts).
+- **Max retries**: Configurable via `VERBENA_CLAIM_MAX_RETRIES` (default 5). This value is the number of *retry attempts* after the initial attempt. The counter is 0-based and the code uses `retries < max_retries`, which allows exactly `max_retries` retries. Therefore, the total number of attempts is `max_retries + 1` (e.g., 5 → 1 initial attempt + up to 5 retries = 6 total attempts).
+  - Note: Log messages display the retry attempt number as `attempt N/max_retries` (e.g., `attempt 1/5` for the first retry). This denominator refers to the configured maximum number of retries and does not include the initial attempt.
 - **Backoff strategy**: `base * 2^retry_count` capped at `cap`. Full jitter is applied (wait = `rand * max_delay`, where `rand ∈ [0, 1)`). Defaults: base=1s, cap=300s. The listed ranges (0–1s, 0–2s, ...) are the maximum possible waits per attempt; the actual wait is a uniformly random value in `[0, max_delay)`.
 - **Exception handling**: `ActiveRecord::Deadlocked`, `ActiveRecord::LockWaitTimeout`
 
