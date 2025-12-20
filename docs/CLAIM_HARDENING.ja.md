@@ -163,7 +163,7 @@ VERBENA_IN_BATCHES_OF=100  # 配送処理時のデフォルトバッチサイズ
 
 リトライロジックは指数バックオフ＋ジッターで実装：
 
-- **最大リトライ回数**: `VERBENA_CLAIM_MAX_RETRIES`（デフォルト5）で設定
+- **最大再試行回数**: 環境変数 `VERBENA_CLAIM_MAX_RETRIES` で設定可能（デフォルト 5）。この値は初回試行の後の「再試行」の回数を意味するため、総試行回数は `VERBENA_CLAIM_MAX_RETRIES + 1`（例: 5 → 初回 1 回 + 最大 5 回の再試行 = 合計 6 回）です。
 - **バックオフ戦略**: `base * 2^retry_count`（上限cap、ジッターあり、デフォルトbase=1秒, cap=300秒）
 - **例外処理**: `ActiveRecord::Deadlocked`, `ActiveRecord::LockWaitTimeout`
 
