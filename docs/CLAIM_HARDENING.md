@@ -147,17 +147,22 @@ end
 Only records without delivery responses are eligible for release (records with delivery_responses are not released).
 
 ```ruby
-# Release claims older than specified time (default: 1 hour)
-def self.release_stale_claims!(older_than: 1.hour.ago)
-  stale_count = where(claimed_at: ..older_than)
-                .where.not(session_id: nil)
-                .where.missing(:delivery_responses)
-                .update_all(session_id: nil, claimed_at: nil, updated_at: Time.current)
+# Build the relation for stale claims (shared in model)
+relation = MailQueue.stale_claims_relation(older_than: 1.hour.ago)
 
-  Rails.logger.info("[MailQueue] Released #{stale_count} stale claims") if stale_count > 0
-  stale_count
-end
+# Release via service (returns updated row count)
+service = Verbena::MailQueuesService.new
+changed = service.release_stale_claims # default: 1.0 hour
 
+# Custom threshold (hours) and dry run
+dry_count = service.release_stale_claims(older_than_hours: 2.0, dry_run: true)
+
+# Notes:
+# - Boundary is inclusive: claimed_at <= older_than
+# - Filters: session_id IS NOT NULL AND missing delivery_responses
+```
+
+```ruby
 # Find records that are claimed but have no delivery results (stuck processing)
 def self.claimed_but_undelivered
   left_outer_joins(:delivery_responses)

@@ -1,30 +1,26 @@
 namespace :verbena do
   namespace :claim do
-    desc 'スタック（長時間 claim されているが配送されていない）mail_queues の claim を解放する'
+    desc 'Release stale claims (claimed but not delivered mail_queues)'
     task :release_stale, [:older_than_hours, :dry] => :environment do |_task, args|
       older_than_hours = args[:older_than_hours]&.to_f || 1.0
-      older_than = older_than_hours.hours.ago
       dry_run = truthy?(args[:dry])
+
+      service = Verbena::MailQueuesService.new
+      stale_count = service.release_stale_claims(older_than_hours: older_than_hours, dry_run: dry_run)
 
       # pluralize は整数値を使用して正しい複数形を生成
       hour_unit = 'hour'.pluralize(older_than_hours.round)
       if dry_run
-        stale_count = MailQueue.where('claimed_at IS NOT NULL AND claimed_at < ?', older_than)
-                   .where.missing(:delivery_responses)
-                   .count
         puts "DRY RUN: Would release #{stale_count} stale claims older than #{older_than_hours} #{hour_unit} (excluding delivered records)"
-        Rails.logger.info("[MailQueue] DRY RUN: Would release #{stale_count} stale claims (excluding delivered records)")
       else
-        stale_count = MailQueue.release_stale_claims!(older_than: older_than)
         puts "Released #{stale_count} stale claims older than #{older_than_hours} #{hour_unit}"
       end
     end
 
-    desc '現在 claim されているが配送結果がないレコードを表示（スタック検出）'
+    desc 'Show claimed but undelivered mail_queues (stuck detection)'
     task :show_stale => :environment do
-      stale_records = MailQueue.claimed_but_undelivered
-                               .select('mail_queues.id, mail_queues.session_id, mail_queues.claimed_at, mail_queues.envelope_to, mail_queues.created_at')
-                               .order(:claimed_at)
+      service = Verbena::MailQueuesService.new
+      stale_records = service.show_stale_claims
 
       if stale_records.any?
         puts "Found #{stale_records.size} claimed but undelivered records:"
@@ -32,10 +28,9 @@ namespace :verbena do
         puts "-" * 80
 
         stale_records.each do |record|
-          age = record.claimed_at ? Time.current - record.claimed_at : 0
-          age_str = format_duration(age)
-          session_id_str = record.session_id ? "#{record.session_id[0..8]}..." : "(none)"
-          puts "#{record.id}\t#{session_id_str}\t#{record.claimed_at}\t#{record.envelope_to}\t#{age_str}"
+          age_str = format_duration(record[:age_seconds])
+          session_id_str = record[:session_id] ? "#{record[:session_id][0..8]}..." : "(none)"
+          puts "#{record[:id]}\t#{session_id_str}\t#{record[:claimed_at]}\t#{record[:envelope_to]}\t#{age_str}"
         end
       else
         puts "No stale claimed records found."
@@ -51,6 +46,15 @@ namespace :verbena do
     BOOLEAN_TYPE.cast(val)
   end
 
+  # Format seconds as human-readable string.
+  #
+  # Examples:
+  #   format_duration(0)      #=> "0s"
+  #   format_duration(5)      #=> "5s"
+  #   format_duration(65)     #=> "1m5s"
+  #   format_duration(3661)   #=> "1h1m1s"
+  #   format_duration(3600)   #=> "1h0m0s"
+  #   format_duration(7322)   #=> "2h2m2s"
   def format_duration(seconds)
     return "0s" if seconds < 1
 

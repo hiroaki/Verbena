@@ -1,6 +1,7 @@
 module Verbena
   class MailQueuesService < ServiceBase
     class NoRecipientsError < StandardError; end
+    class NegativeAgeError < StandardError; end
 
     def initialize(options = {})
       super
@@ -80,6 +81,54 @@ module Verbena
     #
     def destroy_mail_queue!(mail_queue)
       mail_queue.destroy!
+    end
+
+    # スタック（長時間 claim されているが配送されていない）mail_queues の claim を解放する
+    #
+    # @param older_than_hours [Float] この時間より前に claim されたレコードを対象とする（時間単位）
+    # @param dry_run [Boolean] true の場合、実際には解放せず、対象レコード数のみ返す
+    # @return [Integer] 解放されたレコード数（dry_run の場合は対象レコード数）
+    def release_stale_claims(older_than_hours: 1.0, dry_run: false)
+      older_than = older_than_hours.hours.ago
+
+      relation = MailQueue.stale_claims_relation(older_than: older_than)
+
+      if dry_run
+        count = relation.count
+        logger.info("[MailQueuesService] DRY RUN: #{count} stale claims would be released (older than #{older_than_hours} hours as of #{older_than})")
+        count
+      else
+        count = relation.update_all(session_id: nil, claimed_at: nil, updated_at: Time.current)
+        logger.info("[MailQueuesService] Released #{count} stale claims older than #{older_than_hours} hours (as of #{older_than})")
+        count
+      end
+    end
+
+    # 現在 claim されているが配送結果がないレコードの情報を取得する
+    #
+    # @return [Array<Hash>] スタックレコードの情報配列
+    # @raise [NegativeAgeError] claimed_at が未来の場合（age_secondsが負の場合）
+    #   → システム時刻の不整合やデータ不整合が疑われるため例外を投げます。
+    def show_stale_claims
+      stale_records = MailQueue.claimed_but_undelivered
+                               .select('mail_queues.id, mail_queues.session_id, mail_queues.claimed_at, mail_queues.envelope_to')
+                               .order(:claimed_at)
+
+      now = Time.current
+      stale_records.map do |record|
+        age = record.claimed_at ? now - record.claimed_at : 0
+        if age < 0
+          raise NegativeAgeError, "Negative age_seconds detected for MailQueue id=#{record.id} (claimed_at=#{record.claimed_at}, now=#{now})"
+        end
+
+        {
+          id: record.id,
+          session_id: record.session_id,
+          claimed_at: record.claimed_at,
+          envelope_to: record.envelope_to,
+          age_seconds: age
+        }
+      end
     end
   end
 end

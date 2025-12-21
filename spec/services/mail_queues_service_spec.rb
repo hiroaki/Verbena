@@ -354,5 +354,97 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
         end
       end
     end
+
+    describe '#release_stale_claims' do
+      let!(:instance) { described_class.new }
+
+      shared_context 'with_claimed_and_delivered_records' do
+        let(:now) { Time.zone.parse('2023-10-23 12:00:00') }
+
+        before do
+          travel_to now
+          # 対象: 古い claim（未配送・session_idあり）
+          @stale1 = FactoryBot.create(:mail_queue, session_id: 's1', claimed_at: now - 2.hours)
+          @stale2 = FactoryBot.create(:mail_queue, session_id: 's2', claimed_at: now - 80.minutes)
+          # 閾値ちょうど: claimed_at が now - 30.minutes ぴったり（境界値テスト用）
+          @fresh = FactoryBot.create(:mail_queue, session_id: 'fresh', claimed_at: now - 30.minutes)
+          # 対象外: claimされていない
+          @unclaimed = FactoryBot.create(:mail_queue, session_id: nil, claimed_at: nil)
+          # 対象外: 配送済み
+          @delivered = FactoryBot.create(:mail_queue, session_id: 'delivered', claimed_at: now - 2.hours)
+          FactoryBot.create(:delivery_response, mail_queue: @delivered)
+        end
+      end
+
+      context 'dry_run と実行結果が一致すること（デフォルト1時間）' do
+        include_context 'with_claimed_and_delivered_records'
+
+        it 'dry_runの件数と実行の更新件数が等しい' do
+          dry = instance.release_stale_claims(dry_run: true)
+          expect(dry).to eq 2
+
+          changed = instance.release_stale_claims(dry_run: false)
+          expect(changed).to eq dry
+
+          expect(MailQueue.find(@stale1.id).session_id).to be_nil
+          expect(MailQueue.find(@stale2.id).session_id).to be_nil
+          expect(MailQueue.find(@fresh.id).session_id).to eq 'fresh'
+          expect(MailQueue.find(@delivered.id).session_id).to eq 'delivered'
+        end
+      end
+
+      context 'dry_run と実行結果が一致すること（閾値を30分に変更）' do
+        include_context 'with_claimed_and_delivered_records'
+
+        it 'dry_runの件数と実行の更新件数が等しい（30分ちょうども含む）' do
+          dry = instance.release_stale_claims(older_than_hours: 0.5, dry_run: true)
+          # 30分「以前（含む）」は stale1, stale2, fresh(ちょうど30分) の3件
+          expect(dry).to eq 3
+
+          changed = instance.release_stale_claims(older_than_hours: 0.5, dry_run: false)
+          expect(changed).to eq dry
+        end
+      end
+    end
+
+    describe '#show_stale_claims' do
+      let!(:instance) { described_class.new }
+      let!(:now) { Time.zone.parse('2023-12-21 12:00:00') }
+
+      before do
+        travel_to now
+        # stale: claimed, not delivered
+        @stale1 = FactoryBot.create(:mail_queue, session_id: 's1', claimed_at: 2.hours.ago, envelope_to: 'a@example.com')
+        @stale2 = FactoryBot.create(:mail_queue, session_id: 's2', claimed_at: 1.hour.ago, envelope_to: 'b@example.com')
+        # not stale: not claimed
+        @unclaimed = FactoryBot.create(:mail_queue, session_id: nil, claimed_at: nil, envelope_to: 'c@example.com')
+        # not stale: delivered
+        @delivered = FactoryBot.create(:mail_queue, session_id: 'd', claimed_at: 3.hours.ago, envelope_to: 'd@example.com')
+        FactoryBot.create(:delivery_response, mail_queue: @delivered)
+      end
+
+      it 'claimed_at が未来の場合（age_seconds が負の場合）NegativeAgeError 例外が発生すること' do
+        FactoryBot.create(:mail_queue, session_id: 'future', claimed_at: now + 1.hour, envelope_to: 'future@example.com')
+        expect {
+          instance.show_stale_claims
+        }.to raise_error(Verbena::MailQueuesService::NegativeAgeError, /Negative age_seconds detected/)
+      end
+
+      it '未配送かつ claim 中のレコードのみ返し、フィールド内容も正しいこと' do
+        result = instance.show_stale_claims
+        expect(result.size).to eq 2
+        ids = result.map { |h| h[:id] }
+        expect(ids).to contain_exactly(@stale1.id, @stale2.id)
+        result.each do |rec|
+          expect(rec).to include(:id, :session_id, :claimed_at, :envelope_to, :age_seconds)
+          expect(rec[:age_seconds]).to be_within(1).of(now - rec[:claimed_at])
+        end
+      end
+
+      it '該当レコードがない場合は空配列を返すこと' do
+        MailQueue.update_all(session_id: nil, claimed_at: nil)
+        expect(instance.show_stale_claims).to eq([])
+      end
+    end
   end
 end

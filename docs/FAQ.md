@@ -144,7 +144,11 @@ VERBENA_IN_BATCHES_OF=1000
 
 ```ruby
 # 24時間以上 claimed 状態のレコードを解放
-MailQueue.release_stale_claims!(older_than: 24.hours.ago)
+service = Verbena::MailQueuesService.new
+service.release_stale_claims(older_than_hours: 24.0)
+
+# ドライラン（件数のみ確認）
+service.release_stale_claims(older_than_hours: 24.0, dry_run: true)
 ```
 
 Rakeタスクも用意されています：

@@ -261,7 +261,7 @@ RSpec.describe MailQueue, type: :model do
       end
     end
 
-    describe '.release_stale_claims!' do
+    describe 'stale claims release via service' do
       let!(:current_time) { Time.zone.parse('2023-10-23 12:00:00') }
 
       before do
@@ -277,8 +277,9 @@ RSpec.describe MailQueue, type: :model do
 
       context 'デフォルト（1時間前より古い）で実行する場合' do
         it '1時間より古い claim が解放される' do
+          service = Verbena::MailQueuesService.new
           expect {
-            described_class.release_stale_claims!
+            service.release_stale_claims
           }.to change { described_class.where(session_id: nil).count }.by(2)
 
           @stale_row1.reload
@@ -296,7 +297,8 @@ RSpec.describe MailQueue, type: :model do
         end
 
         it '解放されたレコード数を返す' do
-          result = described_class.release_stale_claims!
+          service = Verbena::MailQueuesService.new
+          result = service.release_stale_claims
           expect(result).to eq(2)
         end
 
@@ -304,7 +306,8 @@ RSpec.describe MailQueue, type: :model do
           delivered = FactoryBot.create(:mail_queue, session_id: 'delivered', claimed_at: 2.hours.ago)
           FactoryBot.create(:delivery_response, mail_queue: delivered)
 
-          result = described_class.release_stale_claims!
+          service = Verbena::MailQueuesService.new
+          result = service.release_stale_claims
 
           expect(result).to eq(2)
           expect(delivered.reload.session_id).to eq('delivered')
@@ -314,10 +317,34 @@ RSpec.describe MailQueue, type: :model do
 
       context 'カスタム時間（30分前）を指定する場合' do
         it '30分より古い claim が解放される' do
+          service = Verbena::MailQueuesService.new
           expect {
-            described_class.release_stale_claims!(older_than: 30.minutes.ago)
+            service.release_stale_claims(older_than_hours: 0.5)
           }.to change { described_class.where(session_id: nil).count }.by(3)
         end
+      end
+    end
+
+    describe '.stale_claims_relation' do
+      let!(:current_time) { Time.zone.parse('2023-10-23 12:00:00') }
+
+      before do
+        travel_to current_time
+        # 対象: 古い claim（未配送・session_idあり）
+        @stale1 = FactoryBot.create(:mail_queue, session_id: 's1', claimed_at: 2.hours.ago)
+        @stale2 = FactoryBot.create(:mail_queue, session_id: 's2', claimed_at: 70.minutes.ago)
+        # 対象外: 新しい claim
+        @fresh = FactoryBot.create(:mail_queue, session_id: 'fresh', claimed_at: 30.minutes.ago)
+        # 対象外: claimされていない
+        @unclaimed = FactoryBot.create(:mail_queue, session_id: nil, claimed_at: nil)
+        # 対象外: 配送済み
+        @delivered = FactoryBot.create(:mail_queue, session_id: 'delivered', claimed_at: 2.hours.ago)
+        FactoryBot.create(:delivery_response, mail_queue: @delivered)
+      end
+
+      it 'older_than より古く、session_id があり、未配送のレコードのみを返す' do
+        ids = described_class.stale_claims_relation(older_than: 1.hour.ago).pluck(:id)
+        expect(ids).to match_array([@stale1.id, @stale2.id])
       end
     end
 

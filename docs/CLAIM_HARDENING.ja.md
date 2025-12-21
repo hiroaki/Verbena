@@ -146,17 +146,22 @@ end
 解放対象は配送結果が存在しないレコードに限定します（`delivery_responses` があるものは解放しません）。
 
 ```ruby
-# 指定時間より古いクレームを解放（デフォルト1時間）
-def self.release_stale_claims!(older_than: 1.hour.ago)
-  stale_count = where(claimed_at: ..older_than)
-                .where.not(session_id: nil)
-                .where.missing(:delivery_responses)
-                .update_all(session_id: nil, claimed_at: nil, updated_at: Time.current)
+# スタック判定用の共通リレーション（モデル側）
+relation = MailQueue.stale_claims_relation(older_than: 1.hour.ago)
 
-  Rails.logger.info("[MailQueue] Released #{stale_count} stale claims") if stale_count > 0
-  stale_count
-end
+# サービス経由で解放（更新件数を返す）
+service = Verbena::MailQueuesService.new
+changed = service.release_stale_claims # 既定は 1.0 時間
 
+# 閾値（時間・hours）とドライラン
+dry_count = service.release_stale_claims(older_than_hours: 2.0, dry_run: true)
+
+# 備考:
+# - しきい値は「以下」を含む（claimed_at <= older_than）
+# - 絞り込み条件: session_id が NOT NULL かつ delivery_responses が存在しない
+```
+
+```ruby
 # クレーム済みだが配送結果がない（処理が詰まっている）レコードを検索
 def self.claimed_but_undelivered
   left_outer_joins(:delivery_responses)
