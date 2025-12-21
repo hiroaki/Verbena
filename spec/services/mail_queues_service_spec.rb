@@ -379,7 +379,7 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
       context 'dry_run と実行結果が一致すること（デフォルト1時間）' do
         include_context 'with_claimed_and_delivered_records'
 
-        it 'dry_runの件数と実実行の更新件数が等しい' do
+        it 'dry_runの件数と実行の更新件数が等しい' do
           dry = instance.release_stale_claims(dry_run: true)
           expect(dry).to eq 2
 
@@ -396,7 +396,7 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
       context 'dry_run と実行結果が一致すること（閾値を30分に変更）' do
         include_context 'with_claimed_and_delivered_records'
 
-        it 'dry_runの件数と実実行の更新件数が等しい' do
+        it 'dry_runの件数と実行の更新件数が等しい' do
           dry = instance.release_stale_claims(older_than_hours: 0.5, dry_run: true)
           # 30分「以前（含む）」は stale1, stale2, fresh(ちょうど30分) の3件
           expect(dry).to eq 3
@@ -423,6 +423,13 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
         FactoryBot.create(:delivery_response, mail_queue: @delivered)
       end
 
+      it 'raises if claimed_at is in the future (age_seconds negative)' do
+        future_claimed = FactoryBot.create(:mail_queue, session_id: 'future', claimed_at: now + 1.hour, envelope_to: 'future@example.com')
+        expect {
+          instance.show_stale_claims
+        }.to raise_error(RuntimeError, /Negative age_seconds detected/)
+      end
+
       it 'returns only claimed but undelivered records with correct fields' do
         result = instance.show_stale_claims
         expect(result.size).to eq 2
@@ -430,7 +437,7 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
         expect(ids).to contain_exactly(@stale1.id, @stale2.id)
         result.each do |rec|
           expect(rec).to include(:id, :session_id, :claimed_at, :envelope_to, :age_seconds)
-          expect(rec[:age_seconds]).to be_within(1).of(now - MailQueue.find(rec[:id]).claimed_at)
+          expect(rec[:age_seconds]).to be_within(1).of(now - rec[:claimed_at])
         end
       end
 
