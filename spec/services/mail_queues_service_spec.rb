@@ -366,7 +366,7 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
           # 対象: 古い claim（未配送・session_idあり）
           @stale1 = FactoryBot.create(:mail_queue, session_id: 's1', claimed_at: now - 2.hours)
           @stale2 = FactoryBot.create(:mail_queue, session_id: 's2', claimed_at: now - 80.minutes)
-          # 閾値ちょうど: claimed_at が now - 30.minutes ぴったり
+          # 閾値ちょうど: claimed_at が now - 30.minutes ぴったり（境界値テスト用）
           @fresh = FactoryBot.create(:mail_queue, session_id: 'fresh', claimed_at: now - 30.minutes)
           # 対象外: claimされていない
           @unclaimed = FactoryBot.create(:mail_queue, session_id: nil, claimed_at: nil)
@@ -423,14 +423,14 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
         FactoryBot.create(:delivery_response, mail_queue: @delivered)
       end
 
-      it 'raises if claimed_at is in the future (age_seconds negative)' do
-        future_claimed = FactoryBot.create(:mail_queue, session_id: 'future', claimed_at: now + 1.hour, envelope_to: 'future@example.com')
+      it 'claimed_at が未来の場合（age_seconds が負の場合）NegativeAgeError 例外が発生すること' do
+        FactoryBot.create(:mail_queue, session_id: 'future', claimed_at: now + 1.hour, envelope_to: 'future@example.com')
         expect {
           instance.show_stale_claims
-        }.to raise_error(RuntimeError, /Negative age_seconds detected/)
+        }.to raise_error(Verbena::MailQueuesService::NegativeAgeError, /Negative age_seconds detected/)
       end
 
-      it 'returns only claimed but undelivered records with correct fields' do
+      it '未配送かつ claim 中のレコードのみ返し、フィールド内容も正しいこと' do
         result = instance.show_stale_claims
         expect(result.size).to eq 2
         ids = result.map { |h| h[:id] }
@@ -441,7 +441,7 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
         end
       end
 
-      it 'returns empty array if no claimed but undelivered records' do
+      it '該当レコードがない場合は空配列を返すこと' do
         MailQueue.update_all(session_id: nil, claimed_at: nil)
         expect(instance.show_stale_claims).to eq([])
       end

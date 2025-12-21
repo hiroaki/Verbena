@@ -1,6 +1,7 @@
 module Verbena
   class MailQueuesService < ServiceBase
     class NoRecipientsError < StandardError; end
+    class NegativeAgeError < StandardError; end
 
     def initialize(options = {})
       super
@@ -117,7 +118,7 @@ module Verbena
       stale_records.map do |record|
         age = record.claimed_at ? now - record.claimed_at : 0
         if age < 0
-          raise "Negative age_seconds detected for MailQueue id=#{record.id} (claimed_at=#{record.claimed_at}, now=#{now})"
+          raise NegativeAgeError, "Negative age_seconds detected for MailQueue id=#{record.id} (claimed_at=#{record.claimed_at}, now=#{now})"
         end
 
         {
