@@ -9,14 +9,10 @@
 #   MYSQL_ROOT_PASSWORD - Root password for MySQL database
 #   MYSQL_USER - Username for Rails application database access
 #
-# The script will:
-# 1. Validate required environment variables are set
-# 2. Check if privileges already exist for the specified databases
-# 3. Grant privileges only if they don't already exist
-# 4. Flush privileges only if changes were made
-#
-# Note: This script runs automatically via docker-entrypoint-initdb.d when the 
-# MySQL container is first created (when no existing volume data is present).
+# Note:
+# - MYSQL_PASSWORD is set by MariaDB for MYSQL_USER; this script only grants database privileges
+# - This script runs automatically via docker-entrypoint-initdb.d when the
+#   MySQL container is first created (when no existing volume data is present)
 
 set -eu  # Exit on error or undefined variables
 

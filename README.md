@@ -47,24 +47,17 @@ $ docker compose exec web rails db:migrate:reset
 
 開発中にデータベースを完全に初期状態に戻したい場合は、以下の手順を実行します：
 
-1. コンテナを停止:
-   ```
-   $ docker compose down
-   ```
-
-2. データベースボリュームを削除:
+1. コンテナを停止してボリュームを削除:
    ```
    $ docker compose down -v
-   # または特定のボリュームのみ削除:
-   $ docker volume rm verbena_db-data
    ```
 
-3. コンテナを再起動:
+2. コンテナを再起動:
    ```
    $ docker compose up -d
    ```
 
-4. データベースを再作成:
+3. データベースを再作成:
    ```
    $ docker compose exec web rails db:migrate:reset
    ```
@@ -83,7 +76,7 @@ $ docker compose exec web rails db:migrate:reset
 
 MySQL 公式 Docker イメージの仕様により、コンテナ初回起動時に `/docker-entrypoint-initdb.d` ディレクトリ内のスクリプトが自動的に実行され、データベースの初期化が行われます。
 
-- **初期化スクリプト**: `./initdb/00-create-db-users.sh`（ローカルのパス）。このディレクトリはcompose.ymlの設定により、コンテナ内の`/docker-entrypoint-initdb.d`にマウントされます。コンテナ起動時にこのパス内のスクリプトが自動実行されます。
+- **初期化スクリプト**: `./initdb/00-create-db-users.sh`（ローカルパス）。compose.ymlの設定により、このディレクトリはコンテナ内の`/docker-entrypoint-initdb.d`にマウントされます。
 - **実行タイミング**: データベースコンテナの初回作成時（ボリュームにデータが存在しない場合のみ）
 - **冪等性**: スクリプトは複数回実行しても安全です。既存の権限をチェックしてから設定を行います。
 - **ログ**: 初期化プロセスはコンテナログで確認できます（`docker compose logs db`）
