@@ -81,5 +81,42 @@ module Verbena
     def destroy_mail_queue!(mail_queue)
       mail_queue.destroy!
     end
+
+    # スタック（長時間 claim されているが配送されていない）mail_queues の claim を解放する
+    #
+    # @param older_than_hours [Float] この時間より前に claim されたレコードを対象とする（時間単位）
+    # @param dry_run [Boolean] true の場合、実際には解放せず、対象レコード数のみ返す
+    # @return [Integer] 解放されたレコード数（dry_run の場合は対象レコード数）
+    def release_stale_claims(older_than_hours: 1.0, dry_run: false)
+      older_than = older_than_hours.hours.ago
+
+      if dry_run
+        MailQueue.where('claimed_at IS NOT NULL AND claimed_at < ?', older_than)
+                 .where.missing(:delivery_responses)
+                 .count
+      else
+        MailQueue.release_stale_claims!(older_than: older_than)
+      end
+    end
+
+    # 現在 claim されているが配送結果がないレコードの情報を取得する
+    #
+    # @return [Array<Hash>] スタックレコードの情報配列
+    def show_stale_claims
+      stale_records = MailQueue.claimed_but_undelivered
+                               .select('mail_queues.id, mail_queues.session_id, mail_queues.claimed_at, mail_queues.envelope_to, mail_queues.created_at')
+                               .order(:claimed_at)
+
+      stale_records.map do |record|
+        age = record.claimed_at ? Time.current - record.claimed_at : 0
+        {
+          id: record.id,
+          session_id: record.session_id,
+          claimed_at: record.claimed_at,
+          envelope_to: record.envelope_to,
+          age_seconds: age
+        }
+      end
+    end
   end
 end
