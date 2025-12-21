@@ -21,16 +21,16 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
 
       context '宛先が四件(To:1,Cc:2,Bcc:1)あるメールの場合' do
         let!(:eml) do
-          <<-EML1
-Date: Tue, 1 Jul 2003 10:52:37 +0200
-From: me@example.com
-To: you@example.com
-Cc: ichiro@example.com, jirou@example.com
-Bcc: saburo@example.com
-Subject: =?UTF-8?Q?=E3=81=94=E6=8C=A8=E6=8B=B6?=
-Content-Type: text/plain; charset="UTF-8"
+          <<~EML1
+            Date: Tue, 1 Jul 2003 10:52:37 +0200
+            From: me@example.com
+            To: you@example.com
+            Cc: ichiro@example.com, jirou@example.com
+            Bcc: saburo@example.com
+            Subject: =?UTF-8?Q?=E3=81=94=E6=8C=A8=E6=8B=B6?=
+            Content-Type: text/plain; charset="UTF-8"
 
-こんにちは。
+            こんにちは。
           EML1
         end
 
@@ -125,13 +125,13 @@ Content-Type: text/plain; charset="UTF-8"
 
       context 'Date: が記述されていないメールの場合' do
         let!(:eml) do
-          <<-EML1
-From: me@example.com
-To: you@example.com
-Subject: =?UTF-8?Q?=E3=81=94=E6=8C=A8=E6=8B=B6?=
-Content-Type: text/plain; charset="UTF-8"
+          <<~EML1
+            From: me@example.com
+            To: you@example.com
+            Subject: =?UTF-8?Q?=E3=81=94=E6=8C=A8=E6=8B=B6?=
+            Content-Type: text/plain; charset="UTF-8"
 
-こんにちは。
+            こんにちは。
           EML1
         end
 
@@ -143,6 +143,166 @@ Content-Type: text/plain; charset="UTF-8"
           it 'timer_at が 現在時刻の日時 である' do
             expect(MailQueue.last.timer_at).to eq genzai_jikoku
           end
+        end
+      end
+    end
+
+    describe '#create_mail_queue_with_envelope!' do
+      let!(:instance) { described_class.new }
+
+      let(:eml) do
+        <<~EML
+          From: sender@example.com
+          To: recipient@example.com
+          Subject: Test Message
+          Content-Type: text/plain; charset="UTF-8"
+
+          Test body.
+        EML
+      end
+      let(:envelope_from) { 'custom-from@example.com' }
+      let(:envelope_to) { 'custom-to@example.com' }
+      let(:timer_at) { Time.zone.parse('2023-11-01 15:30:00') }
+
+      context 'timer_atを指定した場合' do
+        before do
+          @result = instance.create_mail_queue_with_envelope!(eml, envelope_from, envelope_to, timer_at)
+        end
+
+        describe '作成されるレコードについて' do
+          it 'mail_queues が 1件 作成される' do
+            expect(MailQueue.all.count).to eq 1
+          end
+
+          it 'eml_sources が 1件 作成される' do
+            expect(EmlSource.all.count).to eq 1
+          end
+        end
+
+        describe '作成される mail_queues レコードについて' do
+          let(:created_mail_queue) { MailQueue.last }
+
+          it 'envelope_from が指定した値である' do
+            expect(created_mail_queue.envelope_from).to eq envelope_from
+          end
+
+          it 'envelope_to が指定した値である' do
+            expect(created_mail_queue.envelope_to).to eq envelope_to
+          end
+
+          it 'timer_at が指定した値である' do
+            expect(created_mail_queue.timer_at).to eq timer_at
+          end
+
+          it 'session_id が nil である' do
+            expect(created_mail_queue.session_id).to be_nil
+          end
+
+          it 'claimed_at が nil である' do
+            expect(created_mail_queue.claimed_at).to be_nil
+          end
+        end
+
+        describe '作成される eml_sources レコードについて' do
+          let(:created_eml_source) { EmlSource.last }
+
+          it 'eml の内容が入力メールの全文である' do
+            expect(created_eml_source.eml).to eq eml
+          end
+
+          it 'mail_queue と eml_source が関連付けられている' do
+            expect(MailQueue.last.eml_source_id).to eq created_eml_source.id
+          end
+        end
+
+        describe '戻り値について' do
+          it 'MailQueue のインスタンスである' do
+            expect(@result).to be_a(MailQueue)
+          end
+
+          it '作成されたレコードの id と一致する' do
+            expect(@result.id).to eq MailQueue.last.id
+          end
+        end
+      end
+
+      context 'timer_atを省略した場合' do
+        context 'emlにDateヘッダがある場合' do
+          let(:eml) do
+            <<~EML
+              Date: Wed, 20 Dec 2023 12:34:56 +0900
+              From: sender@example.com
+              To: recipient@example.com
+              Subject: Test
+              Content-Type: text/plain; charset="UTF-8"
+
+              body
+            EML
+          end
+          let(:envelope_from) { 'from@example.com' }
+          let(:envelope_to) { 'to@example.com' }
+          let(:expected_time) { Time.zone.parse('Wed, 20 Dec 2023 12:34:56 +0900') }
+
+          it 'timer_atがemlのDateヘッダの値になる' do
+            result = instance.create_mail_queue_with_envelope!(eml, envelope_from, envelope_to)
+            expect(result.timer_at).to eq expected_time
+          end
+        end
+
+        context 'emlにDateヘッダがない場合' do
+          let(:eml) do
+            <<~EML
+              From: sender@example.com
+              To: recipient@example.com
+              Subject: Test
+              Content-Type: text/plain; charset="UTF-8"
+
+              body
+            EML
+          end
+          let(:envelope_from) { 'from@example.com' }
+          let(:envelope_to) { 'to@example.com' }
+          let(:now) { Time.zone.parse('2023-12-21 15:00:00') }
+
+          before { travel_to now }
+
+          it 'timer_atが現在時刻になる' do
+            result = instance.create_mail_queue_with_envelope!(eml, envelope_from, envelope_to)
+            expect(result.timer_at).to eq now
+          end
+        end
+      end
+
+      context 'トランザクションのロールバックが必要な場合' do
+        before do
+          # EmlSource 作成後、MailQueue 作成時にエラーを発生させる
+          allow_any_instance_of(EmlSource).to receive_message_chain(:mail_queues, :create!).and_raise(ActiveRecord::StatementInvalid)
+        end
+
+        it '例外が発生する' do
+          expect {
+            instance.create_mail_queue_with_envelope!(eml, envelope_from, envelope_to, timer_at)
+          }.to raise_error(ActiveRecord::StatementInvalid)
+        end
+
+        it 'mail_queues が作成されない' do
+          begin
+            instance.create_mail_queue_with_envelope!(eml, envelope_from, envelope_to, timer_at)
+          rescue ActiveRecord::StatementInvalid
+            # 例外を握りつぶす
+          end
+
+          expect(MailQueue.all.count).to eq 0
+        end
+
+        it 'eml_sources も作成されない（トランザクションがロールバックされる）' do
+          begin
+            instance.create_mail_queue_with_envelope!(eml, envelope_from, envelope_to, timer_at)
+          rescue ActiveRecord::StatementInvalid
+            # 例外を握りつぶす
+          end
+
+          expect(EmlSource.all.count).to eq 0
         end
       end
     end

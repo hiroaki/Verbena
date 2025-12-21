@@ -55,7 +55,13 @@ module Verbena
     end
 
     # envelope を指定して MailQueue （および関連する EmlSource ）を作成します。
-    def create_mail_queue_with_envelope!(eml, envelope_from, envelope_to, timer_at)
+    # 作成した MailQueue を返します。
+    def create_mail_queue_with_envelope!(eml, envelope_from, envelope_to, timer_at = nil)
+      if timer_at.nil?
+        message = Mail.new(eml)
+        timer_at = message.date || Time.current
+      end
+
       MailQueue.transaction do
         eml_source = EmlSource.create!(eml: eml)
         eml_source.mail_queues.create!(
