@@ -90,12 +90,16 @@ module Verbena
     def release_stale_claims(older_than_hours: 1.0, dry_run: false)
       older_than = older_than_hours.hours.ago
 
+      relation = MailQueue.stale_claims_relation(older_than: older_than)
+
       if dry_run
-        MailQueue.where('claimed_at IS NOT NULL AND claimed_at < ?', older_than)
-                 .where.missing(:delivery_responses)
-                 .count
+        count = relation.count
+        logger.info("[MailQueuesService] DRY RUN: #{count} stale claims would be released (older than #{older_than_hours} hours as of #{older_than})")
+        count
       else
-        MailQueue.release_stale_claims!(older_than: older_than)
+        count = relation.update_all(session_id: nil, claimed_at: nil, updated_at: Time.current)
+        logger.info("[MailQueuesService] Released #{count} stale claims older than #{older_than_hours} hours (as of #{older_than})")
+        count
       end
     end
 

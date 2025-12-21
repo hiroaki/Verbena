@@ -72,7 +72,7 @@ RSpec.describe MailQueue, type: :model do
     end
 
     it '既定（1時間より古い）で2件が解放される' do
-      changed = described_class.release_stale_claims!
+      changed = Verbena::MailQueuesService.new.release_stale_claims
       expect(changed).to eq 2
 
       expect(@stale_90m.reload.session_id).to be_nil
@@ -82,7 +82,7 @@ RSpec.describe MailQueue, type: :model do
     end
 
     it '閾値（30分前）を指定すると2件が解放される' do
-      changed = described_class.release_stale_claims!(older_than: 30.minutes.ago)
+      changed = Verbena::MailQueuesService.new.release_stale_claims(older_than_hours: 0.5)
       expect(changed).to eq 2
     end
   end
@@ -122,7 +122,7 @@ RSpec.describe MailQueue, type: :model do
     end
 
     it 'デフォルト（1時間前）: 120/90/60 が解放される（合計3件）' do
-      changed = described_class.release_stale_claims!
+      changed = Verbena::MailQueuesService.new.release_stale_claims
       expect(changed).to eq 3
 
       [@r120, @r90, @r60].each { |r| expect(r.reload.session_id).to be_nil }
@@ -131,7 +131,7 @@ RSpec.describe MailQueue, type: :model do
     end
 
     it '30分前: 120/90/60/31/30 が解放される（合計5件）' do
-      changed = described_class.release_stale_claims!(older_than: 30.minutes.ago)
+      changed = Verbena::MailQueuesService.new.release_stale_claims(older_than_hours: 0.5)
       expect(changed).to eq 5
 
       [@r120, @r90, @r60, @r31, @r30].each { |r| expect(r.reload.session_id).to be_nil }
@@ -139,13 +139,13 @@ RSpec.describe MailQueue, type: :model do
     end
 
     it '30分の境界: ちょうど30分は解放、29分は解放されない' do
-      described_class.release_stale_claims!(older_than: 30.minutes.ago)
+      Verbena::MailQueuesService.new.release_stale_claims(older_than_hours: 0.5)
       expect(@r30.reload.session_id).to be_nil
       expect(@r29.reload.session_id).not_to be_nil
     end
 
     it '100分前: 120分のみ解放（合計1件）' do
-      changed = described_class.release_stale_claims!(older_than: 100.minutes.ago)
+      changed = Verbena::MailQueuesService.new.release_stale_claims(older_than_hours: (100.0/60.0))
       expect(changed).to eq 1
       expect(@r120.reload.session_id).to be_nil
       [@r90, @r60, @r31, @r30, @r29, @r20].each { |r| expect(r.reload.session_id).not_to be_nil }
