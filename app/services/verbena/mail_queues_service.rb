@@ -111,8 +111,9 @@ module Verbena
                                .select('mail_queues.id, mail_queues.session_id, mail_queues.claimed_at, mail_queues.envelope_to, mail_queues.created_at')
                                .order(:claimed_at)
 
+      now = Time.current
       stale_records.map do |record|
-        age = record.claimed_at ? Time.current - record.claimed_at : 0
+        age = record.claimed_at ? now - record.claimed_at : 0
         {
           id: record.id,
           session_id: record.session_id,
