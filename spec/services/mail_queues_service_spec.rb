@@ -357,23 +357,28 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
 
     describe '#release_stale_claims' do
       let!(:instance) { described_class.new }
-      let!(:now) { Time.zone.parse('2023-10-23 12:00:00') }
 
-      before do
-        travel_to now
-        # 対象: 古い claim（未配送・session_idあり）
-        @stale1 = FactoryBot.create(:mail_queue, session_id: 's1', claimed_at: 2.hours.ago)
-        @stale2 = FactoryBot.create(:mail_queue, session_id: 's2', claimed_at: 80.minutes.ago)
-        # 対象外: 新しい claim
-        @fresh = FactoryBot.create(:mail_queue, session_id: 'fresh', claimed_at: 30.minutes.ago)
-        # 対象外: claimされていない
-        @unclaimed = FactoryBot.create(:mail_queue, session_id: nil, claimed_at: nil)
-        # 対象外: 配送済み
-        @delivered = FactoryBot.create(:mail_queue, session_id: 'delivered', claimed_at: 2.hours.ago)
-        FactoryBot.create(:delivery_response, mail_queue: @delivered)
+      shared_context 'with_claimed_and_delivered_records' do
+        let(:now) { Time.zone.parse('2023-10-23 12:00:00') }
+
+        before do
+          travel_to now
+          # 対象: 古い claim（未配送・session_idあり）
+          @stale1 = FactoryBot.create(:mail_queue, session_id: 's1', claimed_at: 2.hours.ago)
+          @stale2 = FactoryBot.create(:mail_queue, session_id: 's2', claimed_at: 80.minutes.ago)
+          # 対象: 閾値ちょうど30分（テストによって対象/対象外が変わる）
+          @fresh = FactoryBot.create(:mail_queue, session_id: 'fresh', claimed_at: 30.minutes.ago)
+          # 対象外: claimされていない
+          @unclaimed = FactoryBot.create(:mail_queue, session_id: nil, claimed_at: nil)
+          # 対象外: 配送済み
+          @delivered = FactoryBot.create(:mail_queue, session_id: 'delivered', claimed_at: 2.hours.ago)
+          FactoryBot.create(:delivery_response, mail_queue: @delivered)
+        end
       end
 
       context 'dry_run と実行結果が一致すること（デフォルト1時間）' do
+        include_context 'with_claimed_and_delivered_records'
+
         it 'dry_runの件数と実実行の更新件数が等しい' do
           dry = instance.release_stale_claims(dry_run: true)
           expect(dry).to eq 2
@@ -389,6 +394,8 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
       end
 
       context 'dry_run と実行結果が一致すること（閾値を30分に変更）' do
+        include_context 'with_claimed_and_delivered_records'
+
         it 'dry_runの件数と実実行の更新件数が等しい' do
           dry = instance.release_stale_claims(older_than_hours: 0.5, dry_run: true)
           # 30分「以前（含む）」は stale1, stale2, fresh(ちょうど30分) の3件
