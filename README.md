@@ -87,15 +87,52 @@ MySQL 公式 Docker イメージの仕様により、コンテナ初回起動時
 
 メールデータ入力のための Web API へのアクセスには Bearer トークンによる認証が必要です。
 
-例として、トークンを "secret" で作成するには、 Rails コンソールから次のようにします：
+概要:
+
+- アプリケーションの API には `Bearer <token>` ヘッダでの認証が必要です。
+- トークンはサーバ側で平文 `key` をハッシュ化して保存します（`key_digest_hash`）。
+
+作成例（Rails コンソール）:
 
 ```
-Token.create!(label: "hoge", key: "secret")
+Token.create!(label: "hoge", key: "secret", expires_at: 1.year.from_now)
 ```
 
-`key` の値が認証のための秘密の文字列になります。その値となる Bearer トークンの書式は token68 というフォーマットに従う必要があります。
+ポイント:
 
-`label` は任意の文字列ですがユニークにします（トークン配布先の目印にするなど）。
+- `key` は秘密です。ログや UI に平文を残さないでください。
+- Bearer ヘッダの形式は token68 準拠を想定しています（例: `Authorization: Bearer <token>`）。
+- `label` は配布先の目印として任意に付与できます。リポジトリの設計では `label` はユニークです。
+- トークンの有効期限は `expires_at` で管理します（指定があればその時刻まで有効）。
+- トークンの無効化は物理削除ではなく `revoked_at` をセットすることで行ってください（監査のため）。
+
+運用上の注意:
+
+- 発行後の `key` の直接更新はモデルで禁止しています（`prevent_key_change`）。キーを変更する場合は既存トークンを `revoke!` して無効化し、新しいトークンを作成する運用にしてください。
+- 管理者専用の機能としてトークンを発行・取り扱う想定です。エンドユーザーにトークン作成・変更権限を与えないでください。
+- 同じ `key` が複数存在すると識別情報が漏れるため、サーバ側でハッシュの一意性チェックを行っています（DB にも UNIQUE インデックスあり）。
+
+定期無効化タスク:
+
+- 期限切れトークンを一括で無効化する Rake タスクを用意しています。管理者が手動で実行できます。
+
+```
+# ドライラン（何件無効化されるかを確認）
+bundle exec rake verbena:tokens:revoke_expired[dry]
+
+# 実行（expires_at を過ぎた未revoked なトークンの revoked_at をセット）
+bundle exec rake verbena:tokens:revoke_expired
+```
+
+利用例（curl）:
+
+```
+curl -H 'Authorization: Bearer secret' -X POST \
+   -F 'mail_queue[eml]=@/path/to/source.eml' \
+   http://localhost:13000/api/v1/mail_queues
+```
+
+このセクションは運用ポリシーに関わるため、必要に応じて管理者向けドキュメントに手順（無効化→再作成フローやログ記録方法）を追記してください。
 
 
 ### SMTP/配送設定（ENV-first）

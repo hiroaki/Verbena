@@ -8,13 +8,9 @@ RSpec.describe Token, type: :model do
   end
 
   describe 'バリデーション' do
-    before do
-      @instance = FactoryBot.build(:token, params)
-    end
-
-    subject { @instance.valid? }
-
     describe 'label' do
+      subject { FactoryBot.build(:token, params).valid? }
+
       context do
         let!(:params) { { label: nil } }
         it { is_expected.to be false }
@@ -31,20 +27,75 @@ RSpec.describe Token, type: :model do
       end
     end
 
-    describe 'key' do
+    describe 'expires_at' do
+      subject { FactoryBot.build(:token, params).valid? }
+
       context do
-        let!(:params) { { key: nil } }
+        let!(:params) { { expires_at: nil } }
         it { is_expected.to be false }
       end
 
       context do
-        let!(:params) { { key: '' } }
-        it { is_expected.to be false }
-      end
-
-      context do
-        let!(:params) { { key: 'bar' } }
+        let!(:params) { { expires_at: 1.day.from_now } }
         it { is_expected.to be true }
+      end
+    end
+
+    describe 'key' do
+      describe '新規作成時' do
+        subject { FactoryBot.build(:token, params).valid? }
+
+        context do
+          let!(:params) { { key: nil } }
+          it { is_expected.to be false }
+        end
+
+        context do
+          let!(:params) { { key: '' } }
+          it { is_expected.to be false }
+        end
+
+        context do
+          let!(:params) { { key: 'bar' } }
+          it { is_expected.to be true }
+        end
+
+        context '同じ key で別の token が既に存在する場合' do
+          let!(:existing_token) { FactoryBot.create(:token, key: 'duplicate-key') }
+          let!(:params) { { key: 'duplicate-key' } }
+
+          it 'バリデーションエラーが起きる' do
+            is_expected.to be false
+          end
+        end
+      end
+
+      describe '更新時' do
+        let!(:token) { FactoryBot.create(:token, key: 'original-key') }
+
+        context 'key を渡さずに label を更新する場合' do
+          it 'バリデーションエラーが起きない' do
+            token.label = 'updated-label'
+            expect(token.valid?).to be true
+          end
+        end
+
+        context 'key を渡さずに保存する場合' do
+          it 'key_digest_hash が変わらない' do
+            original_digest = token.key_digest_hash
+            token.label = 'updated-label'
+            token.save!
+            expect(token.key_digest_hash).to eq(original_digest)
+          end
+        end
+
+        context 'key を更新しようとした場合' do
+          it 'バリデーションエラーになる' do
+            token.key = 'new-key'
+            expect(token.valid?).to be false
+            expect(token.errors[:key]).to be_present
+          end
+        end
       end
     end
   end
@@ -110,6 +161,29 @@ RSpec.describe Token, type: :model do
           expect(Rails.logger).to receive(:warn).with(a_string_matching(/\[Token\] last_used_at update failed id=#{tok.id} error_class=StandardError error=boom/))
           expect(described_class.authenticated?(key)).to be true
         end
+      end
+    end
+  end
+
+  describe '#active?' do
+    context 'when not revoked and not expired' do
+      let!(:tok) { FactoryBot.create(:token, key: 'ok', expires_at: 1.day.from_now, revoked_at: nil) }
+      it 'returns true' do
+        expect(tok.active?).to be true
+      end
+    end
+
+    context 'when revoked' do
+      let!(:tok) { FactoryBot.create(:token, key: 'revoked', expires_at: 1.day.from_now, revoked_at: Time.current) }
+      it 'returns false' do
+        expect(tok.active?).to be false
+      end
+    end
+
+    context 'when expired' do
+      let!(:tok) { FactoryBot.create(:token, key: 'expired', expires_at: 1.day.ago, revoked_at: nil) }
+      it 'returns false' do
+        expect(tok.active?).to be false
       end
     end
   end
