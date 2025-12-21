@@ -12,7 +12,6 @@ namespace :verbena do
       hour_unit = 'hour'.pluralize(older_than_hours.round)
       if dry_run
         puts "DRY RUN: Would release #{stale_count} stale claims older than #{older_than_hours} #{hour_unit} (excluding delivered records)"
-        Rails.logger.info("[MailQueue] DRY RUN: Would release #{stale_count} stale claims (excluding delivered records)")
       else
         puts "Released #{stale_count} stale claims older than #{older_than_hours} #{hour_unit}"
       end

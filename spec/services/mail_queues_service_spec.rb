@@ -399,5 +399,38 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
         end
       end
     end
+
+    describe '#show_stale_claims' do
+      let!(:instance) { described_class.new }
+      let!(:now) { Time.zone.parse('2023-12-21 12:00:00') }
+
+      before do
+        travel_to now
+        # stale: claimed, not delivered
+        @stale1 = FactoryBot.create(:mail_queue, session_id: 's1', claimed_at: 2.hours.ago, envelope_to: 'a@example.com')
+        @stale2 = FactoryBot.create(:mail_queue, session_id: 's2', claimed_at: 1.hour.ago, envelope_to: 'b@example.com')
+        # not stale: not claimed
+        @unclaimed = FactoryBot.create(:mail_queue, session_id: nil, claimed_at: nil, envelope_to: 'c@example.com')
+        # not stale: delivered
+        @delivered = FactoryBot.create(:mail_queue, session_id: 'd', claimed_at: 3.hours.ago, envelope_to: 'd@example.com')
+        FactoryBot.create(:delivery_response, mail_queue: @delivered)
+      end
+
+      it 'returns only claimed but undelivered records with correct fields' do
+        result = instance.show_stale_claims
+        expect(result.size).to eq 2
+        ids = result.map { |h| h[:id] }
+        expect(ids).to contain_exactly(@stale1.id, @stale2.id)
+        result.each do |rec|
+          expect(rec).to include(:id, :session_id, :claimed_at, :envelope_to, :age_seconds)
+          expect(rec[:age_seconds]).to be_within(1).of(now - MailQueue.find(rec[:id]).claimed_at)
+        end
+      end
+
+      it 'returns empty array if no claimed but undelivered records' do
+        MailQueue.update_all(session_id: nil, claimed_at: nil)
+        expect(instance.show_stale_claims).to eq([])
+      end
+    end
   end
 end
