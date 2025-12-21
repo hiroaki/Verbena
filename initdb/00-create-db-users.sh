@@ -34,8 +34,7 @@ SKIP_FLUSH=1
 has_privs_for_db() {
 	db="$1"
 	# Query mysql.db table to check for existing privileges
-	# Use '|| echo 0' to handle cases where the query might fail
-	count=$(mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -sse "SELECT COUNT(*) FROM mysql.db WHERE User='${MYSQL_USER}' AND Db='${db}'" || echo 0)
+	count=$(mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -sse "SELECT COUNT(*) FROM mysql.db WHERE User='${MYSQL_USER}' AND Db='${db}'")
 	[ "${count}" -gt 0 ]
 }
 
