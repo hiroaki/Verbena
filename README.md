@@ -76,7 +76,7 @@ $ docker compose exec web rails db:migrate:reset
 
 MySQL 公式 Docker イメージの仕様により、コンテナ初回起動時に `/docker-entrypoint-initdb.d` ディレクトリ内のスクリプトが自動的に実行され、データベースの初期化が行われます。
 
-- **初期化スクリプト**: `./initdb/00-create-db-users.sh`（ローカルパス）。compose.ymlの設定により、このディレクトリはコンテナ内の`/docker-entrypoint-initdb.d`にマウントされます。
+- **初期化スクリプト**: `./initdb/00-create-db-users.sh`（ローカルパス）。compose.ymlの設定により、このディレクトリはコンテナ内の `/docker-entrypoint-initdb.d` にマウントされます。
 - **実行タイミング**: データベースコンテナの初回作成時（ボリュームにデータが存在しない場合のみ）
 - **冪等性**: スクリプトは複数回実行しても安全です。既存の権限をチェックしてから設定を行います。
 - **ログ**: 初期化プロセスはコンテナログで確認できます（`docker compose logs db`）
