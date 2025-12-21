@@ -107,7 +107,7 @@ module Verbena
     # 現在 claim されているが配送結果がないレコードの情報を取得する
     #
     # @return [Array<Hash>] スタックレコードの情報配列
-    # @raise [RuntimeError] claimed_at が未来の場合（age_secondsが負の場合）
+    # @raise [NegativeAgeError] claimed_at が未来の場合（age_secondsが負の場合）
     #   → システム時刻の不整合やデータ不整合が疑われるため例外を投げます。
     def show_stale_claims
       stale_records = MailQueue.claimed_but_undelivered
