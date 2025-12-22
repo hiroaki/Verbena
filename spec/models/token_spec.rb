@@ -187,4 +187,43 @@ RSpec.describe Token, type: :model do
       end
     end
   end
+
+  describe 'scopes' do
+    let!(:active_tok) { FactoryBot.create(:token, key: 'scope-active', expires_at: 1.day.from_now, revoked_at: nil) }
+    let!(:expired_tok) { FactoryBot.create(:token, key: 'scope-expired', expires_at: 1.day.ago, revoked_at: nil) }
+    let!(:revoked_tok) { FactoryBot.create(:token, key: 'scope-revoked', expires_at: 1.day.from_now, revoked_at: Time.current) }
+
+    it 'returns only active tokens for .active' do
+      expect(Token.active).to include(active_tok)
+      expect(Token.active).not_to include(expired_tok, revoked_tok)
+    end
+
+    it 'returns only expired (but not revoked) tokens for .expired' do
+      expect(Token.expired).to include(expired_tok)
+      expect(Token.expired).not_to include(active_tok, revoked_tok)
+    end
+  end
+
+  describe '#revoke!' do
+    it 'sets revoked_at to now when called without args' do
+      tok = FactoryBot.create(:token, key: 'rev1', expires_at: 1.day.from_now, revoked_at: nil)
+      tok.revoke!
+      expect(tok.reload.revoked_at).not_to be_nil
+    end
+
+    it 'sets revoked_at to the provided time' do
+      t = 2.days.ago
+      tok = FactoryBot.create(:token, key: 'rev2', expires_at: 1.day.from_now, revoked_at: nil)
+      tok.revoke!(t)
+      expect(tok.reload.revoked_at.to_i).to eq t.to_i
+    end
+
+    it 'updates revoked_at if already revoked' do
+      t0 = 3.days.ago
+      tok = FactoryBot.create(:token, key: 'rev3', expires_at: 1.day.from_now, revoked_at: t0)
+      new_t = Time.current
+      tok.revoke!(new_t)
+      expect(tok.reload.revoked_at.to_i).to eq new_t.to_i
+    end
+  end
 end

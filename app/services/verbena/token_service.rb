@@ -14,7 +14,7 @@ module Verbena
           begin
             tok.revoke!(Time.current)
             total += 1
-          rescue => e
+          rescue StandardError => e
             logger.warn("[TokenService] revoke failed id=#{tok.id} error=#{e.class}:#{e.message}")
           end
         end

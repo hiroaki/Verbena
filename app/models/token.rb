@@ -20,7 +20,7 @@ class Token < ApplicationRecord
 
   attr_accessor :key
 
-  validates :label, presence: true
+  validates :label, presence: true, uniqueness: true
   validates :expires_at, presence: true
   validates :key, presence: true, on: :create
   validate :key_digest_hash_uniqueness, on: :create
@@ -51,7 +51,7 @@ class Token < ApplicationRecord
     # Update last_used_at (best-effort; ignore race errors)
     begin
       tok.update_columns(last_used_at: Time.current)
-    rescue => e
+    rescue StandardError => e
       Rails.logger.warn("[Token] last_used_at update failed id=#{tok.id} error_class=#{e.class} error=#{e.message}")
     end
     true

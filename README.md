@@ -103,7 +103,7 @@ Token.create!(label: "hoge", key: "secret", expires_at: 1.year.from_now)
 - `key` は秘密です。ログや UI に平文を残さないでください。
 - Bearer ヘッダの形式は token68 準拠を想定しています（例: `Authorization: Bearer <token>`）。
 - `label` は配布先の目印として任意に付与できます。リポジトリの設計では `label` はユニークです。
-- トークンの有効期限は `expires_at` で管理します（指定があればその時刻まで有効）。
+- トークンの有効期限は `expires_at` で管理します（必須。設定した時刻まで有効）。
 - トークンの無効化は物理削除ではなく `revoked_at` をセットすることで行ってください（監査のため）。
 
 運用上の注意:

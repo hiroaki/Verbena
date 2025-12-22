@@ -23,5 +23,27 @@ RSpec.describe Verbena::TokenService, type: :service do
         expect(active_token.reload.revoked_at).to be_nil
       end
     end
+
+    context 'when revoke! raises an error for a token' do
+      it 'continues processing other tokens and returns count of successful revokes' do
+        a = FactoryBot.create(:token, key: 'e-a', expires_at: 1.day.ago, revoked_at: nil)
+        b = FactoryBot.create(:token, key: 'e-b', expires_at: 1.day.ago, revoked_at: nil)
+        allow_any_instance_of(Token).to receive(:revoke!).and_wrap_original do |m, *args|
+          # raise only for the instance matching `a` (other tokens should be processed)
+          if m.receiver.id == a.id
+            raise StandardError.new('boom')
+          else
+            m.call(*args)
+          end
+        end
+
+        result = service.revoke_expired(dry_run: false)
+        # There may be other expired tokens in the test DB; ensure the service
+        # continued processing other tokens and our failing token remained unrevoked.
+        expect(result).to be >= 1
+        expect(a.reload.revoked_at).to be_nil
+        expect(b.reload.revoked_at).not_to be_nil
+      end
+    end
   end
 end
