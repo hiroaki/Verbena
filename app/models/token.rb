@@ -42,6 +42,7 @@ class Token < ApplicationRecord
   # with an error on the corresponding attribute (`key` and/or `label`),
   # instead of bubbling up RecordNotUnique from the DB adapter.
   def self.create_unique!(attrs)
+    attrs = attrs.to_h.with_indifferent_access
     create!(attrs)
   rescue ActiveRecord::RecordNotUnique
     token = new(attrs)

@@ -85,6 +85,18 @@ RSpec.describe Token, type: :model do
           end
         end
 
+        context 'string keys in attrs (label duplication)' do
+          let!(:existing_token) { FactoryBot.create(:token, label: 'dup-label', key: 'unique-key') }
+          it 'create_unique! raises RecordInvalid with label error' do
+            expect {
+              Token.create_unique!({ 'label' => 'dup-label', 'key' => 'another-unique-key', 'expires_at' => 1.day.from_now })
+            }.to raise_error(ActiveRecord::RecordInvalid) { |e|
+              expect(e.record.errors[:label]).to be_present
+              expect(e.record.errors[:key]).to be_blank
+            }
+          end
+        end
+
         context '同じ key と label の両方が既に存在する場合' do
           let!(:existing_token) { FactoryBot.create(:token, label: 'dup-both', key: 'dup-both-key') }
           it 'create_unique! raises RecordInvalid with both key and label errors' do
@@ -93,6 +105,17 @@ RSpec.describe Token, type: :model do
             }.to raise_error(ActiveRecord::RecordInvalid) { |e|
               expect(e.record.errors[:key]).to be_present
               expect(e.record.errors[:label]).to be_present
+            }
+          end
+        end
+
+        context 'string keys in attrs (key duplication)' do
+          let!(:existing_token) { FactoryBot.create(:token, key: 'duplicate-key') }
+          it 'create_unique! raises RecordInvalid with key error' do
+            expect {
+              Token.create_unique!({ 'label' => 'dup2', 'key' => 'duplicate-key', 'expires_at' => 1.day.from_now })
+            }.to raise_error(ActiveRecord::RecordInvalid) { |e|
+              expect(e.record.errors[:key]).to be_present
             }
           end
         end
