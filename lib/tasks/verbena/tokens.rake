@@ -11,8 +11,8 @@ namespace :verbena do
         count = service.revoke_expired(dry_run: true)
         puts "[verbena:tokens:revoke_expired] Dry run: #{count} tokens would be revoked"
       else
-        total = service.revoke_expired(dry_run: false)
-        puts "[verbena:tokens:revoke_expired] Revoked #{total} tokens"
+        revoked_count = service.revoke_expired(dry_run: false)
+        puts "[verbena:tokens:revoke_expired] Revoked #{revoked_count} tokens"
       end
     end
   end

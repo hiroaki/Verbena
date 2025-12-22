@@ -13,18 +13,18 @@ module Verbena
       relation = Token.expired
       return relation.count if dry_run
 
-      total = 0
+      revoked_count = 0
       relation.find_in_batches(batch_size: batch_size) do |batch|
         batch.each do |tok|
           begin
             tok.revoke!(Time.current)
-            total += 1
+            revoked_count += 1
           rescue StandardError => e
             logger.warn("[TokenService] revoke failed id=#{tok.id} error=#{e.class}:#{e.message}")
           end
         end
       end
-      total
+      revoked_count
     end
   end
 end
