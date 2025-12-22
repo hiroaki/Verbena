@@ -153,8 +153,8 @@ RSpec.describe Token, type: :model do
           end
         end
 
-        context 'key を渡したが digest を変えない場合' do
-          it 'バリデーションエラーにならない（無視される）' do
+        context 'key 属性を設定する場合' do
+          it 'バリデーションエラーにならない（一時的な属性で digest には影響しない）' do
             token.key = 'new-key'
             expect(token.valid?).to be true
           end
