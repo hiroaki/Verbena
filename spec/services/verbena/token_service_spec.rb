@@ -54,7 +54,6 @@ RSpec.describe Verbena::TokenService, type: :service do
         allow(Token).to receive(:expired).and_return(relation)
         allow(relation).to receive(:find_in_batches).and_yield([token_error, token_success, expired_token])
 
-        initial_expired_count = relation.count
         result = service.revoke_expired(dry_run: false)
 
         # The service should return the number of tokens it actually revoked.

@@ -130,9 +130,16 @@ RSpec.describe Token, type: :model do
           end
         end
 
-        context 'key を更新しようとした場合' do
-          it 'バリデーションエラーになる' do
+        context 'key を渡したが digest を変えない場合' do
+          it 'バリデーションエラーにならない（無視される）' do
             token.key = 'new-key'
+            expect(token.valid?).to be true
+          end
+        end
+
+        context 'key_digest_hash を変更しようとした場合' do
+          it 'バリデーションエラーになる' do
+            token.key_digest_hash = 'new-digest'
             expect(token.valid?).to be false
             expect(token.errors[:key]).to be_present
             expect(token.errors.full_messages).to include(a_string_matching('cannot be changed; revoke and recreate instead'))
