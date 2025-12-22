@@ -8,13 +8,9 @@ RSpec.describe Token, type: :model do
   end
 
   describe 'バリデーション' do
-    before do
-      @instance = FactoryBot.build(:token, params)
-    end
-
-    subject { @instance.valid? }
-
     describe 'label' do
+      subject { FactoryBot.build(:token, params).valid? }
+
       context do
         let!(:params) { { label: nil } }
         it { is_expected.to be false }
@@ -31,20 +27,147 @@ RSpec.describe Token, type: :model do
       end
     end
 
-    describe 'key' do
+    describe 'expires_at' do
+      subject { FactoryBot.build(:token, params).valid? }
+
       context do
-        let!(:params) { { key: nil } }
+        let!(:params) { { expires_at: nil } }
         it { is_expected.to be false }
       end
 
       context do
-        let!(:params) { { key: '' } }
-        it { is_expected.to be false }
-      end
-
-      context do
-        let!(:params) { { key: 'bar' } }
+        let!(:params) { { expires_at: 1.day.from_now } }
         it { is_expected.to be true }
+      end
+    end
+
+    describe 'key' do
+      describe '新規作成時' do
+        subject { FactoryBot.build(:token, params).valid? }
+
+        context do
+          let!(:params) { { key: nil } }
+          it { is_expected.to be false }
+        end
+
+        context do
+          let!(:params) { { key: '' } }
+          it { is_expected.to be false }
+        end
+
+        context do
+          let!(:params) { { key: 'bar' } }
+          it { is_expected.to be true }
+        end
+
+        context '同じ key で別の token が既に存在する場合' do
+          let!(:existing_token) { FactoryBot.create(:token, key: 'duplicate-key') }
+          let!(:params) { { key: 'duplicate-key' } }
+
+          it 'create_unique! raises RecordInvalid with key error' do
+            expect {
+              Token.create_unique!(label: 'dup2', key: 'duplicate-key', expires_at: 1.day.from_now)
+            }.to raise_error(ActiveRecord::RecordInvalid) do |e|
+              expect(e.record.errors[:key]).to be_present
+            end
+          end
+        end
+
+        context '同じ label で別の token が既に存在する場合' do
+          let!(:existing_token) { FactoryBot.create(:token, label: 'dup-label', key: 'unique-key') }
+          it 'create_unique! raises RecordInvalid with label error' do
+            expect {
+              Token.create_unique!(label: 'dup-label', key: 'another-unique-key', expires_at: 1.day.from_now)
+            }.to raise_error(ActiveRecord::RecordInvalid) { |e|
+              expect(e.record.errors[:label]).to be_present
+              expect(e.record.errors[:key]).to be_blank
+            }
+          end
+        end
+
+        context 'string keys in attrs (label duplication)' do
+          let!(:existing_token) { FactoryBot.create(:token, label: 'dup-label', key: 'unique-key') }
+          it 'create_unique! raises RecordInvalid with label error' do
+            expect {
+              Token.create_unique!({ 'label' => 'dup-label', 'key' => 'another-unique-key', 'expires_at' => 1.day.from_now })
+            }.to raise_error(ActiveRecord::RecordInvalid) { |e|
+              expect(e.record.errors[:label]).to be_present
+              expect(e.record.errors[:key]).to be_blank
+            }
+          end
+        end
+
+        context '同じ key と label の両方が既に存在する場合' do
+          let!(:existing_token) { FactoryBot.create(:token, label: 'dup-both', key: 'dup-both-key') }
+          it 'create_unique! raises RecordInvalid with both key and label errors' do
+            expect {
+              Token.create_unique!(label: 'dup-both', key: 'dup-both-key', expires_at: 1.day.from_now)
+            }.to raise_error(ActiveRecord::RecordInvalid) { |e|
+              expect(e.record.errors[:key]).to be_present
+              expect(e.record.errors[:label]).to be_present
+            }
+          end
+        end
+
+        context 'string keys in attrs (key duplication)' do
+          let!(:existing_token) { FactoryBot.create(:token, key: 'duplicate-key') }
+          it 'create_unique! raises RecordInvalid with key error' do
+            expect {
+              Token.create_unique!({ 'label' => 'dup2', 'key' => 'duplicate-key', 'expires_at' => 1.day.from_now })
+            }.to raise_error(ActiveRecord::RecordInvalid) { |e|
+              expect(e.record.errors[:key]).to be_present
+            }
+          end
+        end
+
+        context 'どちらにも該当しない場合 (fallback)' do
+          it 'create_unique! raises RecordInvalid with base error' do
+            # Simulate DB unique constraint raising during create!
+            allow(Token).to receive(:create!).and_raise(ActiveRecord::RecordNotUnique)
+            allow(Token).to receive(:exists?).and_return(false)
+            expect {
+              Token.create_unique!(label: 'fallback-label', key: 'fallback-key', expires_at: 1.day.from_now)
+            }.to raise_error(ActiveRecord::RecordInvalid) { |e|
+              expect(e.record.errors[:base]).to be_present
+            }
+          end
+        end
+      end
+
+      describe '更新時' do
+        let!(:token) { FactoryBot.create(:token, key: 'original-key') }
+
+        context 'key を渡さずに label を更新する場合' do
+          it 'バリデーションエラーが起きない' do
+            token.label = 'updated-label'
+            expect(token.valid?).to be true
+          end
+        end
+
+        context 'key を渡さずに保存する場合' do
+          it 'key_digest_hash が変わらない' do
+            original_digest = token.key_digest_hash
+            token.label = 'updated-label'
+            token.save!
+            expect(token.key_digest_hash).to eq(original_digest)
+          end
+        end
+
+        context 'key 属性を設定する場合' do
+          it 'バリデーションエラーにならない（一時的な属性で digest には影響しない）' do
+            token.key = 'new-key'
+            expect(token.valid?).to be true
+          end
+        end
+
+        context 'key_digest_hash を変更しようとした場合' do
+          it 'バリデーションエラーになる' do
+            token.key_digest_hash = 'new-digest'
+            expect(token.valid?).to be false
+            expect(token.errors[:key]).to be_present
+            expect(token.errors.full_messages).to include(a_string_matching('cannot be changed; revoke and recreate instead'))
+          end
+        end
       end
     end
   end
@@ -111,6 +234,68 @@ RSpec.describe Token, type: :model do
           expect(described_class.authenticated?(key)).to be true
         end
       end
+    end
+  end
+
+  describe '#active?' do
+    context 'when not revoked and not expired' do
+      let!(:tok) { FactoryBot.create(:token, key: 'ok', expires_at: 1.day.from_now, revoked_at: nil) }
+      it 'returns true' do
+        expect(tok.active?).to be true
+      end
+    end
+
+    context 'when revoked' do
+      let!(:tok) { FactoryBot.create(:token, key: 'revoked', expires_at: 1.day.from_now, revoked_at: Time.current) }
+      it 'returns false' do
+        expect(tok.active?).to be false
+      end
+    end
+
+    context 'when expired' do
+      let!(:tok) { FactoryBot.create(:token, key: 'expired', expires_at: 1.day.ago, revoked_at: nil) }
+      it 'returns false' do
+        expect(tok.active?).to be false
+      end
+    end
+  end
+
+  describe 'scopes' do
+    let!(:active_tok) { FactoryBot.create(:token, key: 'scope-active', expires_at: 1.day.from_now, revoked_at: nil) }
+    let!(:expired_tok) { FactoryBot.create(:token, key: 'scope-expired', expires_at: 1.day.ago, revoked_at: nil) }
+    let!(:revoked_tok) { FactoryBot.create(:token, key: 'scope-revoked', expires_at: 1.day.from_now, revoked_at: Time.current) }
+
+    it 'returns only active tokens for .active' do
+      expect(Token.active).to include(active_tok)
+      expect(Token.active).not_to include(expired_tok, revoked_tok)
+    end
+
+    it 'returns only expired (but not revoked) tokens for .expired' do
+      expect(Token.expired).to include(expired_tok)
+      expect(Token.expired).not_to include(active_tok, revoked_tok)
+    end
+  end
+
+  describe '#revoke!' do
+    it 'sets revoked_at to now when called without args' do
+      tok = FactoryBot.create(:token, key: 'rev1', expires_at: 1.day.from_now, revoked_at: nil)
+      tok.revoke!
+      expect(tok.reload.revoked_at).not_to be_nil
+    end
+
+    it 'sets revoked_at to the provided time' do
+      t = 2.days.ago
+      tok = FactoryBot.create(:token, key: 'rev2', expires_at: 1.day.from_now, revoked_at: nil)
+      tok.revoke!(t)
+      expect(tok.reload.revoked_at.to_i).to eq t.to_i
+    end
+
+    it 'updates revoked_at if already revoked' do
+      t0 = 3.days.ago
+      tok = FactoryBot.create(:token, key: 'rev3', expires_at: 1.day.from_now, revoked_at: t0)
+      new_t = Time.current
+      tok.revoke!(new_t)
+      expect(tok.reload.revoked_at.to_i).to eq new_t.to_i
     end
   end
 end
