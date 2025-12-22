@@ -53,10 +53,10 @@ RSpec.describe Verbena::TokenService, type: :service do
           end
         end
 
+        initial_expired_count = Token.expired.count
         result = service.revoke_expired(dry_run: false)
-        # There may be other expired tokens in the test DB; ensure the service
-        # continued processing other tokens and our failing token remained unrevoked.
-        expect(result).to be >= 1
+        # The service should revoke all expired tokens except the one that raises an error.
+        expect(result).to eq(initial_expired_count - 1)
         expect(a.reload.revoked_at).to be_nil
         expect(b.reload.revoked_at).not_to be_nil
       end

@@ -19,8 +19,7 @@ class Token < ApplicationRecord
   DIGEST_ALGORITHM = Digest::SHA512
 
   attr_accessor :key
-
-  validates :label, presence: true, uniqueness: true
+  validates :label, presence: true
   validates :expires_at, presence: true
   validates :key, presence: true, on: :create
   validate :prevent_key_change, on: :update
@@ -39,13 +38,34 @@ class Token < ApplicationRecord
   # when creating tokens.
   # Note: we intentionally do NOT use `validates :key, uniqueness: true` because
   # it has an inherent race window; the DB unique index is the source of truth.
-  # Use this helper to ensure that duplicate keys raise RecordInvalid with a `key`
-  # error, instead of bubbling up RecordNotUnique from the DB adapter.
+  # Use this helper to ensure that duplicate keys and/or labels raise RecordInvalid
+  # with an error on the corresponding attribute (`key` and/or `label`),
+  # instead of bubbling up RecordNotUnique from the DB adapter.
   def self.create_unique!(attrs)
     create!(attrs)
   rescue ActiveRecord::RecordNotUnique
     token = new(attrs)
-    token.errors.add(:key, :taken, message: 'has already been taken')
+    found = false
+
+    if attrs[:label].present? && Token.exists?(label: attrs[:label])
+      token.errors.add(:label, :taken)
+      found = true
+    end
+
+    if attrs[:key].present?
+      digest = DIGEST_ALGORITHM.hexdigest(attrs[:key])
+      if Token.exists?(key_digest_hash: digest)
+        token.errors.add(:key, :taken)
+        found = true
+      end
+    end
+
+    unless found
+      # A generic base error is added as a fallback if the violated
+      # constraint cannot be determined.
+      token.errors.add(:base, :taken)
+    end
+
     raise ActiveRecord::RecordInvalid, token
   end
 

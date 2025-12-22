@@ -2,8 +2,13 @@ module Verbena
   class TokenService < ServiceBase
     DEFAULT_BATCH_SIZE = 1000
 
-    # Revoke tokens whose expires_at has passed and are not yet revoked.
-    # Returns the number of tokens targeted (dry run) or revoked (executed).
+    # Revoke expired tokens that are not yet revoked.
+    # Returns the number of tokens revoked (or would be revoked in dry run).
+    #
+    # Each token is revoked individually with `revoke!` to preserve callbacks,
+    # validations, and per-token error handling, which is useful for auditing.
+    # For this application, the tokens table is small, so batch processing is
+    # optional and overhead is minimal.
     def revoke_expired(dry_run: false, batch_size: DEFAULT_BATCH_SIZE)
       relation = Token.expired
       return relation.count if dry_run

@@ -72,6 +72,43 @@ RSpec.describe Token, type: :model do
             end
           end
         end
+
+        context '同じ label で別の token が既に存在する場合' do
+          let!(:existing_token) { FactoryBot.create(:token, label: 'dup-label', key: 'unique-key') }
+          it 'create_unique! raises RecordInvalid with label error' do
+            expect {
+              Token.create_unique!(label: 'dup-label', key: 'another-unique-key', expires_at: 1.day.from_now)
+            }.to raise_error(ActiveRecord::RecordInvalid) { |e|
+              expect(e.record.errors[:label]).to be_present
+              expect(e.record.errors[:key]).to be_blank
+            }
+          end
+        end
+
+        context '同じ key と label の両方が既に存在する場合' do
+          let!(:existing_token) { FactoryBot.create(:token, label: 'dup-both', key: 'dup-both-key') }
+          it 'create_unique! raises RecordInvalid with both key and label errors' do
+            expect {
+              Token.create_unique!(label: 'dup-both', key: 'dup-both-key', expires_at: 1.day.from_now)
+            }.to raise_error(ActiveRecord::RecordInvalid) { |e|
+              expect(e.record.errors[:key]).to be_present
+              expect(e.record.errors[:label]).to be_present
+            }
+          end
+        end
+
+        context 'どちらにも該当しない場合 (fallback)' do
+          it 'create_unique! raises RecordInvalid with base error' do
+            # Simulate DB unique constraint raising during create!
+            allow(Token).to receive(:create!).and_raise(ActiveRecord::RecordNotUnique)
+            allow(Token).to receive(:exists?).and_return(false)
+            expect {
+              Token.create_unique!(label: 'fallback-label', key: 'fallback-key', expires_at: 1.day.from_now)
+            }.to raise_error(ActiveRecord::RecordInvalid) { |e|
+              expect(e.record.errors[:base]).to be_present
+            }
+          end
+        end
       end
 
       describe '更新時' do
