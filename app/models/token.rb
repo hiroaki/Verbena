@@ -101,6 +101,7 @@ class Token < ApplicationRecord
   end
 
   private
+
   def prevent_key_change
     if key.present? || key_digest_hash_changed?
       errors.add(:key, :invalid, message: 'cannot be changed; revoke and recreate instead')

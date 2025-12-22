@@ -135,6 +135,7 @@ RSpec.describe Token, type: :model do
             token.key = 'new-key'
             expect(token.valid?).to be false
             expect(token.errors[:key]).to be_present
+            expect(token.errors.full_messages).to include(a_string_matching('cannot be changed; revoke and recreate instead'))
           end
         end
       end
