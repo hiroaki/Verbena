@@ -105,6 +105,7 @@ Token.create!(label: "hoge", key: "secret", expires_at: 1.year.from_now)
 - `label` は配布先の目印として任意に付与できます。リポジトリの設計では `label` はユニークです。
 - トークンの有効期限は `expires_at` で管理します（必須。設定した時刻まで有効）。
 - トークンの無効化は物理削除ではなく `revoked_at` をセットすることで行ってください（監査のため）。
+- トークン作成時は DB の一意制約違反をハンドリングしてください（ `Token.create_unique!` を使用してください）。
 
 運用上の注意:
 

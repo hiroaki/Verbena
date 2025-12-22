@@ -23,7 +23,6 @@ class Token < ApplicationRecord
   validates :label, presence: true, uniqueness: true
   validates :expires_at, presence: true
   validates :key, presence: true, on: :create
-  validate :key_digest_hash_uniqueness, on: :create
   validate :prevent_key_change, on: :update
 
   scope :active, -> { where(revoked_at: nil).where("expires_at > ?", Time.current) }
@@ -35,6 +34,20 @@ class Token < ApplicationRecord
   # responsibilities (audit logging, callbacks, etc.).
 
   before_create :digest_hash
+
+  # Helper to translate DB unique constraint violations into validation errors
+  # when creating tokens.
+  # Note: we intentionally do NOT use `validates :key, uniqueness: true` because
+  # it has an inherent race window; the DB unique index is the source of truth.
+  # Use this helper to ensure that duplicate keys raise RecordInvalid with a `key`
+  # error, instead of bubbling up RecordNotUnique from the DB adapter.
+  def self.create_unique!(attrs)
+    create!(attrs)
+  rescue ActiveRecord::RecordNotUnique
+    token = new(attrs)
+    token.errors.add(:key, :taken, message: 'has already been taken')
+    raise ActiveRecord::RecordInvalid, token
+  end
 
   def self.authenticated?(str)
     return false if str.blank?
@@ -68,15 +81,6 @@ class Token < ApplicationRecord
   end
 
   private
-
-  def key_digest_hash_uniqueness
-    return if key.blank?
-    digest = DIGEST_ALGORITHM.hexdigest(key)
-    if self.class.exists?(key_digest_hash: digest)
-      errors.add(:key, :taken, message: 'has already been taken')
-    end
-  end
-
   def prevent_key_change
     if key.present? || key_digest_hash_changed?
       errors.add(:key, :invalid, message: 'cannot be changed; revoke and recreate instead')

@@ -64,8 +64,12 @@ RSpec.describe Token, type: :model do
           let!(:existing_token) { FactoryBot.create(:token, key: 'duplicate-key') }
           let!(:params) { { key: 'duplicate-key' } }
 
-          it 'バリデーションエラーが起きる' do
-            is_expected.to be false
+          it 'create_unique! raises RecordInvalid with key error' do
+            expect {
+              Token.create_unique!(label: 'dup2', key: 'duplicate-key', expires_at: 1.day.from_now)
+            }.to raise_error(ActiveRecord::RecordInvalid) do |e|
+              expect(e.record.errors[:key]).to be_present
+            end
           end
         end
       end
