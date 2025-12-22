@@ -63,6 +63,9 @@ class Token < ApplicationRecord
     unless found
       # A generic base error is added as a fallback if the violated
       # constraint cannot be determined.
+      # Note: There is a rare race condition where the conflicting record
+      # could be deleted between the RecordNotUnique exception and the
+      # exists? checks above. In that case, we fall back to this generic error.
       token.errors.add(:base, :taken)
     end
 

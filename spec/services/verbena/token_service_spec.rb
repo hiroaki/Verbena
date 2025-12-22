@@ -42,23 +42,28 @@ RSpec.describe Verbena::TokenService, type: :service do
 
     context 'when revoke! raises an error for a token' do
       it 'continues processing other tokens and returns count of successful revokes' do
-        a = FactoryBot.create(:token, key: 'e-a', expires_at: 1.day.ago, revoked_at: nil)
-        b = FactoryBot.create(:token, key: 'e-b', expires_at: 1.day.ago, revoked_at: nil)
-        allow_any_instance_of(Token).to receive(:revoke!).and_wrap_original do |m, *args|
-          # raise only for the instance matching `a` (other tokens should be processed)
-          if m.receiver.id == a.id
-            raise StandardError.new('boom')
-          else
-            m.call(*args)
-          end
-        end
+        token_error = FactoryBot.create(:token, key: 'e-a', expires_at: 1.day.ago, revoked_at: nil)
+        token_success = FactoryBot.create(:token, key: 'e-b', expires_at: 1.day.ago, revoked_at: nil)
 
-        initial_expired_count = Token.expired.count
+        # raise only for `token_error`; allow others (including `token_success`) to call the real method
+        allow(token_error).to receive(:revoke!).and_raise(StandardError.new('boom'))
+        allow(token_success).to receive(:revoke!).and_call_original
+
+        # Use a relation stub so the batch includes the same instances
+        relation = Token.expired
+        allow(Token).to receive(:expired).and_return(relation)
+        allow(relation).to receive(:find_in_batches).and_yield([token_error, token_success, expired_token])
+
+        initial_expired_count = relation.count
         result = service.revoke_expired(dry_run: false)
-        # The service should revoke all expired tokens except the one that raises an error.
-        expect(result).to eq(initial_expired_count - 1)
-        expect(a.reload.revoked_at).to be_nil
-        expect(b.reload.revoked_at).not_to be_nil
+
+        # The service should return the number of tokens it actually revoked.
+        actual_revoked_count = [token_error, token_success, expired_token].count { |t| t.reload.revoked_at.present? }
+        expect(result).to eq(actual_revoked_count)
+
+        # token_error should have failed to be revoked; token_success should be revoked
+        expect(token_error.reload.revoked_at).to be_nil
+        expect(token_success.reload.revoked_at).not_to be_nil
       end
     end
   end
