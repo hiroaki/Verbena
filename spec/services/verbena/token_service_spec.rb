@@ -24,6 +24,22 @@ RSpec.describe Verbena::TokenService, type: :service do
       end
     end
 
+    context 'when expired tokens are already revoked' do
+      let!(:expired_revoked) { FactoryBot.create(:token, key: 'expired_revoked', expires_at: 2.days.ago, revoked_at: 1.day.ago) }
+
+      it 'does not count or revoke already-revoked tokens' do
+        # dry run should still only count the non-revoked expired token
+        expect(service.revoke_expired(dry_run: true)).to eq(1)
+
+        # execute should revoke only the non-revoked expired token
+        result = service.revoke_expired(dry_run: false)
+        expect(result).to eq(1)
+
+        # ensure the already-revoked token remains revoked and untouched
+        expect(expired_revoked.reload.revoked_at).not_to be_nil
+      end
+    end
+
     context 'when revoke! raises an error for a token' do
       it 'continues processing other tokens and returns count of successful revokes' do
         a = FactoryBot.create(:token, key: 'e-a', expires_at: 1.day.ago, revoked_at: nil)
