@@ -16,6 +16,7 @@ default: &default
   username: railsuser
   password: railspass
   host: db
+  init_command: "SET time_zone = '+00:00'"
 
 development:
   <<: *default
