@@ -217,7 +217,7 @@ $ bin/rails verbena:cleanup:by_ttl[true]
 - データベースは OS タイムゾーンを UTC（`TZ=UTC`）に固定します。
 - **MySQL/MariaDB**: `config/database.yml` の設定の中で `init_command: "SET time_zone = '+00:00'"` を指定し、セッションのタイムゾーンを UTC に固定します。
 - **PostgreSQL**: `config/database.yml` の設定の中で `variables: { timezone: 'UTC' }` を指定し、セッションタイムゾーンを UTC に固定します。
-- **SQLite**: 設定はありません（タイムゾーン制御機能がありません）。
+- **SQLite**: セッション／データベースのタイムゾーン設定はありません。日時は Rails 側で UTC として生成・管理し、その値を保存してください。
 - **共通ガイドライン**: プログラミングに於いて DB内の `NOW()` や `CURRENT_TIMESTAMP` などのタイムゾーンが影響する関数は使わず、 Rails で生成した日時値をバインドして利用してください。
 
 
