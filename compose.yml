@@ -2,7 +2,7 @@ services:
   db:
     image: mariadb:10.6.10
     environment:
-      TZ: Asia/Tokyo
+      TZ: UTC
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
       MYSQL_USER: ${MYSQL_USER:-railsuser}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-railspass}

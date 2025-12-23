@@ -211,6 +211,16 @@ $ bin/rails verbena:cleanup:by_ttl[true]
   $ docker compose exec web rails db:migrate:reset
   ```
 
+### タイムゾーン方針 (UTC)
+
+- アプリケーション（Rails）は常に UTC で動作するように設定します。
+- データベースは OS タイムゾーンを UTC（`TZ=UTC`）に固定します。
+- **MySQL/MariaDB**: `config/database.yml` の設定の中で `init_command: "SET time_zone = '+00:00'"` を指定し、セッションのタイムゾーンを UTC に固定します。
+- **PostgreSQL**: `config/database.yml` の設定の中で `variables: { timezone: 'UTC' }` を指定し、セッションタイムゾーンを UTC に固定します。
+- **SQLite**: セッション／データベースのタイムゾーン設定はありません。日時は Rails 側で UTC として生成・管理し、その値を保存してください。
+- **共通ガイドライン**: プログラミングに於いて DB内の `NOW()` や `CURRENT_TIMESTAMP` などのタイムゾーンが影響する関数は使わず、 Rails で生成した日時値をバインドして利用してください。
+
+
 ## Contributing
 
 Contributions are welcome! Please see `CONTRIBUTING.md` for guidelines.
