@@ -30,7 +30,11 @@ module Verbena
     # 変更不可
     attr_reader :session_id
 
-    DEFAULT_TIME_LIMIT = '72:00:00'.freeze
+    # timelimitの上限（1年、秒数）
+    MAX_TIME_LIMIT_SECONDS = 1.year.freeze
+
+    # timelimitのデフォルト値（72時間、秒数）
+    DEFAULT_TIME_LIMIT_SECONDS = 72.hours.freeze
 
     # インスタンスの識別子を発行します。
     # MailQueue のレコードはこの値によって処理対象であることの印が付けられます。
@@ -67,7 +71,7 @@ module Verbena
     # 指定した session_id による配送処理の結果がステータス 4xx である対象の MailQueue のレコードを、
     # 再処理可能な状態にリセットします。
     # ただしその session_id による最古の配送時刻から timelimit 時間が経過している場合は処理しません。
-    def prepare_to_retry_for_session(timelimit = DEFAULT_TIME_LIMIT)
+    def prepare_to_retry_for_session(timelimit = nil)
       reset_mail_queues(
         DeliveryResponse.last_status_4xx_within_time_limit(parse_timelimit_seconds(timelimit)).map(&:mail_queue_id)
       )
@@ -186,18 +190,28 @@ module Verbena
 
     private
 
+    # 指定されたtimelimit（"HH:MM:SS"形式の文字列）を秒数（Integer）に変換し、妥当性を検証します。
+    # "HH:MM:SS" 形式以外は受け付けません。柔軟なパースはせず、明示的な失敗でバグ混入を防ぎます。
+    # 例: "12:34:56" のみ許容。分・秒は常に2桁、時間は0以上の整数。
     def parse_timelimit_seconds(timelimit)
-      str = timelimit.presence || DEFAULT_TIME_LIMIT
-      unless str.is_a?(String)
-        raise ArgumentError, 'timelimit must be a HH:MM:SS string'
+      return DEFAULT_TIME_LIMIT_SECONDS if timelimit.nil?
+
+      unless timelimit.is_a?(String) && !timelimit.empty?
+        raise ArgumentError, 'timelimit must be a non-empty string in format HH:MM:SS (hours can be any non-negative integer, minutes and seconds must be between 00 and 59)'
       end
 
-      m = /\A(\d+):([0-5]\d):([0-5]\d)\z/.match(str)
-      raise ArgumentError, 'timelimit must be a HH:MM:SS string' unless m
+      m = /\A(\d+):([0-5]\d):([0-5]\d)\z/.match(timelimit)
+      raise ArgumentError, 'timelimit must be a string in format HH:MM:SS (hours can be any non-negative integer, minutes and seconds must be between 00 and 59)' unless m
 
+      # 文字列から整数へ変換
       hours, minutes, seconds = m.captures.map(&:to_i)
       total_seconds = hours * 3600 + minutes * 60 + seconds
+
       raise ArgumentError, 'timelimit must be positive' if total_seconds <= 0
+
+      if total_seconds > MAX_TIME_LIMIT_SECONDS
+        raise ArgumentError, "timelimit is too large (must be less than or equal to #{MAX_TIME_LIMIT_SECONDS} seconds, about 1 year)"
+      end
 
       total_seconds
     end

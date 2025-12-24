@@ -111,9 +111,13 @@ RSpec.describe DeliveryResponse, type: :model do
           expect { described_class.last_status_4xx_within_time_limit('abc') }.to raise_error(ArgumentError)
         end
 
-        it 'floatを渡すと小数点切り捨てで動作（ActiveSupport::Duration仕様）' do
+        it 'ActiveSupport::Duration（3.9.hours）を渡すと小数点切り捨てで動作する' do
           FactoryBot.create(:delivery_response, mail_queue: mq, status: '400', responded_at: now - 3.hours)
           expect(described_class.last_status_4xx_within_time_limit(3.9.hours).map(&:mail_queue_id)).to eq [mq.id]
+        end
+
+        it 'float（秒数）を渡すと例外になる' do
+          expect { described_class.last_status_4xx_within_time_limit(3.9 * 3600) }.to raise_error(ArgumentError)
         end
 
         it 'レスポンスが1件だけの場合も正しく返す' do
