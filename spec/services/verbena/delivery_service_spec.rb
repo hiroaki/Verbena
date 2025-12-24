@@ -83,6 +83,20 @@ RSpec.describe Verbena::DeliveryService, type: :service do
         expect(buf.uniq.length).to eq 1000
       end
     end
+
+    describe '.with_session' do
+      it 'raises ArgumentError if session_id is blank' do
+        expect { described_class.with_session(nil) }.to raise_error(ArgumentError)
+        expect { described_class.with_session('') }.to raise_error(ArgumentError)
+        expect { described_class.with_session('   ') }.to raise_error(ArgumentError)
+      end
+
+      it 'returns an instance with the given session_id' do
+        svc = described_class.with_session('my-session-123')
+        expect(svc).to be_a(described_class)
+        expect(svc.session_id).to eq('my-session-123')
+      end
+    end
   end
 
   describe 'インスタンスメソッド' do
