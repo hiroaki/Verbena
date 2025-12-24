@@ -48,7 +48,7 @@ module DeliveryHelper
   end
 
   # 処理対象のレコードを分割して処理するための in_batches に渡すオプションパラメタを返します。
-  def config_for_in_batchs
+  def config_for_in_batches
     Verbena::Settings.in_batches_config
   end
 
