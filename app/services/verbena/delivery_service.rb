@@ -102,7 +102,7 @@ module Verbena
     # 通常は claim されているレコードがない状況から始めることになるため、
     # このメソッドではなくいずれかの perform_by_... メソッドを利用します。
     def perform
-      MailQueue.claimed(session_id).in_batches(**config_for_in_batchs) do |rel|
+      MailQueue.claimed(session_id).in_batches(**config_for_in_batches) do |rel|
         Parallel.each(rel.all, config_for_parallel) do |mail_queue|
           perform_one(mail_queue)
         end
