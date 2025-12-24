@@ -92,18 +92,11 @@ Token.create_unique!(label: "hoge", key: "user-secret", expires_at: 1.year.from_
   $ bundle exec rake verbena:tokens:revoke_expired
   ```
 
-### SMTP/配送設定
+### 環境変数リファレンス
 
 アプリケーションの設定は環境変数で行います。
 
-主要な環境変数：
-- VERBENA_DELIVERY_METHOD=smtp|test|file（開発/テストは `test`、本番は `smtp` が想定の既定）
-- VERBENA_DELIVERY_SMTP_ADDRESS, VERBENA_DELIVERY_SMTP_PORT, VERBENA_DELIVERY_SMTP_DOMAIN,
-  VERBENA_DELIVERY_SMTP_USER_NAME, VERBENA_DELIVERY_SMTP_PASSWORD, VERBENA_DELIVERY_SMTP_AUTHENTICATION,
-  VERBENA_DELIVERY_SMTP_ENABLE_STARTTLS_AUTO
-- VERBENA_FILE_DELIVERY_DIR（file モード時の保存先。未指定時は `tmp/mails`）
-- VERBENA_ENVELOPE_FROM_OVERRIDE（SMTP の envelope-from を強制上書き、任意）
-
+Verbena で利用可能な環境変数のリストは [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) を参照してください。
 
 ## 実行方法
 
@@ -129,7 +122,7 @@ $ curl -D - -H 'Authorization: Bearer user-secret' -X POST \
     http://localhost:13000/api/v1/mail_queues
 ```
 
-いずれの場合でも、入力したメールのヘッダ To: Cc: Bcc: に記されたメールアドレスの数だけ `mail_queues` が作成されます。例えば `/path/to/source.eml` が次の内容であったとした場合、そのヘッダ "To:" "Cc:" "Bcc:" に基づき 4 件の `mail_queues` レコードが作成されます。
+いずれの場合でも、入力したメールのヘッダ "To:" "Cc:" "Bcc:" に記されたメールアドレスの数だけ `mail_queues` が作成されます。例えば `/path/to/source.eml` が次の内容であったとした場合、そのヘッダ "To:" "Cc:" "Bcc:" に基づき 4 件の `mail_queues` レコードが作成されます。
 
 ```sh
 Date: Tue, 1 Jul 2003 10:52:37 +0200
