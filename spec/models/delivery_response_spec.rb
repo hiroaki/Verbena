@@ -116,7 +116,7 @@ RSpec.describe DeliveryResponse, type: :model do
           expect(described_class.last_status_4xx_within_time_limit(3.9.hours).map(&:mail_queue_id)).to eq [mq.id]
         end
 
-        it 'float（秒数）を渡すと例外になる' do
+        it 'float型の値を渡すと例外になる' do
           expect { described_class.last_status_4xx_within_time_limit(3.9 * 3600) }.to raise_error(ArgumentError)
         end
 
