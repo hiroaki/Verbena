@@ -485,7 +485,7 @@ Hello World!
           end
 
           it '送信成功した info ログと、 DeliveryResponse を作成した info ログが記録される' do
-            expect(instance.logger).to receive(:info).with(/^OK\s+.*mail_queues\.id=\[#{mail_queue.id}\]/)
+            expect(instance.logger).to receive(:info).with(include("event=deliver.result", "level=info", "mail_queue_id=#{mail_queue.id}", "message=OK sending a message mail_queues.id=[#{mail_queue.id}]"))
             expect(instance.logger).to receive(:info).with(/CREATED DeliveryResponse/)
             instance.perform_one(mail_queue)
           end
@@ -503,7 +503,7 @@ Hello World!
           end
 
           it '送信失敗した error ログと、 DeliveryResponse を作成した info ログが記録される' do
-            expect(instance.logger).to receive(:error).with(/^NG\s+.*mail_queues\.id=\[#{mail_queue.id}\]/)
+            expect(instance.logger).to receive(:error).with(include("event=deliver.result", "level=error", "mail_queue_id=#{mail_queue.id}", "message=NG sending a message mail_queues.id=[#{mail_queue.id}]"))
             expect(instance.logger).to receive(:info).with(/CREATED DeliveryResponse/)
             instance.perform_one(mail_queue)
           end
@@ -515,7 +515,7 @@ Hello World!
           end
 
           it '例外メッセージを含んだ error ログと、 DeliveryResponse を作成した info ログが記録される' do
-            expect(instance.logger).to receive(:error).with(/^NG\s+.*mail_queues\.id=\[#{mail_queue.id}\].+foo bar baz/)
+            expect(instance.logger).to receive(:error).with(/event=deliver\.(result|exception).*level=error.*mail_queue_id=#{mail_queue.id}.*foo bar baz/)
             expect(instance.logger).to receive(:info).with(/CREATED DeliveryResponse/)
             instance.perform_one(mail_queue)
           end

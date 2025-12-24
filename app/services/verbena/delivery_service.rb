@@ -186,40 +186,6 @@ module Verbena
 
     private
 
-    # Returns either a Hash (for JSON formatter) or a human-friendly String.
-    def structured_log(event:, level:, session_id:, mail_queue_id:, message: nil, message_id: nil, smtp_status: nil, error: nil)
-      if json_logging_enabled?
-        h = {
-          'event' => event,
-          'level' => level,
-          'session_id' => session_id,
-          'mail_queue_id' => mail_queue_id,
-        }
-        h['message_id'] = message_id if message_id
-        h['smtp_status'] = smtp_status if smtp_status
-        h['error'] = error if error
-        h['message'] = message if message
-        h
-      else
-        # Keep legacy readable message format expected by existing specs.
-        # If a message is provided, return it verbatim so patterns like
-        # /^OK .../ or /^NG .../ keep matching.
-        return message.to_s if message
-
-        # As a fallback (when no message is given), assemble a readable line.
-        parts = [event, "session_id=#{session_id}", "mail_queue_id=#{mail_queue_id}"]
-        parts << "message_id=#{message_id}" if message_id
-        parts << "smtp_status=#{smtp_status}" if smtp_status
-        parts << "error=#{error}" if error
-        parts.compact.join(' | ')
-      end
-    end
-
-    def json_logging_enabled?
-      # Detect by checking formatter class
-      Rails.logger.formatter.is_a?(::Verbena::JsonLogFormatter) rescue false
-    end
-
     def parse_timelimit_seconds(timelimit)
       str = timelimit.presence || DEFAULT_TIME_LIMIT
       unless str.is_a?(String)
