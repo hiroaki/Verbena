@@ -198,6 +198,18 @@ RSpec.describe Verbena::DeliveryService, type: :service do
               instance.prepare_to_retry_for_session('03:00:00')
             end
           end
+
+          context '引数 time_limit に不正な形式を渡す場合' do
+            it 'ArgumentError を投げる' do
+              expect { instance.prepare_to_retry_for_session('DROP TABLE delivery_responses;') }.to raise_error(ArgumentError)
+            end
+          end
+
+          context '引数 time_limit に 00:00:00 を渡す場合' do
+            it 'ArgumentError を投げる' do
+              expect { instance.prepare_to_retry_for_session('00:00:00') }.to raise_error(ArgumentError)
+            end
+          end
         end
       end
     end

@@ -9,6 +9,12 @@ RSpec.describe DeliveryResponse, type: :model do
 
   describe 'クラスメソッド' do
     describe '#last_status_4xx_within_time_limit' do
+      describe '入力検証' do
+        it '0以下の値は例外を投げる' do
+          expect { DeliveryResponse.last_status_4xx_within_time_limit(0) }.to raise_error(ArgumentError)
+        end
+      end
+
       let!(:current_time) { Time.zone.parse('2023-08-10 10:00:00 +0900') }
 
       before do
@@ -51,7 +57,7 @@ RSpec.describe DeliveryResponse, type: :model do
             include_context 'メールキュー 4 のレスポンスが 2 つ = 9 時間前、 6 時間前の順にステータス [400, 250] である場合'
 
             context 'パラメータに、すべての配送レスポンスのうちで最古の時刻が含まれる値を渡す場合' do
-              let!(:timelimit) { '72:00:00' }
+              let!(:timelimit) { 72.hours }
 
               it 'メールキュー 1 と 3 それぞれの、最新のレスポンスのレコードだけのリストが得られる' do
                 is_expected.to eq [dr1b.id, dr3c.id]
@@ -65,7 +71,7 @@ RSpec.describe DeliveryResponse, type: :model do
             include_context 'メールキュー 1 のレスポンスが 2 つ = 6 時間前、 3 時間前の順にステータス [400, 400] である場合'
 
             context 'パラメータに 05:59:00 を渡す場合' do
-              let!(:timelimit) { '05:59:00' }
+              let!(:timelimit) { 5.hours + 59.minutes }
 
               it '空のリストが得られる' do
                 is_expected.to be_empty
@@ -73,7 +79,7 @@ RSpec.describe DeliveryResponse, type: :model do
             end
 
             context 'パラメータに 06:00:00 を渡す場合' do
-              let!(:timelimit) { '06:00:00' }
+              let!(:timelimit) { 6.hours }
 
               it '空のリストが得られる' do
                 is_expected.to be_empty
@@ -81,13 +87,53 @@ RSpec.describe DeliveryResponse, type: :model do
             end
 
             context 'パラメータに 06:00:01 を渡す場合' do
-              let!(:timelimit) { '06:00:01' }
+              let!(:timelimit) { 6.hours + 1.second }
 
               it 'メールキュー 1 の最新のレスポンスのレコードだけのリストが得られる' do
                 is_expected.to eq [dr1b.id]
               end
             end
           end
+        end
+      end
+
+      describe '追加のエッジケース' do
+        let!(:mq) { FactoryBot.create(:mail_queue) }
+        let!(:now) { Time.zone.parse('2023-08-10 10:00:00 +0900') }
+
+        before { travel_to now }
+
+        it 'nilを渡すと例外' do
+          expect { described_class.last_status_4xx_within_time_limit(nil) }.to raise_error(ArgumentError)
+        end
+
+        it '文字列を渡すと例外' do
+          expect { described_class.last_status_4xx_within_time_limit('abc') }.to raise_error(ArgumentError)
+        end
+
+        it 'floatを渡すと小数点切り捨てで動作（ActiveSupport::Duration仕様）' do
+          FactoryBot.create(:delivery_response, mail_queue: mq, status: '400', responded_at: now - 3.hours)
+          expect(described_class.last_status_4xx_within_time_limit(3.9.hours).map(&:mail_queue_id)).to eq [mq.id]
+        end
+
+        it 'レスポンスが1件だけの場合も正しく返す' do
+          dr = FactoryBot.create(:delivery_response, mail_queue: mq, status: '400', responded_at: now - 1.hour)
+          expect(described_class.last_status_4xx_within_time_limit(2.hours)).to include dr
+        end
+
+        it '全て期限外の場合は空' do
+          FactoryBot.create(:delivery_response, mail_queue: mq, status: '400', responded_at: now - 10.hours)
+          expect(described_class.last_status_4xx_within_time_limit(1.hour)).to be_empty
+        end
+
+        it '4xx以外のステータスは除外される' do
+          FactoryBot.create(:delivery_response, mail_queue: mq, status: '500', responded_at: now - 1.hour)
+          expect(described_class.last_status_4xx_within_time_limit(2.hours)).to be_empty
+        end
+
+        it '境界値: 最古responded_at==boundary_timeは含まれない' do
+          FactoryBot.create(:delivery_response, mail_queue: mq, status: '400', responded_at: now - 2.hours)
+          expect(described_class.last_status_4xx_within_time_limit(2.hours)).to be_empty
         end
       end
     end
