@@ -20,7 +20,15 @@ module Verbena
             tok.revoke!(Time.current)
             revoked_count += 1
           rescue StandardError => e
-            logger.warn("[TokenService] revoke failed id=#{tok.id} error=#{e.class}:#{e.message}")
+            logger.warn(structured_log(
+              event: 'token.revoke_failed',
+              level: 'warn',
+              session_id: nil,
+              mail_queue_id: nil,
+              message: "revoke failed id=#{tok.id} error=#{e.class}:#{e.message}",
+              message_id: tok.id,
+              error: e.message
+            ))
           end
         end
       end

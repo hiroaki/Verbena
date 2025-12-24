@@ -95,11 +95,23 @@ module Verbena
 
       if dry_run
         count = relation.count
-        logger.info("[MailQueuesService] DRY RUN: #{count} stale claims would be released (older than #{older_than_hours} hours as of #{older_than})")
+        logger.info(structured_log(
+          event: 'mail_queues.dry_run',
+          level: 'info',
+          session_id: nil,
+          mail_queue_id: nil,
+          message: "DRY RUN: #{count} stale claims would be released (older than #{older_than_hours} hours as of #{older_than})"
+        ))
         count
       else
         count = relation.update_all(session_id: nil, claimed_at: nil, updated_at: Time.current)
-        logger.info("[MailQueuesService] Released #{count} stale claims older than #{older_than_hours} hours (as of #{older_than})")
+        logger.info(structured_log(
+          event: 'mail_queues.release',
+          level: 'info',
+          session_id: nil,
+          mail_queue_id: nil,
+          message: "Released #{count} stale claims older than #{older_than_hours} hours (as of #{older_than})"
+        ))
         count
       end
     end
