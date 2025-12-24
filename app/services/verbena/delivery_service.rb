@@ -30,6 +30,8 @@ module Verbena
     # 変更不可
     attr_reader :session_id
 
+    DEFAULT_TIME_LIMIT = '72:00:00'.freeze
+
     # インスタンスの識別子を発行します。
     # MailQueue のレコードはこの値によって処理対象であることの印が付けられます。
     def self.issue_session_id
@@ -65,9 +67,9 @@ module Verbena
     # 指定した session_id による配送処理の結果がステータス 4xx である対象の MailQueue のレコードを、
     # 再処理可能な状態にリセットします。
     # ただしその session_id による最古の配送時刻から timelimit 時間が経過している場合は処理しません。
-    def prepare_to_retry_for_session(timelimit = '72:00:00')
+    def prepare_to_retry_for_session(timelimit = DEFAULT_TIME_LIMIT)
       reset_mail_queues(
-        DeliveryResponse.last_status_4xx_within_time_limit(timelimit.to_s).map(&:mail_queue_id)
+        DeliveryResponse.last_status_4xx_within_time_limit(parse_timelimit_seconds(timelimit)).map(&:mail_queue_id)
       )
     end
 
@@ -216,6 +218,22 @@ module Verbena
     def json_logging_enabled?
       # Detect by checking formatter class
       Rails.logger.formatter.is_a?(::Verbena::JsonLogFormatter) rescue false
+    end
+
+    def parse_timelimit_seconds(timelimit)
+      str = timelimit.presence || DEFAULT_TIME_LIMIT
+      unless str.is_a?(String)
+        raise ArgumentError, 'timelimit must be a HH:MM:SS string'
+      end
+
+      m = /\A(\d+):([0-5]\d):([0-5]\d)\z/.match(str)
+      raise ArgumentError, 'timelimit must be a HH:MM:SS string' unless m
+
+      hours, minutes, seconds = m.captures.map(&:to_i)
+      total_seconds = hours * 3600 + minutes * 60 + seconds
+      raise ArgumentError, 'timelimit must be positive' if total_seconds <= 0
+
+      total_seconds
     end
   end
 end
