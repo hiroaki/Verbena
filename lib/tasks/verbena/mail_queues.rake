@@ -2,22 +2,37 @@ namespace :verbena do
   namespace :mail_queues do
     desc 'mail_queues に eml ファイルの内容を登録する'
     task :add, [:eml] => :environment do |_task, args|
-      eml = File.read(args[:eml])
-      Verbena::MailQueuesService.new.create_mail_queues_by_eml!(eml)
+      begin
+        result = Verbena::MailQueuesService.new.create_mail_queues_from_file!(args[:eml])
+        puts "Successfully added mail_queue(s) from #{args[:eml]}"
+        result
+      rescue => e
+        $stderr.puts "ERROR: add failed: #{e.class}: #{e.message}"
+        Kernel.exit(1)
+      end
     end
 
     desc 'mail_queues に eml, envelope_from, envelope_to を登録する'
     task :add_raw, [:eml, :envelope_from, :envelope_to] => :environment do |_task, args|
-      eml = File.read(args[:eml])
-      envelope_from = args[:envelope_from]
-      envelope_to = args[:envelope_to]
-      timer_at = args.extras.first.presence || Time.current
-      Verbena::MailQueuesService.new.create_mail_queue_with_envelope!(eml, envelope_from, envelope_to, timer_at)
+      begin
+        result = Verbena::MailQueuesService.new.create_mail_queue_from_file_with_envelope!(args[:eml], args[:envelope_from], args[:envelope_to], args.extras.first.presence)
+        puts "Successfully added mail_queue with envelope from #{args[:envelope_from]} to #{args[:envelope_to]}"
+        result
+      rescue => e
+        $stderr.puts "ERROR: add_raw failed: #{e.class}: #{e.message}"
+        Kernel.exit(1)
+      end
     end
 
     desc 'mail_queues から指定した id のレコードを削除する'
     task :delete, [:mail_queue_id] => :environment do |_task, args|
-      Verbena::MailQueuesService.new.destroy_mail_queue_by_id!(args[:mail_queue_id])
+      begin
+        Verbena::MailQueuesService.new.destroy_mail_queue_by_id!(args[:mail_queue_id])
+        puts "Deleted mail_queue id=#{args[:mail_queue_id]}"
+      rescue => e
+        $stderr.puts "ERROR: delete failed: #{e.class}: #{e.message}"
+        Kernel.exit(1)
+      end
     end
   end
 end

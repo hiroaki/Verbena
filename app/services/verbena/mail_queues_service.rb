@@ -1,22 +1,13 @@
 module Verbena
   class MailQueuesService < ServiceBase
+    include Verbena::EmlFileReader
+
     class NoRecipientsError < StandardError; end
     class NegativeAgeError < StandardError; end
 
     def initialize(options = {})
       super
     end
-
-    # :nocov:
-    # for develop
-    def attach_files_to_eml(eml, *files)
-      Mail.read(eml).tap do |message|
-        files.each do |file|
-          message.add_file(file)
-        end
-      end
-    end
-    # :nocov:
 
     # EML 形式のメールデータ eml （文字列）をもとに、 MailQueue （および関連する EmlSource ）を作成します。
     # eml に含まれる宛先のアドレスの数だけレコードが作成されます。
@@ -53,6 +44,19 @@ module Verbena
       end
 
       mail_queues
+    end
+
+    # Read EML from a file path and create MailQueue records.
+    # Raises ArgumentError on missing path or unreadable/missing file.
+    def create_mail_queues_from_file!(path)
+      eml = read_eml_from_file!(path)
+      create_mail_queues_by_eml!(eml)
+    end
+
+    # Read EML from file and create a MailQueue with explicit envelope values.
+    def create_mail_queue_from_file_with_envelope!(path, envelope_from, envelope_to, timer_at = nil)
+      eml = read_eml_from_file!(path)
+      create_mail_queue_with_envelope!(eml, envelope_from, envelope_to, timer_at)
     end
 
     # envelope を指定して MailQueue （および関連する EmlSource ）を作成します。
