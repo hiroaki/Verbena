@@ -47,7 +47,10 @@ module Verbena
     end
 
     # Read EML from a file path and create MailQueue records.
-    # Raises ArgumentError on missing path or unreadable/missing file.
+    # Raises descriptive custom errors from `Verbena::EmlFileReader` for
+    # path/file/parse problems (MissingPathError, FileNotFoundError,
+    # FileNotReadableError, InvalidEmlError). Also raises `NoRecipientsError`
+    # when the parsed EML contains no recipients (service-level validation).
     def create_mail_queues_from_file!(path)
       eml = read_eml_from_file!(path)
       create_mail_queues_by_eml!(eml)

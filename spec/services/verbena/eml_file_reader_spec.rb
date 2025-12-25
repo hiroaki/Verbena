@@ -42,17 +42,7 @@ RSpec.describe Verbena::EmlFileReader do
       end
     end
 
-    it 'raises when no recipients present' do
-      file = Tempfile.new(['norec', '.eml'])
-      begin
-        file.write("From: sender@example.com\r\n\r\nBody")
-        file.close
-
-        expect { reader.read_eml_from_file!(file.path) }.to raise_error(Verbena::EmlFileReader::NoRecipientsError, /No recipients/)
-      ensure
-        file.unlink
-      end
-    end
+    # recipient validation is handled by MailQueuesService#create_mail_queues_by_eml!
 
     it 'returns eml string when valid' do
       file = Tempfile.new(['valid', '.eml'])

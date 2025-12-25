@@ -1,6 +1,4 @@
-require 'rake'
-require 'tempfile'
-require 'stringio'
+require 'rails_helper'
 
 RSpec.describe 'verbena:mail_queues tasks' do
   def capture_output
@@ -30,16 +28,24 @@ RSpec.describe 'verbena:mail_queues tasks' do
   end
 
   describe 'add' do
-    it 'errors when eml path is missing' do
+    it 'prints error and calls exit when eml path is missing' do
+      allow(Kernel).to receive(:exit)
+
       expect {
-        capture_output { task_add.invoke(nil) }
-      }.to raise_error(SystemExit)
+        task_add.invoke(nil)
+      }.to output(/ERROR: add failed/).to_stderr
+
+      expect(Kernel).to have_received(:exit).with(1)
     end
 
-    it 'errors when file not found' do
+    it 'prints error and calls exit when file not found' do
+      allow(Kernel).to receive(:exit)
+
       expect {
-        capture_output { task_add.invoke('/path/does/not/exist.eml') }
-      }.to raise_error(SystemExit)
+        task_add.invoke('/path/does/not/exist.eml')
+      }.to output(/ERROR: add failed/).to_stderr
+
+      expect(Kernel).to have_received(:exit).with(1)
     end
 
     it 'succeeds with a valid file' do
@@ -60,18 +66,26 @@ RSpec.describe 'verbena:mail_queues tasks' do
   end
 
   describe 'add_raw' do
-    it 'errors when required args missing' do
+    it 'prints error and calls exit when required args missing' do
+      allow(Kernel).to receive(:exit)
+
       expect {
-        capture_output { task_add_raw.invoke(nil, nil, nil) }
-      }.to raise_error(SystemExit)
+        task_add_raw.invoke(nil, nil, nil)
+      }.to output(/ERROR: add_raw failed/).to_stderr
+
+      expect(Kernel).to have_received(:exit).with(1)
     end
   end
 
   describe 'delete' do
-    it 'errors when id missing' do
+    it 'prints error and calls exit when id missing' do
+      allow(Kernel).to receive(:exit)
+
       expect {
-        capture_output { task_delete.invoke(nil) }
-      }.to raise_error(SystemExit)
+        task_delete.invoke(nil)
+      }.to output(/ERROR: delete failed/).to_stderr
+
+      expect(Kernel).to have_received(:exit).with(1)
     end
   end
 end

@@ -446,5 +446,42 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
         expect(instance.show_stale_claims).to eq([])
       end
     end
+
+    describe 'file-based wrappers' do
+      let!(:instance) { described_class.new }
+      let(:path) { '/tmp/fake.eml' }
+      let(:eml_content) { "From: sender@example.com\r\nTo: recipient@example.com\r\n\r\nHello" }
+
+      describe '#create_mail_queues_from_file!' do
+        it 'reads EML via reader and delegates to create_mail_queues_by_eml!' do
+          allow(instance).to receive(:read_eml_from_file!).with(path).and_return(eml_content)
+          expect(instance).to receive(:create_mail_queues_by_eml!).with(eml_content).and_return([:mq])
+
+          result = instance.create_mail_queues_from_file!(path)
+          expect(result).to eq([:mq])
+        end
+
+        it 'propagates reader errors' do
+          allow(instance).to receive(:read_eml_from_file!).with(path).and_raise(Verbena::EmlFileReader::MissingPathError.new('eml file path is required'))
+          expect { instance.create_mail_queues_from_file!(path) }.to raise_error(Verbena::EmlFileReader::MissingPathError)
+        end
+      end
+
+      describe '#create_mail_queue_from_file_with_envelope!' do
+        it 'reads EML via reader and delegates to create_mail_queue_with_envelope!' do
+          allow(instance).to receive(:read_eml_from_file!).with(path).and_return(eml_content)
+          dummy = MailQueue.new
+          expect(instance).to receive(:create_mail_queue_with_envelope!).with(eml_content, 'from@example.com', 'to@example.com', nil).and_return(dummy)
+
+          result = instance.create_mail_queue_from_file_with_envelope!(path, 'from@example.com', 'to@example.com', nil)
+          expect(result).to be(dummy)
+        end
+
+        it 'propagates reader errors' do
+          allow(instance).to receive(:read_eml_from_file!).with(path).and_raise(Verbena::EmlFileReader::FileNotFoundError.new('File not found'))
+          expect { instance.create_mail_queue_from_file_with_envelope!(path, 'f', 't', nil) }.to raise_error(Verbena::EmlFileReader::FileNotFoundError)
+        end
+      end
+    end
   end
 end

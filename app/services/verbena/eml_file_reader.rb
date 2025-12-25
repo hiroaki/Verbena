@@ -5,10 +5,10 @@ module Verbena
     class FileNotFoundError < Error; end
     class FileNotReadableError < Error; end
     class InvalidEmlError < Error; end
-    class NoRecipientsError < Error; end
 
-    # Read EML content from a file path, raising ArgumentError for common user errors.
-    # Returns the file content as a string.
+    # Read EML content from a file path. Raises descriptive custom errors for
+    # common file/parse problems (missing path, not found, not readable, or invalid
+    # EML). Returns the file content as a string.
     def read_eml_from_file!(path)
       raise MissingPathError, 'eml file path is required' if path.blank?
 
@@ -20,16 +20,11 @@ module Verbena
         raise FileNotReadableError, "File not readable: #{path}"
       end
 
-      # Basic EML validation: can Mail parse it and does it contain recipients?
+      # Basic EML validation: can Mail parse it?
       begin
         message = Mail.new(eml)
       rescue => e
         raise InvalidEmlError, "Invalid EML format: #{e.class}: #{e.message}"
-      end
-
-      destinations = Array(message.destinations).map(&:to_s).reject(&:blank?)
-      if destinations.empty?
-        raise NoRecipientsError, 'No recipients (To/Cc/Bcc) found in EML'
       end
 
       eml
