@@ -2,22 +2,6 @@ require 'rails_helper'
 require 'rake'
 
 RSpec.describe 'verbena:mail_queues tasks' do
-  def capture_output
-    old_stdout = $stdout
-    old_stderr = $stderr
-    out = StringIO.new
-    err = StringIO.new
-    $stdout = out
-    $stderr = err
-    begin
-      yield
-    ensure
-      $stdout = old_stdout
-      $stderr = old_stderr
-    end
-    return [out.string, err.string]
-  end
-
   before do
     # Recreate Rake.application per example to avoid task definitions leaking
     # between examples (Rake.application is global). This ensures each example
@@ -66,8 +50,9 @@ RSpec.describe 'verbena:mail_queues tasks' do
 
         allow_any_instance_of(Verbena::MailQueuesService).to receive(:create_mail_queues_from_file!).and_return([1])
 
-        out, err = capture_output { task_add.invoke(file.path) }
-        expect(out).to match(/Successfully added \d+ mail_queue\(s\) from #{Regexp.escape(file.path)}/)
+        expect {
+          task_add.invoke(file.path)
+        }.to output(/Successfully added \d+ mail_queue\(s\) from #{Regexp.escape(file.path)}/).to_stdout
       ensure
         file.unlink
       end
@@ -93,8 +78,9 @@ RSpec.describe 'verbena:mail_queues tasks' do
 
         allow_any_instance_of(Verbena::MailQueuesService).to receive(:create_mail_queue_from_file_with_envelope!).and_return(double('MailQueue', id: 123))
 
-        out, err = capture_output { task_add_raw.invoke(file.path, 'from@example.com', 'to@example.com') }
-        expect(out).to match(/Successfully added mail_queue \(123\) with envelope from from@example.com to to@example.com/)
+        expect {
+          task_add_raw.invoke(file.path, 'from@example.com', 'to@example.com')
+        }.to output(/Successfully added mail_queue \(123\) with envelope from from@example.com to to@example.com/).to_stdout
       ensure
         file.unlink
       end
@@ -110,6 +96,16 @@ RSpec.describe 'verbena:mail_queues tasks' do
       }.to output(/ERROR: delete failed/).to_stderr
 
       expect(Kernel).to have_received(:exit).with(1)
+    end
+
+    it 'deletes existing mail_queue and prints success message' do
+      mq = FactoryBot.create(:mail_queue)
+
+      expect {
+        task_delete.invoke(mq.id.to_s)
+      }.to output(/Deleted mail_queue id=#{mq.id}/).to_stdout
+
+      expect(MailQueue.where(id: mq.id)).to be_empty
     end
   end
 end
