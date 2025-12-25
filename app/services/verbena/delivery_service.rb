@@ -54,6 +54,15 @@ module Verbena
       @session_id = options[:session_id].presence || self.class.issue_session_id
     end
 
+    # ファクトリ：メンテナンス用途などで明示的に session_id を与えてインスタンス化する場合に使用します。
+    def self.with_session(session_id, **options)
+      if session_id.blank?
+        raise ArgumentError, 'session_id is required for with_session'
+      end
+
+      new(options.merge(session_id: session_id))
+    end
+
     # 一度も処理されていないレコードの中で、
     # 現在時刻がタイマー時刻を経過しているレコードを対象にした送信処理を実行します。
     def perform_by_timer
