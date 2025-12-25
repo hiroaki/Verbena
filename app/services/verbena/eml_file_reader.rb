@@ -22,8 +22,8 @@ module Verbena
 
       # Basic EML validation: can Mail parse it?
       begin
-        message = Mail.new(eml)
-      rescue => e
+        Mail.new(eml)
+      rescue StandardError => e
         raise InvalidEmlError, "Invalid EML format: #{e.class}: #{e.message}"
       end
 

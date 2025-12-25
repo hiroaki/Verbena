@@ -1,19 +1,29 @@
 require 'rails_helper'
+require 'rake'
 
 RSpec.describe 'verbena:mail_queues tasks' do
   def capture_output
     old_stdout = $stdout
     old_stderr = $stderr
-    $stdout = StringIO.new
-    $stderr = StringIO.new
-    yield
-  ensure
-    $stdout = old_stdout
-    $stderr = old_stderr
+    out = StringIO.new
+    err = StringIO.new
+    $stdout = out
+    $stderr = err
+    begin
+      yield
+    ensure
+      $stdout = old_stdout
+      $stderr = old_stderr
+    end
+    return [out.string, err.string]
   end
-  before(:all) do
+
+  before do
+    # Recreate Rake.application per example to avoid task definitions leaking
+    # between examples (Rake.application is global). This ensures each example
+    # loads a fresh task set and `task.reenable` works reliably.
     Rake.application = Rake::Application.new
-    load Rails.root.join('lib/tasks/verbena/mail_queues.rake')
+    load Rails.root.join('lib', 'tasks', 'verbena', 'mail_queues.rake')
     Rake::Task.define_task(:environment)
   end
 
@@ -56,9 +66,8 @@ RSpec.describe 'verbena:mail_queues tasks' do
 
         allow_any_instance_of(Verbena::MailQueuesService).to receive(:create_mail_queues_from_file!).and_return([1])
 
-        expect {
-          capture_output { task_add.invoke(file.path) }
-        }.not_to raise_error
+        out, err = capture_output { task_add.invoke(file.path) }
+        expect(out).to match(/Successfully added \d+ mail_queue\(s\) from #{Regexp.escape(file.path)}/)
       ensure
         file.unlink
       end
@@ -74,6 +83,21 @@ RSpec.describe 'verbena:mail_queues tasks' do
       }.to output(/ERROR: add_raw failed/).to_stderr
 
       expect(Kernel).to have_received(:exit).with(1)
+    end
+
+    it 'succeeds with valid file and envelope and prints created id' do
+      file = Tempfile.new(['test_raw', '.eml'])
+      begin
+        file.write("From: example\nTo: to@example.com\n\nHello")
+        file.close
+
+        allow_any_instance_of(Verbena::MailQueuesService).to receive(:create_mail_queue_from_file_with_envelope!).and_return(double('MailQueue', id: 123))
+
+        out, err = capture_output { task_add_raw.invoke(file.path, 'from@example.com', 'to@example.com') }
+        expect(out).to match(/Successfully added mail_queue \(123\) with envelope from from@example.com to to@example.com/)
+      ensure
+        file.unlink
+      end
     end
   end
 

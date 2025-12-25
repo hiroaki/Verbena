@@ -9,6 +9,20 @@ module Verbena
       super
     end
 
+    # ファイルパス path から EML形式のファイルを読み込み、MailQueue レコードを作成します。
+    # 作成した MailQueue のリストを返します。
+    def create_mail_queues_from_file!(path)
+      eml = read_eml_from_file!(path)
+      create_mail_queues_by_eml!(eml)
+    end
+
+    # ファイルパス path から EML形式のファイルを読み込み、明示的なエンベロープ値で MailQueue を作成します。
+    # 作成した MailQueue を返します。
+    def create_mail_queue_from_file_with_envelope!(path, envelope_from, envelope_to, timer_at = nil)
+      eml = read_eml_from_file!(path)
+      create_mail_queue_with_envelope!(eml, envelope_from, envelope_to, timer_at)
+    end
+
     # EML 形式のメールデータ eml （文字列）をもとに、 MailQueue （および関連する EmlSource ）を作成します。
     # eml に含まれる宛先のアドレスの数だけレコードが作成されます。
     #
@@ -44,22 +58,6 @@ module Verbena
       end
 
       mail_queues
-    end
-
-    # Read EML from a file path and create MailQueue records.
-    # Raises descriptive custom errors from `Verbena::EmlFileReader` for
-    # path/file/parse problems (MissingPathError, FileNotFoundError,
-    # FileNotReadableError, InvalidEmlError). Also raises `NoRecipientsError`
-    # when the parsed EML contains no recipients (service-level validation).
-    def create_mail_queues_from_file!(path)
-      eml = read_eml_from_file!(path)
-      create_mail_queues_by_eml!(eml)
-    end
-
-    # Read EML from file and create a MailQueue with explicit envelope values.
-    def create_mail_queue_from_file_with_envelope!(path, envelope_from, envelope_to, timer_at = nil)
-      eml = read_eml_from_file!(path)
-      create_mail_queue_with_envelope!(eml, envelope_from, envelope_to, timer_at)
     end
 
     # envelope を指定して MailQueue （および関連する EmlSource ）を作成します。
