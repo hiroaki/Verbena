@@ -94,7 +94,8 @@ module Verbena
     # @param dry_run [Boolean] true の場合、実際には解放せず、対象レコード数のみ返す
     # @return [Integer] 解放されたレコード数（dry_run の場合は対象レコード数）
     def release_stale_claims(older_than_hours: 1.0, dry_run: false)
-      older_than = older_than_hours.hours.ago
+      hours = self.class.normalize_hours_arg(older_than_hours)
+      older_than = hours.hours.ago
 
       relation = MailQueue.stale_claims_relation(older_than: older_than)
 
@@ -105,7 +106,7 @@ module Verbena
           level: 'info',
           session_id: nil,
           mail_queue_id: nil,
-          message: "DRY RUN: #{count} stale claims would be released (older than #{older_than_hours} hours as of #{older_than})"
+          message: "DRY RUN: #{count} stale claims would be released (older than #{hours} hours as of #{older_than})"
         ))
         count
       else
@@ -115,7 +116,7 @@ module Verbena
           level: 'info',
           session_id: nil,
           mail_queue_id: nil,
-          message: "Released #{count} stale claims older than #{older_than_hours} hours (as of #{older_than})"
+          message: "Released #{count} stale claims older than #{hours} hours (as of #{older_than})"
         ))
         count
       end
@@ -146,6 +147,19 @@ module Verbena
           age_seconds: age
         }
       end
+    end
+
+    def self.normalize_hours_arg(val)
+      return 1.0 if val.nil? || val.to_s.strip.empty?
+
+      hours = Float(val)
+      raise ArgumentError, 'older_than_hours must be >= 0' if hours.negative?
+
+      hours
+    rescue ArgumentError => e
+      # Float() raises ArgumentError for non-numeric input; re-raise with consistent message
+      raise e if e.message == 'older_than_hours must be >= 0'
+      raise ArgumentError, 'older_than_hours must be a number'
     end
   end
 end

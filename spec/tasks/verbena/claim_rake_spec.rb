@@ -1,92 +1,109 @@
 require 'rails_helper'
 require 'rake'
 
-RSpec.describe 'verbena:claim rake tasks' do
-  let!(:current_time) { Time.zone.parse('2023-10-23 16:00:00') }
-
+RSpec.describe 'verbena:claim tasks' do
   before do
-    travel_to current_time
-    Rake.application.rake_require 'tasks/verbena/claim'
+    Rake.application = Rake::Application.new
+    load Rails.root.join('lib', 'tasks', 'verbena', 'claim.rake')
     Rake::Task.define_task(:environment)
   end
 
-  describe 'verbena:claim:release_stale' do
-    let(:task) { Rake::Task['verbena:claim:release_stale'] }
+  let(:task_release_stale) { Rake::Task['verbena:claim:release_stale'] }
+  let(:task_show_stale) { Rake::Task['verbena:claim:show_stale'] }
 
-    before do
-      task.reenable # タスクを再実行可能にする
-      
-      # テストデータを作成
-      @fresh_record = FactoryBot.create(:mail_queue, session_id: 'fresh', claimed_at: 30.minutes.ago)
-      @stale_record1 = FactoryBot.create(:mail_queue, session_id: 'stale1', claimed_at: 2.hours.ago)
-      @stale_record2 = FactoryBot.create(:mail_queue, session_id: 'stale2', claimed_at: 3.hours.ago)
-      @unclaimed_record = FactoryBot.create(:mail_queue, :untouched)
+  before do
+    task_release_stale.reenable
+    task_show_stale.reenable
+  end
+
+  describe 'release_stale' do
+    it 'prints error and exits when older_than_hours is not numeric' do
+      allow(Kernel).to receive(:exit)
+
+      expect {
+        task_release_stale.invoke('abc')
+      }.to output(/ERROR: release_stale failed/).to_stderr
+
+      expect(Kernel).to have_received(:exit).with(1)
     end
 
-    context 'デフォルト設定（1時間）でドライランの場合' do
-      it 'true を渡すと解放対象の件数のみを表示（変更なし）' do
-        expect { task.invoke(nil, 'true') }.to output(/DRY RUN: Would release 2 stale claims/).to_stdout
-        
-        # レコードは変更されていない
-        @fresh_record.reload
-        @stale_record1.reload
-        @stale_record2.reload
-        
-        expect(@fresh_record.session_id).to eq('fresh')
-        expect(@stale_record1.session_id).to eq('stale1')
-        expect(@stale_record2.session_id).to eq('stale2')
-      end
+    it 'prints error and exits when older_than_hours is negative' do
+      allow(Kernel).to receive(:exit)
 
-      it 'on を渡しても true と同じ挙動（ActiveModel::Boolean）' do
-        task.reenable
-        expect { task.invoke(nil, 'on') }.to output(/DRY RUN: Would release 2 stale claims/).to_stdout
-      end
+      expect {
+        task_release_stale.invoke('-1')
+      }.to output(/ERROR: release_stale failed: ArgumentError: older_than_hours must be >= 0/).to_stderr
+
+      expect(Kernel).to have_received(:exit).with(1)
     end
 
-    context '実際に解放を実行する場合' do
-      it '指定した時間より古い claim を解放する' do
-        task.reenable
-        expect { task.invoke('1.5', 'false') }.to output(/Released 2 stale claims older than 1\.5 hours/).to_stdout
-        
-        # 1.5時間より古いレコードが解放される
-        @fresh_record.reload
-        @stale_record1.reload
-        @stale_record2.reload
-        
-        expect(@fresh_record.session_id).to eq('fresh')  # 30分前なので残る
-        expect(@stale_record1.session_id).to be_nil      # 2時間前なので解放
-        expect(@stale_record2.session_id).to be_nil      # 3時間前なので解放
-      end
+    it 'runs dry-run mode and prints summary' do
+      service = instance_double(Verbena::MailQueuesService, release_stale_claims: 3)
+      allow(Verbena::MailQueuesService).to receive(:new).and_return(service)
+
+      expect {
+        task_release_stale.invoke('2', 'true')
+      }.to output(/DRY RUN: Would release 3 stale claims older than 2.0 hours/).to_stdout
+    end
+
+    it 'runs non-dry mode and prints summary' do
+      service = instance_double(Verbena::MailQueuesService, release_stale_claims: 5)
+      allow(Verbena::MailQueuesService).to receive(:new).and_return(service)
+
+      expect {
+        task_release_stale.invoke('1.5', nil)
+      }.to output(/Released 5 stale claims older than 1.5 hours/).to_stdout
+    end
+
+    it 'prints error and exits when service raises' do
+      service = instance_double(Verbena::MailQueuesService)
+      allow(Verbena::MailQueuesService).to receive(:new).and_return(service)
+      allow(service).to receive(:release_stale_claims).and_raise(StandardError, 'boom')
+      allow(Kernel).to receive(:exit)
+
+      expect {
+        task_release_stale.invoke('1', nil)
+      }.to output(/ERROR: release_stale failed: StandardError: boom/).to_stderr
+
+      expect(Kernel).to have_received(:exit).with(1)
     end
   end
 
-  describe 'verbena:claim:show_stale' do
-    let(:task) { Rake::Task['verbena:claim:show_stale'] }
+  describe 'show_stale' do
+    it 'prints the stale records table' do
+      service = instance_double(Verbena::MailQueuesService)
+      allow(Verbena::MailQueuesService).to receive(:new).and_return(service)
 
-    before do
-      task.reenable
+      claimed_time = Time.utc(2024, 1, 1, 12, 0, 0)
+      allow(service).to receive(:show_stale_claims).and_return([
+        { id: 1, session_id: 'abcdef123456', claimed_at: claimed_time, envelope_to: 'user@example.com', age_seconds: 3661 }
+      ])
+
+      expect {
+        task_show_stale.invoke
+      }.to output(/Found 1 claimed but undelivered records:\nID\tSession ID\tClaimed At\tEnvelope To\tAge\n-+\n1\tabcdef123\.\.\.\t#{Regexp.escape(claimed_time.to_s)}\tuser@example.com\t1h1m1s/).to_stdout
     end
 
-    context 'スタック状態のレコードがある場合' do
-      before do
-        @stale_record = FactoryBot.create(:mail_queue, session_id: 'stale123', 
-                                        claimed_at: 1.hour.ago, envelope_to: 'test@example.com')
-        FactoryBot.create(:mail_queue, :untouched, envelope_to: 'unclaimed@example.com')
-      end
+    it 'prints message when no stale records exist' do
+      service = instance_double(Verbena::MailQueuesService, show_stale_claims: [])
+      allow(Verbena::MailQueuesService).to receive(:new).and_return(service)
 
-      it 'スタック状態のレコード情報を表示する' do
-        expect { task.invoke }.to output(/Found 1 claimed but undelivered records/).to_stdout
-      end
+      expect {
+        task_show_stale.invoke
+      }.to output(/No stale claimed records found\./).to_stdout
     end
 
-    context 'スタック状態のレコードがない場合' do
-      before do
-        FactoryBot.create(:mail_queue, :untouched)
-      end
+    it 'prints error and exits when service raises' do
+      service = instance_double(Verbena::MailQueuesService)
+      allow(Verbena::MailQueuesService).to receive(:new).and_return(service)
+      allow(service).to receive(:show_stale_claims).and_raise(StandardError, 'boom')
+      allow(Kernel).to receive(:exit)
 
-      it '対象レコードなしのメッセージを表示する' do
-        expect { task.invoke }.to output(/No stale claimed records found/).to_stdout
-      end
+      expect {
+        task_show_stale.invoke
+      }.to output(/ERROR: show_stale failed: StandardError: boom/).to_stderr
+
+      expect(Kernel).to have_received(:exit).with(1)
     end
   end
 end
