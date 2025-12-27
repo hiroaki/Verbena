@@ -4,6 +4,7 @@ module Verbena
 
     class NoRecipientsError < StandardError; end
     class NegativeAgeError < StandardError; end
+    class NegativeClaimHoursError < StandardError; end
 
     def initialize(options = {})
       super
@@ -94,7 +95,9 @@ module Verbena
     # @param dry_run [Boolean] true の場合、実際には解放せず、対象レコード数のみ返す
     # @return [Integer] 解放されたレコード数（dry_run の場合は対象レコード数）
     def release_stale_claims(older_than_hours: 1.0, dry_run: false)
-      older_than = older_than_hours.hours.ago
+      hours = self.class.normalize_hours_arg(older_than_hours)
+      raise NegativeClaimHoursError, 'older_than_hours must be >= 0' if hours.negative?
+      older_than = hours.hours.ago
 
       relation = MailQueue.stale_claims_relation(older_than: older_than)
 
@@ -105,7 +108,7 @@ module Verbena
           level: 'info',
           session_id: nil,
           mail_queue_id: nil,
-          message: "DRY RUN: #{count} stale claims would be released (older than #{older_than_hours} hours as of #{older_than})"
+          message: "DRY RUN: #{count} stale claims would be released (older than #{hours} hours as of #{older_than})"
         ))
         count
       else
@@ -115,7 +118,7 @@ module Verbena
           level: 'info',
           session_id: nil,
           mail_queue_id: nil,
-          message: "Released #{count} stale claims older than #{older_than_hours} hours (as of #{older_than})"
+          message: "Released #{count} stale claims older than #{hours} hours (as of #{older_than})"
         ))
         count
       end
@@ -146,6 +149,16 @@ module Verbena
           age_seconds: age
         }
       end
+    end
+
+    # Normalize an "hours" argument.
+    # - nil or blank string => uses default 1.0 hour
+    # - numeric or numeric string (including "0" / 0) => converted via Float(...)
+    # Note: Negative values are allowed here and validated by business logic in `release_stale_claims`.
+    def self.normalize_hours_arg(val)
+      return 1.0 if val.nil?
+      return 1.0 if val.is_a?(String) && val.strip.empty?
+      Float(val)
     end
   end
 end
