@@ -423,7 +423,7 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
           }.to raise_error(Verbena::MailQueuesService::NegativeClaimHoursError, 'older_than_hours must be >= 0')
         end
 
-        it 'normalize_hours_arg は負の値もそのまま返す' do
+        it 'normalize_hours_arg は型変換のみ行い、負値もそのまま返す（負値検証は release_stale_claims 側）' do
           expect(described_class.normalize_hours_arg(-1)).to eq(-1.0)
         end
 

@@ -29,7 +29,7 @@ RSpec.describe 'verbena:claim tasks' do
       }.to raise_error(SystemExit) { |ex|
         expect(ex.status).to eq(1)
       }
-      expect(stderr_output.string).to match(/ERROR: release_stale failed: .*ArgumentError:/)
+      expect(stderr_output.string).to match(/ERROR: release_stale failed: .*ArgumentError/)
     end
 
     it 'prints error and exits when older_than_hours is negative' do
