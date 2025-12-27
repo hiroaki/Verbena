@@ -15,7 +15,7 @@ namespace :verbena do
         else
           puts "Released #{stale_count} stale claims older than #{older_than_hours} #{hour_unit}"
         end
-      rescue => e
+      rescue StandardError => e
         $stderr.puts "ERROR: release_stale failed: #{e.class}: #{e.message}"
         Kernel.exit(1)
       end
@@ -40,7 +40,7 @@ namespace :verbena do
         else
           puts "No stale claimed records found."
         end
-      rescue => e
+      rescue StandardError => e
         $stderr.puts "ERROR: show_stale failed: #{e.class}: #{e.message}"
         Kernel.exit(1)
       end
@@ -52,7 +52,7 @@ namespace :verbena do
 
   def truthy?(val)
     # Rails-native boolean casting: true => 1,true,t,on,yes | false => 0,false,f,off,no
-    BOOLEAN_TYPE.cast(val)
+    BOOLEAN_TYPE.cast(val).presence || false
   end
 
   # Format seconds as human-readable string.

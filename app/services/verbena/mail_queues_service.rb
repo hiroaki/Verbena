@@ -4,6 +4,7 @@ module Verbena
 
     class NoRecipientsError < StandardError; end
     class NegativeAgeError < StandardError; end
+    class NegativeClaimHoursError < StandardError; end
 
     def initialize(options = {})
       super
@@ -95,6 +96,7 @@ module Verbena
     # @return [Integer] 解放されたレコード数（dry_run の場合は対象レコード数）
     def release_stale_claims(older_than_hours: 1.0, dry_run: false)
       hours = self.class.normalize_hours_arg(older_than_hours)
+      raise NegativeClaimHoursError, 'older_than_hours must be >= 0' if hours.negative?
       older_than = hours.hours.ago
 
       relation = MailQueue.stale_claims_relation(older_than: older_than)
@@ -151,15 +153,7 @@ module Verbena
 
     def self.normalize_hours_arg(val)
       return 1.0 if val.nil? || val.to_s.strip.empty?
-
-      hours = Float(val)
-      raise ArgumentError, 'older_than_hours must be >= 0' if hours.negative?
-
-      hours
-    rescue ArgumentError => e
-      # Float() raises ArgumentError for non-numeric input; re-raise with consistent message
-      raise e if e.message == 'older_than_hours must be >= 0'
-      raise ArgumentError, 'older_than_hours must be a number'
+      Float(val)
     end
   end
 end

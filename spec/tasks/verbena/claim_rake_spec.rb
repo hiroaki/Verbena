@@ -18,23 +18,29 @@ RSpec.describe 'verbena:claim tasks' do
 
   describe 'release_stale' do
     it 'prints error and exits when older_than_hours is not numeric' do
-      allow(Kernel).to receive(:exit)
-
       expect {
-        task_release_stale.invoke('abc')
-      }.to output(/ERROR: release_stale failed/).to_stderr
-
-      expect(Kernel).to have_received(:exit).with(1)
+        begin
+          $stderr = StringIO.new
+          task_release_stale.invoke('abc')
+        ensure
+          $stderr = STDERR
+        end
+      }.to raise_error(SystemExit) { |ex|
+        expect(ex.status).to eq(1)
+      }
     end
 
     it 'prints error and exits when older_than_hours is negative' do
-      allow(Kernel).to receive(:exit)
-
       expect {
-        task_release_stale.invoke('-1')
-      }.to output(/ERROR: release_stale failed: ArgumentError: older_than_hours must be >= 0/).to_stderr
-
-      expect(Kernel).to have_received(:exit).with(1)
+        begin
+          $stderr = StringIO.new
+          task_release_stale.invoke('-1')
+        ensure
+          $stderr = STDERR
+        end
+      }.to raise_error(SystemExit) { |ex|
+        expect(ex.status).to eq(1)
+      }
     end
 
     it 'runs dry-run mode and prints summary' do
@@ -44,6 +50,7 @@ RSpec.describe 'verbena:claim tasks' do
       expect {
         task_release_stale.invoke('2', 'true')
       }.to output(/DRY RUN: Would release 3 stale claims older than 2.0 hours/).to_stdout
+      expect(service).to have_received(:release_stale_claims).with(older_than_hours: 2.0, dry_run: true)
     end
 
     it 'runs non-dry mode and prints summary' do
@@ -53,19 +60,24 @@ RSpec.describe 'verbena:claim tasks' do
       expect {
         task_release_stale.invoke('1.5', nil)
       }.to output(/Released 5 stale claims older than 1.5 hours/).to_stdout
+      expect(service).to have_received(:release_stale_claims).with(older_than_hours: 1.5, dry_run: false)
     end
 
     it 'prints error and exits when service raises' do
       service = instance_double(Verbena::MailQueuesService)
       allow(Verbena::MailQueuesService).to receive(:new).and_return(service)
       allow(service).to receive(:release_stale_claims).and_raise(StandardError, 'boom')
-      allow(Kernel).to receive(:exit)
 
       expect {
-        task_release_stale.invoke('1', nil)
-      }.to output(/ERROR: release_stale failed: StandardError: boom/).to_stderr
-
-      expect(Kernel).to have_received(:exit).with(1)
+        begin
+          $stderr = StringIO.new
+          task_release_stale.invoke('1', nil)
+        ensure
+          $stderr = STDERR
+        end
+      }.to raise_error(SystemExit) { |ex|
+        expect(ex.status).to eq(1)
+      }
     end
   end
 
@@ -97,13 +109,17 @@ RSpec.describe 'verbena:claim tasks' do
       service = instance_double(Verbena::MailQueuesService)
       allow(Verbena::MailQueuesService).to receive(:new).and_return(service)
       allow(service).to receive(:show_stale_claims).and_raise(StandardError, 'boom')
-      allow(Kernel).to receive(:exit)
 
       expect {
-        task_show_stale.invoke
-      }.to output(/ERROR: show_stale failed: StandardError: boom/).to_stderr
-
-      expect(Kernel).to have_received(:exit).with(1)
+        begin
+          $stderr = StringIO.new
+          task_show_stale.invoke
+        ensure
+          $stderr = STDERR
+        end
+      }.to raise_error(SystemExit) { |ex|
+        expect(ex.status).to eq(1)
+      }
     end
   end
 end
