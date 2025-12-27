@@ -151,8 +151,13 @@ module Verbena
       end
     end
 
+    # Normalize an "hours" argument.
+    # - nil or blank string => uses default 1.0 hour
+    # - numeric or numeric string (including "0" / 0) => converted via Float(...)
+    # Note: Negative values are allowed here and validated by business logic in `release_stale_claims`.
     def self.normalize_hours_arg(val)
-      return 1.0 if val.nil? || val.to_s.strip.empty?
+      return 1.0 if val.nil?
+      return 1.0 if val.is_a?(String) && val.strip.empty?
       Float(val)
     end
   end

@@ -52,7 +52,7 @@ namespace :verbena do
 
   def truthy?(val)
     # Rails-native boolean casting: true => 1,true,t,on,yes | false => 0,false,f,off,no
-    BOOLEAN_TYPE.cast(val).presence || false
+    !!BOOLEAN_TYPE.cast(val)
   end
 
   # Format seconds as human-readable string.

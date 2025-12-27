@@ -18,9 +18,10 @@ RSpec.describe 'verbena:claim tasks' do
 
   describe 'release_stale' do
     it 'prints error and exits when older_than_hours is not numeric' do
+      stderr_output = StringIO.new
       expect {
         begin
-          $stderr = StringIO.new
+          $stderr = stderr_output
           task_release_stale.invoke('abc')
         ensure
           $stderr = STDERR
@@ -28,12 +29,14 @@ RSpec.describe 'verbena:claim tasks' do
       }.to raise_error(SystemExit) { |ex|
         expect(ex.status).to eq(1)
       }
+      expect(stderr_output.string).to match(/ERROR: release_stale failed: .*ArgumentError:/)
     end
 
     it 'prints error and exits when older_than_hours is negative' do
+      stderr_output = StringIO.new
       expect {
         begin
-          $stderr = StringIO.new
+          $stderr = stderr_output
           task_release_stale.invoke('-1')
         ensure
           $stderr = STDERR
@@ -41,6 +44,7 @@ RSpec.describe 'verbena:claim tasks' do
       }.to raise_error(SystemExit) { |ex|
         expect(ex.status).to eq(1)
       }
+      expect(stderr_output.string).to match(/ERROR: release_stale failed: .*NegativeClaimHoursError: older_than_hours must be >= 0/)
     end
 
     it 'runs dry-run mode and prints summary' do
@@ -68,9 +72,10 @@ RSpec.describe 'verbena:claim tasks' do
       allow(Verbena::MailQueuesService).to receive(:new).and_return(service)
       allow(service).to receive(:release_stale_claims).and_raise(StandardError, 'boom')
 
+      stderr_output = StringIO.new
       expect {
         begin
-          $stderr = StringIO.new
+          $stderr = stderr_output
           task_release_stale.invoke('1', nil)
         ensure
           $stderr = STDERR
@@ -78,6 +83,7 @@ RSpec.describe 'verbena:claim tasks' do
       }.to raise_error(SystemExit) { |ex|
         expect(ex.status).to eq(1)
       }
+      expect(stderr_output.string).to match(/ERROR: release_stale failed: StandardError: boom/)
     end
   end
 
@@ -91,9 +97,17 @@ RSpec.describe 'verbena:claim tasks' do
         { id: 1, session_id: 'abcdef123456', claimed_at: claimed_time, envelope_to: 'user@example.com', age_seconds: 3661 }
       ])
 
-      expect {
+      stdout_output = StringIO.new
+      begin
+        $stdout = stdout_output
         task_show_stale.invoke
-      }.to output(/Found 1 claimed but undelivered records:\nID\tSession ID\tClaimed At\tEnvelope To\tAge\n-+\n1\tabcdef123\.\.\.\t#{Regexp.escape(claimed_time.to_s)}\tuser@example.com\t1h1m1s/).to_stdout
+      ensure
+        $stdout = STDOUT
+      end
+      expect(stdout_output.string).to match(/Found 1 claimed but undelivered records:/)
+      expect(stdout_output.string).to match(/ID\tSession ID\tClaimed At\tEnvelope To\tAge/)
+      expect(stdout_output.string).to match(/-+/)
+      expect(stdout_output.string).to match(/1\tabcdef123\.\.\.\t#{Regexp.escape(claimed_time.to_s)}\tuser@example.com\t1h1m1s/)
     end
 
     it 'prints message when no stale records exist' do
@@ -110,9 +124,10 @@ RSpec.describe 'verbena:claim tasks' do
       allow(Verbena::MailQueuesService).to receive(:new).and_return(service)
       allow(service).to receive(:show_stale_claims).and_raise(StandardError, 'boom')
 
+      stderr_output = StringIO.new
       expect {
         begin
-          $stderr = StringIO.new
+          $stderr = stderr_output
           task_show_stale.invoke
         ensure
           $stderr = STDERR
@@ -120,6 +135,7 @@ RSpec.describe 'verbena:claim tasks' do
       }.to raise_error(SystemExit) { |ex|
         expect(ex.status).to eq(1)
       }
+      expect(stderr_output.string).to match(/ERROR: show_stale failed: StandardError: boom/)
     end
   end
 end
