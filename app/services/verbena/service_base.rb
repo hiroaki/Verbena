@@ -44,8 +44,8 @@ module Verbena
     # Coerce various input values to boolean using Rails casting rules.
     # Useful for web params and rake args ("1", "true", "t", "yes", etc.).
     def self.truthy?(val)
-      @boolean_type ||= ActiveModel::Type::Boolean.new
-      !!@boolean_type.cast(val)
+      # ActiveModel::Type::Boolean.new is lightweight; instantiate per-call
+      !!ActiveModel::Type::Boolean.new.cast(val)
     end
 
     # Instance-level convenience delegating to the class method

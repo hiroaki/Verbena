@@ -24,14 +24,21 @@ RSpec.describe 'verbena:cleanup tasks' do
 
   shared_examples 'cleanup error handling' do |task|
     it 'prints error and calls exit when service raises' do
-      allow(Kernel).to receive(:exit)
       allow_any_instance_of(Verbena::CleanupService).to receive(:cleanup).and_raise(StandardError, 'test error')
 
+      stderr_output = StringIO.new
       expect {
-        send(task).invoke
-      }.to output(/ERROR: .* failed: StandardError: test error/).to_stderr
+        begin
+          $stderr = stderr_output
+          send(task).invoke
+        ensure
+          $stderr = STDERR
+        end
+      }.to raise_error(SystemExit) { |ex|
+        expect(ex.status).to eq(1)
+      }
 
-      expect(Kernel).to have_received(:exit).with(1)
+      expect(stderr_output.string).to match(/ERROR: .* failed: StandardError: test error/)
     end
   end
 
