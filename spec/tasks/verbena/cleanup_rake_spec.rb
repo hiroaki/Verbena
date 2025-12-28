@@ -22,9 +22,11 @@ RSpec.describe 'verbena:cleanup tasks' do
     task_by_ttl.reenable
   end
 
-  shared_examples 'cleanup error handling' do |task|
-    it 'prints error and calls exit when service raises' do
-      allow_any_instance_of(Verbena::CleanupService).to receive(:cleanup).and_raise(StandardError, 'test error')
+  shared_examples 'cleanup error handling' do |task, factory|
+    it 'prints error and exits when service raises' do
+      service = instance_double(Verbena::CleanupService)
+      allow(Verbena::CleanupService).to receive(factory).and_return(service)
+      allow(service).to receive(:cleanup).and_raise(StandardError, 'test error')
 
       stderr_output = StringIO.new
       expect {
@@ -43,9 +45,12 @@ RSpec.describe 'verbena:cleanup tasks' do
   end
 
   describe 'monthly' do
-    include_examples 'cleanup error handling', :task_monthly
+    include_examples 'cleanup error handling', :task_monthly, :monthly
     it 'prints result on success' do
-      allow_any_instance_of(Verbena::CleanupService).to receive(:cleanup).and_return({ mail_queues: 2, eml_sources: 1 })
+      service = instance_double(Verbena::CleanupService)
+      allow(Verbena::CleanupService).to receive(:monthly).and_return(service)
+      allow(service).to receive(:cleanup).and_return({ mail_queues: 2, eml_sources: 1 })
+
       expect {
         task_monthly.invoke
       }.to output(/mail_queues=2 eml_sources=1/).to_stdout
@@ -53,9 +58,12 @@ RSpec.describe 'verbena:cleanup tasks' do
   end
 
   describe 'weekly' do
-    include_examples 'cleanup error handling', :task_weekly
+    include_examples 'cleanup error handling', :task_weekly, :weekly
     it 'prints result on success' do
-      allow_any_instance_of(Verbena::CleanupService).to receive(:cleanup).and_return({ mail_queues: 3, eml_sources: 0 })
+      service = instance_double(Verbena::CleanupService)
+      allow(Verbena::CleanupService).to receive(:weekly).and_return(service)
+      allow(service).to receive(:cleanup).and_return({ mail_queues: 3, eml_sources: 0 })
+
       expect {
         task_weekly.invoke
       }.to output(/mail_queues=3 eml_sources=0/).to_stdout
@@ -63,9 +71,12 @@ RSpec.describe 'verbena:cleanup tasks' do
   end
 
   describe 'daily' do
-    include_examples 'cleanup error handling', :task_daily
+    include_examples 'cleanup error handling', :task_daily, :daily
     it 'prints result on success' do
-      allow_any_instance_of(Verbena::CleanupService).to receive(:cleanup).and_return({ mail_queues: 1, eml_sources: 2 })
+      service = instance_double(Verbena::CleanupService)
+      allow(Verbena::CleanupService).to receive(:daily).and_return(service)
+      allow(service).to receive(:cleanup).and_return({ mail_queues: 1, eml_sources: 2 })
+
       expect {
         task_daily.invoke
       }.to output(/mail_queues=1 eml_sources=2/).to_stdout
@@ -73,9 +84,12 @@ RSpec.describe 'verbena:cleanup tasks' do
   end
 
   describe 'now' do
-    include_examples 'cleanup error handling', :task_now
+    include_examples 'cleanup error handling', :task_now, :new
     it 'prints result on success' do
-      allow_any_instance_of(Verbena::CleanupService).to receive(:cleanup).and_return({ mail_queues: 5, eml_sources: 4 })
+      service = instance_double(Verbena::CleanupService)
+      allow(Verbena::CleanupService).to receive(:new).and_return(service)
+      allow(service).to receive(:cleanup).and_return({ mail_queues: 5, eml_sources: 4 })
+
       expect {
         task_now.invoke
       }.to output(/mail_queues=5 eml_sources=4/).to_stdout
@@ -83,9 +97,12 @@ RSpec.describe 'verbena:cleanup tasks' do
   end
 
   describe 'by_ttl' do
-    include_examples 'cleanup error handling', :task_by_ttl
+    include_examples 'cleanup error handling', :task_by_ttl, :by_ttl
     it 'prints result on success' do
-      allow_any_instance_of(Verbena::CleanupService).to receive(:cleanup).and_return({ mail_queues: 7, eml_sources: 8 })
+      service = instance_double(Verbena::CleanupService)
+      allow(Verbena::CleanupService).to receive(:by_ttl).and_return(service)
+      allow(service).to receive(:cleanup).and_return({ mail_queues: 7, eml_sources: 8 })
+
       expect {
         task_by_ttl.invoke
       }.to output(/mail_queues=7 eml_sources=8/).to_stdout
