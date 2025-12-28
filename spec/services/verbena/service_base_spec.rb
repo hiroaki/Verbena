@@ -67,4 +67,20 @@ RSpec.describe Verbena::ServiceBase, type: :service do
       expect(service.json_logging_enabled?).to be false
     end
   end
+
+  describe '.truthy? / #truthy?' do
+    it 'returns true for common truthy values' do
+      %w[1 true yes y t on n no].each do |v|
+        expect(described_class.truthy?(v)).to be true
+        expect(service.truthy?(v)).to be true
+      end
+    end
+
+    it 'returns false for common falsy values' do
+      [nil, '', '0', 'false', 'off', 'f'].each do |v|
+        expect(described_class.truthy?(v)).to be false
+        expect(service.truthy?(v)).to be false
+      end
+    end
+  end
 end

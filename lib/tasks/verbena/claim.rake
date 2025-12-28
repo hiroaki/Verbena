@@ -4,7 +4,7 @@ namespace :verbena do
     task :release_stale, [:older_than_hours, :dry] => :environment do |_task, args|
       begin
         older_than_hours = Verbena::MailQueuesService.normalize_hours_arg(args[:older_than_hours])
-        dry_run = truthy?(args[:dry])
+        dry_run = Verbena::ServiceBase.truthy?(args[:dry])
 
         service = Verbena::MailQueuesService.new
         stale_count = service.release_stale_claims(older_than_hours: older_than_hours, dry_run: dry_run)
@@ -45,14 +45,6 @@ namespace :verbena do
         Kernel.exit(1)
       end
     end
-  end
-
-  # Rake helper methods (local to this file)
-  BOOLEAN_TYPE ||= ActiveModel::Type::Boolean.new
-
-  def truthy?(val)
-    # Rails-native boolean casting: true => 1,true,t,on,yes | false => 0,false,f,off,no
-    !!BOOLEAN_TYPE.cast(val)
   end
 
   # Format seconds as human-readable string.

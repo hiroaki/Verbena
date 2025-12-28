@@ -1,0 +1,111 @@
+require 'rails_helper'
+require 'rake'
+
+RSpec.describe 'verbena:cleanup tasks' do
+  before do
+    Rake.application = Rake::Application.new
+    load Rails.root.join('lib', 'tasks', 'verbena', 'cleanup.rake')
+    Rake::Task.define_task(:environment)
+  end
+
+  let(:task_monthly) { Rake::Task['verbena:cleanup:monthly'] }
+  let(:task_weekly)  { Rake::Task['verbena:cleanup:weekly'] }
+  let(:task_daily)   { Rake::Task['verbena:cleanup:daily'] }
+  let(:task_now)     { Rake::Task['verbena:cleanup:now'] }
+  let(:task_by_ttl)  { Rake::Task['verbena:cleanup:by_ttl'] }
+
+  before do
+    task_monthly.reenable
+    task_weekly.reenable
+    task_daily.reenable
+    task_now.reenable
+    task_by_ttl.reenable
+  end
+
+  shared_examples 'cleanup error handling' do |task, factory|
+    it 'prints error and exits when service raises' do
+      service = instance_double(Verbena::CleanupService)
+      allow(Verbena::CleanupService).to receive(factory).and_return(service)
+      allow(service).to receive(:cleanup).and_raise(StandardError, 'test error')
+
+      stderr_output = StringIO.new
+      expect {
+        begin
+          $stderr = stderr_output
+          send(task).invoke
+        ensure
+          $stderr = STDERR
+        end
+      }.to raise_error(SystemExit) { |ex|
+        expect(ex.status).to eq(1)
+      }
+
+      expect(stderr_output.string).to match(/ERROR: .* failed: StandardError: test error/)
+    end
+  end
+
+  describe 'monthly' do
+    include_examples 'cleanup error handling', :task_monthly, :monthly
+    it 'prints result on success' do
+      service = instance_double(Verbena::CleanupService)
+      allow(Verbena::CleanupService).to receive(:monthly).and_return(service)
+      allow(service).to receive(:cleanup).and_return({ mail_queues: 2, eml_sources: 1 })
+
+      expect {
+        task_monthly.invoke
+      }.to output(/mail_queues=2 eml_sources=1/).to_stdout
+    end
+  end
+
+  describe 'weekly' do
+    include_examples 'cleanup error handling', :task_weekly, :weekly
+    it 'prints result on success' do
+      service = instance_double(Verbena::CleanupService)
+      allow(Verbena::CleanupService).to receive(:weekly).and_return(service)
+      allow(service).to receive(:cleanup).and_return({ mail_queues: 3, eml_sources: 0 })
+
+      expect {
+        task_weekly.invoke
+      }.to output(/mail_queues=3 eml_sources=0/).to_stdout
+    end
+  end
+
+  describe 'daily' do
+    include_examples 'cleanup error handling', :task_daily, :daily
+    it 'prints result on success' do
+      service = instance_double(Verbena::CleanupService)
+      allow(Verbena::CleanupService).to receive(:daily).and_return(service)
+      allow(service).to receive(:cleanup).and_return({ mail_queues: 1, eml_sources: 2 })
+
+      expect {
+        task_daily.invoke
+      }.to output(/mail_queues=1 eml_sources=2/).to_stdout
+    end
+  end
+
+  describe 'now' do
+    include_examples 'cleanup error handling', :task_now, :new
+    it 'prints result on success' do
+      service = instance_double(Verbena::CleanupService)
+      allow(Verbena::CleanupService).to receive(:new).and_return(service)
+      allow(service).to receive(:cleanup).and_return({ mail_queues: 5, eml_sources: 4 })
+
+      expect {
+        task_now.invoke
+      }.to output(/mail_queues=5 eml_sources=4/).to_stdout
+    end
+  end
+
+  describe 'by_ttl' do
+    include_examples 'cleanup error handling', :task_by_ttl, :by_ttl
+    it 'prints result on success' do
+      service = instance_double(Verbena::CleanupService)
+      allow(Verbena::CleanupService).to receive(:by_ttl).and_return(service)
+      allow(service).to receive(:cleanup).and_return({ mail_queues: 7, eml_sources: 8 })
+
+      expect {
+        task_by_ttl.invoke
+      }.to output(/mail_queues=7 eml_sources=8/).to_stdout
+    end
+  end
+end
