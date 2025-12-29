@@ -16,7 +16,8 @@ RSpec.describe 'verbena:tokens tasks' do
 
   describe 'revoke_expired' do
     it 'prints dry run summary when dry flag is truthy' do
-      allow_any_instance_of(Verbena::TokenService).to receive(:expired_count).and_return(7)
+      service_double = instance_double(Verbena::TokenService, expired_count: 7)
+      allow(Verbena::TokenService).to receive(:new).and_return(service_double)
 
       expect {
         task_revoke.invoke('1')
@@ -24,7 +25,8 @@ RSpec.describe 'verbena:tokens tasks' do
     end
 
     it 'prints revoked count on success' do
-      allow_any_instance_of(Verbena::TokenService).to receive(:revoke_expired!).and_return(3)
+      service_double = instance_double(Verbena::TokenService, revoke_expired!: 3)
+      allow(Verbena::TokenService).to receive(:new).and_return(service_double)
 
       expect {
         task_revoke.invoke(nil)
@@ -33,7 +35,9 @@ RSpec.describe 'verbena:tokens tasks' do
 
     it 'prints error and calls exit on service error' do
       allow(Kernel).to receive(:exit)
-      allow_any_instance_of(Verbena::TokenService).to receive(:revoke_expired).and_raise('boom')
+      service_double = instance_double(Verbena::TokenService)
+      allow(service_double).to receive(:revoke_expired!).and_raise('boom')
+      allow(Verbena::TokenService).to receive(:new).and_return(service_double)
 
       expect {
         task_revoke.invoke(nil)
