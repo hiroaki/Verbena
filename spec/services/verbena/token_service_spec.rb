@@ -10,7 +10,7 @@ RSpec.describe Verbena::TokenService, type: :service do
 
     context 'dry run' do
       it 'returns count and does not revoke' do
-        expect(service.revoke_expired(dry_run: true)).to eq(1)
+        expect(service.expired_count).to eq(1)
         expect(expired_token.reload.revoked_at).to be_nil
         expect(active_token.reload.revoked_at).to be_nil
       end
@@ -18,7 +18,7 @@ RSpec.describe Verbena::TokenService, type: :service do
 
     context 'execute' do
       it 'revokes only expired tokens and returns count' do
-        expect(service.revoke_expired(dry_run: false)).to eq(1)
+        expect(service.revoke_expired!).to eq(1)
         expect(expired_token.reload.revoked_at).not_to be_nil
         expect(active_token.reload.revoked_at).to be_nil
       end
@@ -29,10 +29,10 @@ RSpec.describe Verbena::TokenService, type: :service do
 
       it 'does not count or revoke already-revoked tokens' do
         # dry run should still only count the non-revoked expired token
-        expect(service.revoke_expired(dry_run: true)).to eq(1)
+        expect(service.expired_count).to eq(1)
 
         # execute should revoke only the non-revoked expired token
-        result = service.revoke_expired(dry_run: false)
+        result = service.revoke_expired!
         expect(result).to eq(1)
 
         # ensure the already-revoked token remains revoked and untouched
@@ -54,7 +54,7 @@ RSpec.describe Verbena::TokenService, type: :service do
         allow(Token).to receive(:expired).and_return(relation)
         allow(relation).to receive(:find_in_batches).and_yield([token_error, token_success, expired_token])
 
-        result = service.revoke_expired(dry_run: false)
+        result = service.revoke_expired!
 
         # The service should return the number of tokens it actually revoked.
         actual_revoked_count = [token_error, token_success, expired_token].count { |t| t.reload.revoked_at.present? }
