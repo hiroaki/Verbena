@@ -4,6 +4,19 @@ Verbena アプリケーションの設定に用いられる環境変数を説明
 
 開発者向けの情報として、詳細な挙動や型、値の正規化については `config/initializers/verbena_env.rb` を参照してください。
 
+## データベース設定
+
+データベース接続情報は Rails の [config/database.yml](../config/database.yml) で参照されます。
+
+| 変数名 | 用途 | 必須/任意 | 既定値 | 説明 |
+|--------|------|-----------|--------|------|
+| VERBENA_DATABASE_USER | DBユーザー | 本番必須 | なし | DB接続ユーザー名 |
+| VERBENA_DATABASE_PASSWORD | DBパスワード | 本番必須 | なし | DB接続パスワード |
+
+開発環境（Docker Compose）では `VERBENA_DATABASE_*` が未設定の場合、`config/database.yml` の設定により `MYSQL_USER` / `MYSQL_PASSWORD` にフォールバックします。
+
+**注意**: 本番環境や Docker Compose を使わない環境などで initdb スクリプトを使わない場合は、アプリ側の DB 接続情報として `VERBENA_DATABASE_USER` / `VERBENA_DATABASE_PASSWORD` を設定してください。
+
 ## 配送設定
 
 ### 基本設定

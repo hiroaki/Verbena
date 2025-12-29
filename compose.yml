@@ -24,6 +24,8 @@ services:
     depends_on:
       - db
     environment:
+      MYSQL_USER: ${MYSQL_USER:-railsuser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-railspass}
       VERBENA_DELIVERY_METHOD: smtp
       VERBENA_DELIVERY_SMTP_DOMAIN: localdomain
       VERBENA_DELIVERY_SMTP_AUTHENTICATION: plain

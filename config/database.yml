@@ -13,8 +13,8 @@ default: &default
   adapter: mysql2
   encoding: utf8mb4
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
-  username: railsuser
-  password: railspass
+  username: <%= ENV.fetch("VERBENA_DATABASE_USER") { ENV.fetch("MYSQL_USER") } %>
+  password: <%= ENV.fetch("VERBENA_DATABASE_PASSWORD") { ENV.fetch("MYSQL_PASSWORD") } %>
   host: db
   init_command: "SET time_zone = '+00:00'"
 
@@ -52,5 +52,5 @@ test:
 production:
   <<: *default
   database: verbena_production
-  username: verbena
+  username: <%= ENV["VERBENA_DATABASE_USER"] %>
   password: <%= ENV["VERBENA_DATABASE_PASSWORD"] %>
