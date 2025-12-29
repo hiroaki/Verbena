@@ -5,7 +5,7 @@ namespace :verbena do
       begin
         mail_queues = Verbena::MailQueuesService.new.create_mail_queues_from_file!(args[:eml])
         puts "Successfully added #{mail_queues.size} mail_queue(s) from #{args[:eml]}"
-      rescue => e
+      rescue StandardError => e
         $stderr.puts "ERROR: add failed: #{e.class}: #{e.message}"
         Kernel.exit(1)
       end
@@ -16,7 +16,7 @@ namespace :verbena do
       begin
         mail_queue = Verbena::MailQueuesService.new.create_mail_queue_from_file_with_envelope!(args[:eml], args[:envelope_from], args[:envelope_to], args.extras.first.presence)
         puts "Successfully added mail_queue (#{mail_queue.id}) with envelope from #{args[:envelope_from]} to #{args[:envelope_to]}"
-      rescue => e
+      rescue StandardError => e
         $stderr.puts "ERROR: add_raw failed: #{e.class}: #{e.message}"
         Kernel.exit(1)
       end
@@ -27,7 +27,7 @@ namespace :verbena do
       begin
         Verbena::MailQueuesService.new.destroy_mail_queue_by_id!(args[:mail_queue_id])
         puts "Deleted mail_queue id=#{args[:mail_queue_id]}"
-      rescue => e
+      rescue StandardError => e
         $stderr.puts "ERROR: delete failed: #{e.class}: #{e.message}"
         Kernel.exit(1)
       end

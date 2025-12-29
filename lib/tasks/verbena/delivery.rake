@@ -4,7 +4,7 @@ namespace :verbena do
     task by_timer: :environment  do |_task, args|
       begin
         Verbena::DeliveryService.new.perform_by_timer
-      rescue => e
+      rescue StandardError => e
         $stderr.puts "ERROR: by_timer failed: #{e.class}: #{e.message}"
         Kernel.exit(1)
       end
@@ -14,7 +14,7 @@ namespace :verbena do
     task by_ids: :environment  do |_task, args|
       begin
         Verbena::DeliveryService.new.perform_by_mail_queue_id(args.extras)
-      rescue => e
+      rescue StandardError => e
         $stderr.puts "ERROR: by_ids failed: #{e.class}: #{e.message}"
         Kernel.exit(1)
       end
@@ -25,7 +25,7 @@ namespace :verbena do
       begin
         count = Verbena::DeliveryService.with_session(args[:session_id]).prepare_to_retry_for_session(args.extras.first)
         puts "prepare_retry: reset #{count} mail_queues for session_id=#{args[:session_id]}"
-      rescue => e
+      rescue StandardError => e
         $stderr.puts "ERROR: prepare_retry failed: #{e.class}: #{e.message}"
         Kernel.exit(1)
       end
@@ -36,7 +36,7 @@ namespace :verbena do
       begin
         count = Verbena::DeliveryService.with_session(args[:session_id]).prepare_to_retry_undelivered
         puts "reset_undelivered: reset #{count} mail_queues for session_id=#{args[:session_id]}"
-      rescue => e
+      rescue StandardError => e
         $stderr.puts "ERROR: reset_undelivered failed: #{e.class}: #{e.message}"
         Kernel.exit(1)
       end
