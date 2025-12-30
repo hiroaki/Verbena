@@ -95,50 +95,33 @@ module Verbena
     # @param dry_run [Boolean] true の場合、実際には解放せず、対象レコード数のみ返す
     # @return [Integer] 解放されたレコード数（dry_run の場合は対象レコード数）
     # Public thin wrappers to avoid callers accidentally passing `dry_run` incorrectly.
-    # - `count_stale_claims` returns the count of candidates without performing updates.
-    # - `release_stale_claims!` performs the release and returns the number of updated rows.
-    def count_stale_claims(older_than_hours: nil)
+    #
+    # count_stale_claims(older_than_hours: 1.0) -> Integer
+    #  - Purpose: Return the number of stale claimed MailQueue records that would be
+    #    released if executed. This is a safe, read-only operation used for dry-run
+    #    checks and reporting.
+    #  - Parameters:
+    #    - older_than_hours [Float] Threshold in hours; records claimed at or before
+    #      `Time.current - older_than_hours.hours` are considered stale. Defaults to 1.0.
+    #  - Returns: Integer count of matching records.
+    #  - Exceptions: May raise ArgumentError if `older_than_hours` cannot be coerced to Float,
+    #    or NegativeClaimHoursError if a negative number is provided.
+    def count_stale_claims(older_than_hours: 1.0)
       release_stale_claims(older_than_hours: older_than_hours, dry_run: true)
     end
 
-    def release_stale_claims!(older_than_hours: nil)
+    # release_stale_claims!(older_than_hours: 1.0) -> Integer
+    #  - Purpose: Mutating operation that releases (clears `session_id` and `claimed_at`)
+    #    stale claimed MailQueue records. Use with care; this performs an UPDATE.
+    #  - Parameters:
+    #    - older_than_hours [Float] Threshold in hours; records claimed at or before
+    #      `Time.current - older_than_hours.hours` are released. Defaults to 1.0.
+    #  - Returns: Integer number of rows updated (released).
+    #  - Exceptions: May raise ArgumentError for invalid numeric input, or
+    #    NegativeClaimHoursError if a negative number is provided.
+    def release_stale_claims!(older_than_hours: 1.0)
       release_stale_claims(older_than_hours: older_than_hours, dry_run: false)
     end
-
-    private
-
-    # Core implementation — kept private to force callers to use thin, explicit wrappers above.
-    def release_stale_claims(older_than_hours: 1.0, dry_run: false)
-      hours = self.class.normalize_hours_arg(older_than_hours)
-      raise NegativeClaimHoursError, 'older_than_hours must be >= 0' if hours.negative?
-      older_than = hours.hours.ago
-
-      relation = MailQueue.stale_claims_relation(older_than: older_than)
-
-      if dry_run
-        count = relation.count
-        logger.info(structured_log(
-          event: 'mail_queues.dry_run',
-          level: 'info',
-          session_id: nil,
-          mail_queue_id: nil,
-          message: "DRY RUN: #{count} stale claims would be released (older than #{hours} hours as of #{older_than})"
-        ))
-        count
-      else
-        count = relation.update_all(session_id: nil, claimed_at: nil, updated_at: Time.current)
-        logger.info(structured_log(
-          event: 'mail_queues.release',
-          level: 'info',
-          session_id: nil,
-          mail_queue_id: nil,
-          message: "Released #{count} stale claims older than #{hours} hours (as of #{older_than})"
-        ))
-        count
-      end
-    end
-
-    public
 
     # 現在 claim されているが配送結果がないレコードの情報を取得する
     #
@@ -175,6 +158,39 @@ module Verbena
       return 1.0 if val.nil?
       return 1.0 if val.is_a?(String) && val.strip.empty?
       Float(val)
+    end
+
+    private
+
+    # Core implementation — kept private to force callers to use thin, explicit wrappers above.
+    def release_stale_claims(older_than_hours: 1.0, dry_run: false)
+      hours = self.class.normalize_hours_arg(older_than_hours)
+      raise NegativeClaimHoursError, 'older_than_hours must be >= 0' if hours.negative?
+      older_than = hours.hours.ago
+
+      relation = MailQueue.stale_claims_relation(older_than: older_than)
+
+      if dry_run
+        count = relation.count
+        logger.info(structured_log(
+          event: 'mail_queues.dry_run',
+          level: 'info',
+          session_id: nil,
+          mail_queue_id: nil,
+          message: "DRY RUN: #{count} stale claims would be released (older than #{hours} hours as of #{older_than})"
+        ))
+        count
+      else
+        count = relation.update_all(session_id: nil, claimed_at: nil, updated_at: Time.current)
+        logger.info(structured_log(
+          event: 'mail_queues.release',
+          level: 'info',
+          session_id: nil,
+          mail_queue_id: nil,
+          message: "Released #{count} stale claims older than #{hours} hours (as of #{older_than})"
+        ))
+        count
+      end
     end
   end
 end
