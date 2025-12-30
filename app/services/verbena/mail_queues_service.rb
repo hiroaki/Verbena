@@ -94,6 +94,20 @@ module Verbena
     # @param older_than_hours [Float] この時間より前に claim されたレコードを対象とする（時間単位）
     # @param dry_run [Boolean] true の場合、実際には解放せず、対象レコード数のみ返す
     # @return [Integer] 解放されたレコード数（dry_run の場合は対象レコード数）
+    # Public thin wrappers to avoid callers accidentally passing `dry_run` incorrectly.
+    # - `count_stale_claims` returns the count of candidates without performing updates.
+    # - `release_stale_claims!` performs the release and returns the number of updated rows.
+    def count_stale_claims(older_than_hours: nil)
+      release_stale_claims(older_than_hours: older_than_hours, dry_run: true)
+    end
+
+    def release_stale_claims!(older_than_hours: nil)
+      release_stale_claims(older_than_hours: older_than_hours, dry_run: false)
+    end
+
+    private
+
+    # Core implementation — kept private to force callers to use thin, explicit wrappers above.
     def release_stale_claims(older_than_hours: 1.0, dry_run: false)
       hours = self.class.normalize_hours_arg(older_than_hours)
       raise NegativeClaimHoursError, 'older_than_hours must be >= 0' if hours.negative?
@@ -123,6 +137,8 @@ module Verbena
         count
       end
     end
+
+    public
 
     # 現在 claim されているが配送結果がないレコードの情報を取得する
     #

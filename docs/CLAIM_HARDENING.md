@@ -152,10 +152,10 @@ relation = MailQueue.stale_claims_relation(older_than: 1.hour.ago)
 
 # Release via service (returns updated row count)
 service = Verbena::MailQueuesService.new
-changed = service.release_stale_claims # default: 1.0 hour
+changed = service.release_stale_claims! # default: 1.0 hour
 
 # Custom threshold (hours) and dry run
-dry_count = service.release_stale_claims(older_than_hours: 2.0, dry_run: true)
+dry_count = service.count_stale_claims(older_than_hours: 2.0)
 
 # Notes:
 # - Boundary is inclusive: claimed_at <= older_than

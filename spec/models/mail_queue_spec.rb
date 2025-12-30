@@ -279,7 +279,7 @@ RSpec.describe MailQueue, type: :model do
         it '1時間より古い claim が解放される' do
           service = Verbena::MailQueuesService.new
           expect {
-            service.release_stale_claims
+            service.release_stale_claims!
           }.to change { described_class.where(session_id: nil).count }.by(2)
 
           @stale_row1.reload
@@ -298,7 +298,7 @@ RSpec.describe MailQueue, type: :model do
 
         it '解放されたレコード数を返す' do
           service = Verbena::MailQueuesService.new
-          result = service.release_stale_claims
+          result = service.release_stale_claims!
           expect(result).to eq(2)
         end
 
@@ -307,7 +307,7 @@ RSpec.describe MailQueue, type: :model do
           FactoryBot.create(:delivery_response, mail_queue: delivered)
 
           service = Verbena::MailQueuesService.new
-          result = service.release_stale_claims
+          result = service.release_stale_claims!
 
           expect(result).to eq(2)
           expect(delivered.reload.session_id).to eq('delivered')
@@ -319,7 +319,7 @@ RSpec.describe MailQueue, type: :model do
         it '30分より古い claim が解放される' do
           service = Verbena::MailQueuesService.new
           expect {
-            service.release_stale_claims(older_than_hours: 0.5)
+            service.release_stale_claims!(older_than_hours: 0.5)
           }.to change { described_class.where(session_id: nil).count }.by(3)
         end
       end

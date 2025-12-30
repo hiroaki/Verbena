@@ -7,7 +7,11 @@ namespace :verbena do
         dry_run = Verbena::ServiceBase.truthy?(args[:dry])
 
         service = Verbena::MailQueuesService.new
-        stale_count = service.release_stale_claims(older_than_hours: older_than_hours, dry_run: dry_run)
+        if dry_run
+          stale_count = service.count_stale_claims(older_than_hours: older_than_hours)
+        else
+          stale_count = service.release_stale_claims!(older_than_hours: older_than_hours)
+        end
 
         hour_unit = 'hour'.pluralize(older_than_hours.round)
         if dry_run
