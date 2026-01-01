@@ -423,6 +423,12 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
           }.to raise_error(Verbena::MailQueuesService::NegativeClaimHoursError, 'older_than_hours must be >= 0')
         end
 
+        it 'release_stale_claims! も負の値で NegativeClaimHoursError を送出する' do
+          expect {
+            instance.release_stale_claims!(older_than_hours: -1)
+          }.to raise_error(Verbena::MailQueuesService::NegativeClaimHoursError, 'older_than_hours must be >= 0')
+        end
+
         it 'normalize_hours_arg は型変換のみ行い、負値もそのまま返す（負値検証は release_stale_claims 側）' do
           expect(described_class.normalize_hours_arg(-1)).to eq(-1.0)
         end
@@ -430,6 +436,12 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
         it '非数値文字列は ArgumentError を送出する (Float による例外が伝播する)' do
           expect {
             instance.count_stale_claims(older_than_hours: 'abc')
+          }.to raise_error(ArgumentError)
+        end
+
+        it 'release_stale_claims! も非数値文字列で ArgumentError を送出する' do
+          expect {
+            instance.release_stale_claims!(older_than_hours: 'abc')
           }.to raise_error(ArgumentError)
         end
       end
