@@ -380,10 +380,10 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
         include_context 'with_claimed_and_delivered_records'
 
         it 'dry_runの件数と実行の更新件数が等しい' do
-          dry = instance.release_stale_claims(dry_run: true)
+          dry = instance.count_stale_claims
           expect(dry).to eq 2
 
-          changed = instance.release_stale_claims(dry_run: false)
+          changed = instance.release_stale_claims!
           expect(changed).to eq dry
 
           expect(MailQueue.find(@stale1.id).session_id).to be_nil
@@ -397,11 +397,11 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
         include_context 'with_claimed_and_delivered_records'
 
         it 'dry_runの件数と実行の更新件数が等しい（30分ちょうども含む）' do
-          dry = instance.release_stale_claims(older_than_hours: 0.5, dry_run: true)
+          dry = instance.count_stale_claims(older_than_hours: 0.5)
           # 30分「以前（含む）」は stale1, stale2, fresh(ちょうど30分) の3件
           expect(dry).to eq 3
 
-          changed = instance.release_stale_claims(older_than_hours: 0.5, dry_run: false)
+          changed = instance.release_stale_claims!(older_than_hours: 0.5)
           expect(changed).to eq dry
         end
       end
@@ -410,16 +410,22 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
         include_context 'with_claimed_and_delivered_records'
 
         it '数値に変換可能な文字列を受け付ける' do
-          expect(instance.release_stale_claims(older_than_hours: '0.5', dry_run: true)).to eq 3
+          expect(instance.count_stale_claims(older_than_hours: '0.5')).to eq 3
         end
 
         it 'nil はデフォルトの 1.0 として扱う' do
-          expect(instance.release_stale_claims(older_than_hours: nil, dry_run: true)).to eq 2
+          expect(instance.count_stale_claims(older_than_hours: nil)).to eq 2
         end
 
         it '負の値は NegativeClaimHoursError を送出する' do
           expect {
-            instance.release_stale_claims(older_than_hours: -1, dry_run: true)
+            instance.count_stale_claims(older_than_hours: -1)
+          }.to raise_error(Verbena::MailQueuesService::NegativeClaimHoursError, 'older_than_hours must be >= 0')
+        end
+
+        it 'release_stale_claims! も負の値で NegativeClaimHoursError を送出する' do
+          expect {
+            instance.release_stale_claims!(older_than_hours: -1)
           }.to raise_error(Verbena::MailQueuesService::NegativeClaimHoursError, 'older_than_hours must be >= 0')
         end
 
@@ -429,7 +435,13 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
 
         it '非数値文字列は ArgumentError を送出する (Float による例外が伝播する)' do
           expect {
-            instance.release_stale_claims(older_than_hours: 'abc', dry_run: true)
+            instance.count_stale_claims(older_than_hours: 'abc')
+          }.to raise_error(ArgumentError)
+        end
+
+        it 'release_stale_claims! も非数値文字列で ArgumentError を送出する' do
+          expect {
+            instance.release_stale_claims!(older_than_hours: 'abc')
           }.to raise_error(ArgumentError)
         end
       end

@@ -48,29 +48,29 @@ RSpec.describe 'verbena:claim tasks' do
     end
 
     it 'runs dry-run mode and prints summary' do
-      service = instance_double(Verbena::MailQueuesService, release_stale_claims: 3)
+      service = instance_double(Verbena::MailQueuesService, count_stale_claims: 3)
       allow(Verbena::MailQueuesService).to receive(:new).and_return(service)
 
       expect {
         task_release_stale.invoke('2', 'true')
       }.to output(/DRY RUN: Would release 3 stale claims older than 2.0 hours/).to_stdout
-      expect(service).to have_received(:release_stale_claims).with(older_than_hours: 2.0, dry_run: true)
+      expect(service).to have_received(:count_stale_claims).with(older_than_hours: 2.0)
     end
 
     it 'runs non-dry mode and prints summary' do
-      service = instance_double(Verbena::MailQueuesService, release_stale_claims: 5)
+      service = instance_double(Verbena::MailQueuesService, release_stale_claims!: 5)
       allow(Verbena::MailQueuesService).to receive(:new).and_return(service)
 
       expect {
         task_release_stale.invoke('1.5', nil)
       }.to output(/Released 5 stale claims older than 1.5 hours/).to_stdout
-      expect(service).to have_received(:release_stale_claims).with(older_than_hours: 1.5, dry_run: false)
+      expect(service).to have_received(:release_stale_claims!).with(older_than_hours: 1.5)
     end
 
     it 'prints error and exits when service raises' do
       service = instance_double(Verbena::MailQueuesService)
       allow(Verbena::MailQueuesService).to receive(:new).and_return(service)
-      allow(service).to receive(:release_stale_claims).and_raise(StandardError, 'boom')
+      allow(service).to receive(:release_stale_claims!).and_raise(StandardError, 'boom')
 
       stderr_output = StringIO.new
       expect {

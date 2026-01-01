@@ -151,10 +151,10 @@ relation = MailQueue.stale_claims_relation(older_than: 1.hour.ago)
 
 # サービス経由で解放（更新件数を返す）
 service = Verbena::MailQueuesService.new
-changed = service.release_stale_claims # 既定は 1.0 時間
+changed = service.release_stale_claims! # 既定は 1.0 時間
 
 # 閾値（時間・hours）とドライラン
-dry_count = service.release_stale_claims(older_than_hours: 2.0, dry_run: true)
+dry_count = service.count_stale_claims(older_than_hours: 2.0)
 
 # 備考:
 # - しきい値は「以下」を含む（claimed_at <= older_than）
