@@ -114,13 +114,13 @@ Verbena の設定は環境変数で行います。主な環境変数は次のと
 
 | 変数名 | 説明 |
 |--------|------|
-| `VERBENA_DELIVERY_METHOD` | メール配送方式。smtp / test / file。規定値: test（開発）/smtp（本番）。 |
-| `VERBENA_DELIVERY_SMTP_ADDRESS` | SMTP配送時のサーバアドレス。規定値: なし。 |
-| `VERBENA_DELIVERY_SMTP_PORT` | SMTP配送時のポート番号。規定値: なし。 |
-| `VERBENA_DELIVERY_SMTP_DOMAIN` | SMTP配送時のHELOドメイン。規定値: なし。 |
-| `VERBENA_DELIVERY_SMTP_USER_NAME` | SMTP認証ユーザ名。規定値: なし。 |
-| `VERBENA_DELIVERY_SMTP_PASSWORD` | SMTP認証パスワード。規定値: なし。 |
-| `VERBENA_DELIVERY_SMTP_AUTHENTICATION` | SMTP認証方式。plain / login など。規定値: なし。 |
+| `VERBENA_DELIVERY_METHOD` | メール配送方式。smtp / test / file。既定値: test（開発）/smtp（本番）。 |
+| `VERBENA_DELIVERY_SMTP_ADDRESS` | SMTP配送時のサーバアドレス。既定値: なし。 |
+| `VERBENA_DELIVERY_SMTP_PORT` | SMTP配送時のポート番号。既定値: なし。 |
+| `VERBENA_DELIVERY_SMTP_DOMAIN` | SMTP配送時のHELOドメイン。既定値: なし。 |
+| `VERBENA_DELIVERY_SMTP_USER_NAME` | SMTP認証ユーザ名。既定値: なし。 |
+| `VERBENA_DELIVERY_SMTP_PASSWORD` | SMTP認証パスワード。既定値: なし。 |
+| `VERBENA_DELIVERY_SMTP_AUTHENTICATION` | SMTP認証方式。plain / login など。既定値: なし。 |
 
 これらのほかにも、本番環境や Docker Compose を使わない環境など、initdb スクリプトを使わない場合は、アプリ側の DB 接続情報として `VERBENA_DATABASE_USER` / `VERBENA_DATABASE_PASSWORD` を設定してください。
 
