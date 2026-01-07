@@ -1,10 +1,34 @@
 # Verbena
 
-Verbena is an EML-based mail queue and SMTP delivery service.
+Verbena は、クライアント（送信元アプリケーションやバッチなど）からメール送信を委譲し、外部 SMTP サーバへの送信と送信結果の記録を担当する**独立したメール配送ゲートウェイ**です。
 
-This project is currently under active development.
+基本的なフロー:
+
+- クライアントが EML を生成する
+- クライアントが Verbena の API に EML を送る
+- Verbena が外部 SMTP サーバへ送信し、結果を宛先単位で記録する
+
+注意: Verbena が担当するのは、外部 SMTP サーバへの引き渡しまでです（最終的な受信箱への到達やバウンスの把握は外部要因になります）。
+
+## 目的と解決する課題
+
+Verbena は各クライアントの「メールを配送する」責務を分離するための独立したアプリケーションです。クライアントは EML を Verbena に渡すだけで、配送の実行・記録・再試行を Verbena 側に委譲できます。
+
+次のような課題の解決を担います：
+
+- クライアントごとに実装・運用している外部 SMTP との通信や失敗時の取り扱いをまとめたい
+- 複数宛先の一部失敗を正確に把握し、失敗した宛先だけを再送したい
+
+それらの課題に対処するため、Verbena は次の機能を提供します：
+
+- 宛先単位での送信結果の記録
+- 一時エラー時の自動再送
+- 指定時刻の配送（予約配信）
+- 失敗した宛先のみを対象にした再送
 
 ## 開発環境構築手順
+
+開発環境は Docker Compose を利用します。
 
 ### 初回セットアップ
 
@@ -27,7 +51,19 @@ $ git checkout develop
 $ cp dot.env.sample .env
 ```
 
-`.env` ファイルを編集してデータベースの認証情報を設定します。開発環境では既定値をそのまま使用できますが、本番環境では必ず変更してください。
+`.env` ファイルを編集して、データベースの認証情報を設定します。
+
+#### データベース初期化用の環境変数
+
+初回起動時、データベースコンテナは `./initdb` 配下のスクリプトを自動実行してデータベースユーザーの権限を設定します。この際、**以下の環境変数が必要です**（`.env` または compose.yml で指定）：
+
+| 変数名               | 説明 |
+|----------------------|------|
+| `MYSQL_ROOT_PASSWORD`| MySQL rootユーザーのパスワード。初期化スクリプト用。必須。 |
+| `MYSQL_USER`         | アプリ用DBユーザー名。必須。 |
+| `MYSQL_PASSWORD`     | アプリ用DBユーザーパスワード。必須。 |
+
+なお、ボリュームに既存のデータがある場合は初期化スクリプトが実行されません（完全に初期状態へ戻す場合は「データベースの完全リセット」を参照してください）。
 
 イメージを作成し、そのコンテナを起動します。
 
@@ -36,33 +72,13 @@ $ docker compose build
 $ docker compose up -d
 ```
 
-初回起動時、データベースコンテナは `./initdb` 配下のスクリプトを自動実行してデータベースユーザーの権限を設定します。このプロセスは冪等性があり、複数回実行しても安全です。
-
 サービス "web" からデータベースを作成します。
 
 ```sh
 $ docker compose exec web rails db:migrate:reset
 ```
 
-
-### セキュリティに関する重要事項
-
-- **開発環境**: 現状は Docker compose が読み取る `.env` ファイルでデータベース認証情報を管理しています。なおこのファイルはリポジトリにコミットしないでください（`.gitignore` で除外済み）。
-- **本番環境**: Docker secrets や環境変数管理システムなど、安全な方法でデータベース認証情報を管理してください。
-
-
 ## 設定
-
-### データベース初期化
-
-MySQL 公式 Docker イメージの仕様により、コンテナ初回起動時に `/docker-entrypoint-initdb.d` ディレクトリ内のスクリプトが自動的に実行され、データベースの初期化が行われます。
-
-- **初期化スクリプト**: `./initdb/00-create-db-users.sh` が配置されているディレクトリは、compose.yml の設定によりコンテナ内の `/docker-entrypoint-initdb.d` にマウントされます。
-- **実行タイミング**: データベースコンテナの初回作成時（ボリュームにデータが存在しない場合のみ）
-- **冪等性**: スクリプトは複数回実行しても安全です。既存の権限をチェックしてから設定を行います。
-- **ログ**: 初期化プロセスはコンテナログで確認できます（`docker compose logs db`）
-
-ただし、ボリュームに既存のデータがある場合、初期化スクリプトは実行されません。完全なリセットが必要な場合は後述する「データベースの完全リセット」手順を参照してください。
 
 ### トークンの用意
 
@@ -92,11 +108,24 @@ Token.create_unique!(label: "hoge", key: "user-secret", expires_at: 1.year.from_
   $ bundle exec rake verbena:tokens:revoke_expired
   ```
 
-### 環境変数リファレンス
+### 環境変数の設定
 
-アプリケーションの設定は環境変数で行います。
+Verbena の設定は環境変数で行います。主な環境変数は次のとおりです。
 
-Verbena で利用可能な環境変数のリストは [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) を参照してください。
+| 変数名 | 説明 |
+|--------|------|
+| `VERBENA_DELIVERY_METHOD` | メール配送方式。smtp / test / file。既定値: test（開発）/smtp（本番）。 |
+| `VERBENA_DELIVERY_SMTP_ADDRESS` | SMTP配送時のサーバアドレス。既定値: なし。 |
+| `VERBENA_DELIVERY_SMTP_PORT` | SMTP配送時のポート番号。既定値: なし。 |
+| `VERBENA_DELIVERY_SMTP_DOMAIN` | SMTP配送時のHELOドメイン。既定値: なし。 |
+| `VERBENA_DELIVERY_SMTP_USER_NAME` | SMTP認証ユーザ名。既定値: なし。 |
+| `VERBENA_DELIVERY_SMTP_PASSWORD` | SMTP認証パスワード。既定値: なし。 |
+| `VERBENA_DELIVERY_SMTP_AUTHENTICATION` | SMTP認証方式。plain / login など。既定値: なし。 |
+
+これらのほかにも、本番環境や Docker Compose を使わない環境など、initdb スクリプトを使わない場合は、アプリ側の DB 接続情報として `VERBENA_DATABASE_USER` / `VERBENA_DATABASE_PASSWORD` を設定してください。
+
+詳細・全項目は [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) を参照してください。
+
 
 ## 実行方法
 
@@ -119,10 +148,10 @@ $ bin/rails verbena:mail_queues:add[/path/to/source.eml]
 ```sh
 $ curl -D - -H 'Authorization: Bearer user-secret' -X POST \
     -F 'mail_queue[eml]=@/path/to/source.eml' \
-    http://localhost:13000/api/v1/mail_queues
+    http://localhost:23000/api/v1/mail_queues
 ```
 
-いずれの場合でも、入力したメールのヘッダ "To:" "Cc:" "Bcc:" に記されたメールアドレスの数だけ `mail_queues` が作成されます。例えば `/path/to/source.eml` が次の内容であったとした場合、そのヘッダ "To:" "Cc:" "Bcc:" に基づき 4 件の `mail_queues` レコードが作成されます。
+いずれの場合でも、入力したメールのヘッダ "To:" "Cc:" "Bcc:" に記されたメールアドレスの数だけ（重複は除外して）`mail_queues` が作成されます。例えば `/path/to/source.eml` が次の内容であったとした場合、そのヘッダ "To:" "Cc:" "Bcc:" に基づき 4 件の `mail_queues` レコードが作成されます。
 
 ```sh
 Date: Tue, 1 Jul 2003 10:52:37 +0200
@@ -155,7 +184,45 @@ $ bin/rails verbena:delivery:by_timer
 
 配送結果はテーブル `delivery_responses` に追記されます。
 
-なお開発環境では `VERBENA_DELIVERY_METHOD=test` の設定により、 SMTP 送信は行われません（`Mail::TestMailer` に送られます）。
+なお開発環境では、`VERBENA_DELIVERY_METHOD` の既定値は `test` のため、SMTP 送信は行われません（`Mail::TestMailer` に送られます）。
+
+### 確保 / 再送
+
+配送処理がスタックした場合や再送が必要な場合に利用する Rake タスクです。
+
+配送処理では、各セッションがレコードを処理するために「確保」（session_id をセット）します。通常は処理が完了すれば配送されますが、何らかの理由で処理が途中で停止すると、レコードが確保されたまま放置され、他のプロセスが処理できない状態になります。
+
+**スタック状態の解放（全セッション対象）:**
+
+長時間確保されているが配送されていないレコードを、時間経過に基づいて自動的に「解放」（session_id を NULL に戻す）します。これは処理が異常停止した可能性のあるレコードを、セッションに関係なく強制的に解放するための操作です。
+
+```sh
+# 1時間より古い確保状態を解放（ドライラン）
+$ bin/rails verbena:claim:release_stale[1,dry]
+
+# 2時間より古い確保状態を実際に解放
+$ bin/rails verbena:claim:release_stale[2]
+
+# 現在の確保状態を表示
+$ bin/rails verbena:claim:show_stale
+```
+
+**再送準備（特定セッション対象）:**
+
+特定のセッションで配送を試みたが失敗した（4xxエラー）メッセージを再試行可能にします。または、特定のセッションで確保されたが配送結果が記録されていないメッセージ（上記のスタック状態と同じ状態）を再試行可能にします。これらは意図的に特定セッションのレコードを選択して再処理するための操作です。
+
+```sh
+# 直近の配送がステータス4xxであったメッセージを再送可能状態にする
+# 注意: session_id は必須です
+$ bin/rails verbena:delivery:prepare_retry[SESSION_ID]
+
+# 配送結果が無いメッセージを再送可能状態にする
+# 注意: session_id は必須です
+$ bin/rails verbena:delivery:reset_undelivered[SESSION_ID]
+```
+
+**注意:** `prepare_retry` および `reset_undelivered` タスクは `session_id` が必須です。指定がない場合はエラーとなります。
+
 
 ## メンテナンス - 古いレコードの削除
 
@@ -185,6 +252,20 @@ $ bin/rails verbena:cleanup:by_ttl[true]
 
 ## 開発に関して
 
+### テストの実行
+
+テストは rspec を利用しています：
+
+```sh
+# 全テストを実行
+docker compose exec web bundle exec rspec
+
+# 特定ファイルだけ実行
+docker compose exec web bundle exec rspec spec/tasks/verbena/mail_queues_rake_spec.rb
+```
+
+テストを実行すると `coverage` ディレクトリにカバレッジ・レポートが出力されますので、 `coverage/index.html` をブラウザで開いて、内容を確認してください。
+
 ### データベースの完全リセット
 
 開発中にデータベースを完全に初期状態に戻したい場合は、以下の手順を実行します：
@@ -206,7 +287,7 @@ $ bin/rails verbena:cleanup:by_ttl[true]
 
 ### タイムゾーン方針 (UTC)
 
-- アプリケーション（Rails）は常に UTC で動作するように設定します。
+- Verbena（Rails）は常に UTC で動作するように設定します。
 - データベースは OS タイムゾーンを UTC（`TZ=UTC`）に固定します。
 - **MySQL/MariaDB**: `config/database.yml` の設定の中で `init_command: "SET time_zone = '+00:00'"` を指定し、セッションのタイムゾーンを UTC に固定します。
 - **PostgreSQL**: `config/database.yml` の設定の中で `variables: { timezone: 'UTC' }` を指定し、セッションタイムゾーンを UTC に固定します。

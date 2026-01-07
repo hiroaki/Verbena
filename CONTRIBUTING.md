@@ -10,7 +10,7 @@ Thanks for your interest in contributing!
 - Use English for code/log messages; docs can be JP/EN.
 
 ## Setup
-- Copy `.env.sample` to `.env` and adjust values.
+- Copy `dot.env.sample` to `.env` and adjust values.
 - Use Docker (see README) or your local Ruby environment.
 
 ## Reporting Issues

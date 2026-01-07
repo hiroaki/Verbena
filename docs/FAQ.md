@@ -124,17 +124,17 @@ Verbenaでは以下の方針を採用しています：
 以下の環境変数で調整可能です：
 
 ```bash
-# 並行配信数（Parallelライブラリ）
-VERBENA_PARALLEL_IN_PROCESSES=4
-VERBENA_PARALLEL_IN_THREADS=10
+# 並行配信方式とスレッド数
+VERBENA_PARALLEL_TYPE=in_threads
+VERBENA_PARALLEL_CONCURRENCY=10
 
 # バッチサイズ
 VERBENA_IN_BATCHES_OF=1000
 ```
 
 目安：
-- 1プロセス×10スレッドで、約100通/秒
-- 4プロセス並行で、約400通/秒
+- 10スレッド並行で、約100通/秒
+- 実際のスループットはSMTPサーバの性能に依存
 
 実際のスループットは、SMTPサーバの性能やネットワーク環境に依存します。
 
