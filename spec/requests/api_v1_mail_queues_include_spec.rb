@@ -40,6 +40,26 @@ RSpec.describe 'Api::V1::MailQueues include responses', type: :request do
     expect(json['responses'].length).to eq(3)
   end
 
+  it 'applies default limit when responses exceed cap' do
+    mq = FactoryBot.create(:mail_queue)
+    FactoryBot.create_list(:delivery_response, 60, mail_queue: mq)
+
+    get "/api/v1/mail_queues/#{mq.id}", params: { include: 'responses' }, headers: auth_headers
+    expect(response).to have_http_status(:ok)
+    expect(json['responses']).to be_a(Array)
+    expect(json['responses'].length).to eq(50)
+  end
+
+  it 'honors responses_limit param up to the maximum' do
+    mq = FactoryBot.create(:mail_queue)
+    FactoryBot.create_list(:delivery_response, 120, mail_queue: mq)
+
+    get "/api/v1/mail_queues/#{mq.id}", params: { include: 'responses', responses_limit: 200 }, headers: auth_headers
+    expect(response).to have_http_status(:ok)
+    expect(json['responses']).to be_a(Array)
+    expect(json['responses'].length).to eq(100)
+  end
+
   it 'returns unified error shape for not found' do
     get "/api/v1/mail_queues/999999", headers: auth_headers
     expect(response.status).to eq(404)
