@@ -295,6 +295,41 @@ docker compose exec web bundle exec rspec spec/tasks/verbena/mail_queues_rake_sp
 - **共通ガイドライン**: プログラミングに於いて DB内の `NOW()` や `CURRENT_TIMESTAMP` などのタイムゾーンが影響する関数は使わず、 Rails で生成した日時値をバインドして利用してください。
 
 
+### データベース互換性とストレージ方針
+
+#### 対応データベース
+
+Verbena は複数のデータベースシステムをサポートします：
+
+| Database | Version | Status |
+|----------|---------|--------|
+| MySQL    | 8.0+    | ✅ Supported |
+| MariaDB  | 10.6+   | ✅ Supported |
+| PostgreSQL | 13+   | ✅ Planned (in progress) |
+| SQLite   | 3.x     | ✅ Planned (in progress) |
+
+#### EML データの保存方針
+
+EML (Raw email format) は `eml_sources.eml` カラムに保存されます。
+
+- **現在の方針（互換性優先）**:
+  - データベースに保存する EML は plain `:text` 型を使用し、すべてのデータベースで互換性を確保しています。
+  - MySQL の `TEXT` 型は約 64 KiB、PostgreSQL と SQLite の `text` は事実上無制限です。
+  - 添付ファイルがない、または小さいメール（通常のビジネスメール）であれば、この制限内で対応可能です。
+
+- **将来の拡張計画（オブジェクトストレージ対応予定）**:
+  - より大きな EML ファイル（大きな添付ファイル付き）をサポートするために、オブジェクトストレージ（Amazon S3 等）の利用を検討しています。
+  - その際は、EML 本体をストレージに保存し、DB には メタデータと小さなプレビューのみを保持します。
+
+#### マイグレーションの互換性
+
+すべてのマイグレーション（`db/migrate/`）は、以下の原則に従い、複数のデータベースで動作するように設計されています：
+
+- **MySQL 専用オプション（`after:`、`charset:`、`collation:`）は使用しない**：カラム並び順は無視し、ポータブルな Rails マイグレーション構文を採用。
+- **型固有のオプションはアダプタ非依存**：限定的な `:text` 型のサイズ指定（`limit:` on MySQL）は使用せず、すべての DB で解釈可能なプレーンな型指定。
+- **SQL の直接記述を避ける**：`execute()` 句で vendor-specific SQL を使わないよう注意。
+
+
 ## Contributing
 
 Contributions are welcome! Please see `CONTRIBUTING.md` for guidelines.

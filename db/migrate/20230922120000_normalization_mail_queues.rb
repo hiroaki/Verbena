@@ -5,7 +5,7 @@ class NormalizationMailQueues < ActiveRecord::Migration[7.0]
       t.timestamps
     end
 
-    remove_column :mail_queues, :eml, :text, null: false, after: :envelope_to
-    add_reference :mail_queues, :eml_source, null: false, foreign_key: true, after: :envelope_to
+    remove_column :mail_queues, :eml, :text, null: false
+    add_reference :mail_queues, :eml_source, null: false, foreign_key: true
   end
 end
