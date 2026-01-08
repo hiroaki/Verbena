@@ -46,10 +46,15 @@ Rails.application.config.to_prepare do
     c.parallel_concurrency = ENV['VERBENA_PARALLEL_CONCURRENCY']
     c.in_batches_of = ENV['VERBENA_IN_BATCHES_OF']
 
+
     # API pagination (defaults with ENV overrides)
     c.api_pagination_default_limit = ENV['VERBENA_API_PAGINATION_DEFAULT_LIMIT']
     c.api_pagination_limit_cap = ENV['VERBENA_API_PAGINATION_LIMIT_CAP']
     c.api_pagination_default_offset = ENV['VERBENA_API_PAGINATION_DEFAULT_OFFSET']
+
+    # API responses include limits
+    c.api_responses_default_limit = ENV['VERBENA_API_RESPONSES_DEFAULT_LIMIT']
+    c.api_responses_limit_cap = ENV['VERBENA_API_RESPONSES_LIMIT_CAP']
 
     # General limits
     c.eml_max_bytes = ENV['VERBENA_EML_MAX_BYTES']

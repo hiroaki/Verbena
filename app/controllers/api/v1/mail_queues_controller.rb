@@ -104,21 +104,32 @@ module Api
           params[:include].to_s.strip.downcase == 'responses:latest'
         end
 
-        def include_responses_all?
+        def include_responses?
           params[:include].to_s.strip.downcase == 'responses'
         end
 
         def serialize_mail_queue(mq)
           base = mq.as_json(only: [:id, :session_id, :timer_at, :envelope_from, :envelope_to, :eml_source_id, :created_at, :updated_at])
           if include_responses_latest?
-            latest = mq.delivery_responses.order(responded_at: :desc).limit(1)
+            latest = responses_relation(mq).limit(1)
             base["responses"] = latest.as_json(only: [:id, :status, :contents, :message_id, :responded_at, :created_at, :updated_at])
-          elsif include_responses_all?
-            all = mq.delivery_responses.order(responded_at: :desc)
-            base["responses"] = all.as_json(only: [:id, :status, :contents, :message_id, :responded_at, :created_at, :updated_at])
+          elsif include_responses?
+            limited = responses_relation(mq).limit(responses_limit)
+            base["responses"] = limited.as_json(only: [:id, :status, :contents, :message_id, :responded_at, :created_at, :updated_at])
           end
           base
         end
+
+        def responses_relation(mq)
+          mq.delivery_responses.order(responded_at: :desc)
+        end
+
+        def responses_limit
+          raw = params[:responses_limit].to_i
+          return Verbena::Settings.api_responses_default_limit if raw <= 0
+          [raw, Verbena::Settings.api_responses_limit_cap].min
+        end
+
       public
     end
   end
