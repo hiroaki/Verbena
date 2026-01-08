@@ -3,8 +3,10 @@
 # Note on data storage:
 # - This migration uses plain `:text` type across all databases (MySQL/MariaDB, PostgreSQL, SQLite)
 #   to ensure portability without adapter-specific options like `limit:` (MySQL-only).
-# - MySQL `TEXT` type has a ~64 KiB limit, which covers most emails without large attachments.
-# - PostgreSQL and SQLite `text` is effectively unbounded.
+# - On MySQL/MariaDB, Rails `:text` maps to the `TEXT` type, which has a ~64 KiB limit; we accept
+#   this as an intentional tradeoff for cross-database compatibility instead of using MEDIUMTEXT/
+#   LONGTEXT or MySQL-specific `limit:` options. PostgreSQL and SQLite `text` is effectively
+#   unbounded.
 # - For future support of large attachments, plan to migrate to object storage (S3, etc.)
 #   while storing metadata and small previews in the database.
 #
