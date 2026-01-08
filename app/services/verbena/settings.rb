@@ -45,6 +45,9 @@ module Verbena
         # API pagination
         attr_accessor :api_pagination_default_limit, :api_pagination_limit_cap, :api_pagination_default_offset
 
+        # API response limits
+        attr_accessor :api_responses_default_limit, :api_responses_limit_cap
+
         # General limits
         attr_accessor :eml_max_bytes
 
@@ -82,6 +85,15 @@ module Verbena
 
       def api_pagination_default_offset
         integer_cast(config.api_pagination_default_offset, 0)
+      end
+
+      # API responses include limits
+      def api_responses_default_limit
+        integer_cast(config.api_responses_default_limit, 50)
+      end
+
+      def api_responses_limit_cap
+        integer_cast(config.api_responses_limit_cap, 100)
       end
 
       # Mail delivery configs for helpers

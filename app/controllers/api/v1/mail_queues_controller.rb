@@ -1,9 +1,6 @@
 module Api
   module V1
     class MailQueuesController < ApplicationController
-      DEFAULT_RESPONSES_LIMIT = 50
-      MAX_RESPONSES_LIMIT = 100
-
       before_action :prepare_mail_queue, only: [:show, :update, :destroy]
       before_action :prepare_and_validate_eml!, only: [:create]
 
@@ -129,9 +126,10 @@ module Api
 
         def responses_limit
           raw = params[:responses_limit].to_i
-          return DEFAULT_RESPONSES_LIMIT if raw <= 0
-          [raw, MAX_RESPONSES_LIMIT].min
+          return Verbena::Settings.api_responses_default_limit if raw <= 0
+          [raw, Verbena::Settings.api_responses_limit_cap].min
         end
+
       public
     end
   end
