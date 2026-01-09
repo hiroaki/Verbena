@@ -7,8 +7,8 @@ class ChangeMailQueuesPrototype2 < ActiveRecord::Migration[7.0]
     remove_column :mail_queues, :mail_from, :string
     remove_column :mail_queues, :mail_body, :string
 
-    add_column :mail_queues, :envelope_from, :string, after: :timer_at
-    add_column :mail_queues, :envelope_to, :string, null: false, after: :envelope_from
-    add_column :mail_queues, :eml, :text, null: false, after: :envelope_to
+    add_column :mail_queues, :envelope_from, :string
+    add_column :mail_queues, :envelope_to, :string, null: false
+    add_column :mail_queues, :eml, :text, null: false
   end
 end
