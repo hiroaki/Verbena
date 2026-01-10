@@ -31,6 +31,7 @@ class DeliveryResponse < ApplicationRecord
         AND T0.responded_at = agg.latest
       WHERE T0.status LIKE '4__'
         AND agg.earliest > ?
+      ORDER BY T0.mail_queue_id ASC
     SQL2
   end
 end
