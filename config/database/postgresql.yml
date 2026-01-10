@@ -1,0 +1,33 @@
+<%
+resolve_name = lambda do |env|
+  override = ENV["DATABASE_NAME"]
+  override.nil? || override.empty? ? "verbena_#{env}" : override
+end
+username = ENV["VERBENA_DATABASE_USER"] || ENV["DATABASE_USERNAME"] || ENV["POSTGRES_USER"] || ENV["PGUSER"]
+raise KeyError, "Set VERBENA_DATABASE_USER or DATABASE_USERNAME for postgresql" if username.nil? || username.empty?
+password = ENV["VERBENA_DATABASE_PASSWORD"] || ENV["DATABASE_PASSWORD"] || ENV["POSTGRES_PASSWORD"] || ENV["PGPASSWORD"]
+raise KeyError, "Set VERBENA_DATABASE_PASSWORD or DATABASE_PASSWORD for postgresql" if password.nil? || password.empty?
+%>
+
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  host: <%= ENV.fetch("DATABASE_HOST") { "127.0.0.1" } %>
+  port: <%= ENV.fetch("DATABASE_PORT") { 5432 } %>
+  username: <%= username %>
+  password: <%= password %>
+  variables:
+    timezone: UTC
+
+development:
+  <<: *default
+  database: <%= resolve_name.call("development") %>
+
+test:
+  <<: *default
+  database: <%= resolve_name.call("test") %>
+
+production:
+  <<: *default
+  database: <%= resolve_name.call("production") %>

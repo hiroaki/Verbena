@@ -1,0 +1,32 @@
+<%
+resolve_name = lambda do |env|
+  override = ENV["DATABASE_NAME"]
+  override.nil? || override.empty? ? "verbena_#{env}" : override
+end
+username = ENV["VERBENA_DATABASE_USER"] || ENV["MYSQL_USER"]
+raise KeyError, "Set VERBENA_DATABASE_USER (or MYSQL_USER) for mysql2" if username.nil? || username.empty?
+password = ENV["VERBENA_DATABASE_PASSWORD"] || ENV["MYSQL_PASSWORD"]
+raise KeyError, "Set VERBENA_DATABASE_PASSWORD (or MYSQL_PASSWORD) for mysql2" if password.nil? || password.empty?
+%>
+
+default: &default
+  adapter: mysql2
+  encoding: utf8mb4
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  host: <%= ENV.fetch("DATABASE_HOST") { "127.0.0.1" } %>
+  port: <%= ENV.fetch("DATABASE_PORT") { 3306 } %>
+  username: <%= username %>
+  password: <%= password %>
+  init_command: "SET time_zone = '+00:00'"
+
+development:
+  <<: *default
+  database: <%= resolve_name.call("development") %>
+
+test:
+  <<: *default
+  database: <%= resolve_name.call("test") %>
+
+production:
+  <<: *default
+  database: <%= resolve_name.call("production") %>

@@ -11,32 +11,32 @@
 # It's strongly recommended that you check this file into your version control system.
 
 ActiveRecord::Schema[7.1].define(version: 2026_01_08_090000) do
-  create_table "delivery_responses", charset: "utf8mb4", force: :cascade do |t|
-    t.bigint "mail_queue_id", null: false
+  create_table "delivery_responses", force: :cascade do |t|
+    t.integer "mail_queue_id", null: false
     t.datetime "responded_at"
     t.string "status"
     t.string "contents"
-    t.string "message_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "message_id"
     t.index ["mail_queue_id", "responded_at"], name: "index_delivery_responses_on_mail_queue_id_and_responded_at"
     t.index ["mail_queue_id"], name: "index_delivery_responses_on_mail_queue_id"
   end
 
-  create_table "eml_sources", charset: "utf8mb4", force: :cascade do |t|
-    t.text "eml", size: :medium, null: false
+  create_table "eml_sources", force: :cascade do |t|
+    t.text "eml", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end
 
-  create_table "mail_queues", charset: "utf8mb4", force: :cascade do |t|
+  create_table "mail_queues", force: :cascade do |t|
     t.string "session_id"
     t.datetime "timer_at"
-    t.string "envelope_from"
-    t.string "envelope_to", null: false
-    t.bigint "eml_source_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "envelope_from"
+    t.string "envelope_to", null: false
+    t.integer "eml_source_id", null: false
     t.datetime "claimed_at"
     t.index ["claimed_at"], name: "index_mail_queues_on_claimed_at"
     t.index ["eml_source_id"], name: "index_mail_queues_on_eml_source_id"
@@ -46,7 +46,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_08_090000) do
     t.index ["timer_at"], name: "index_mail_queues_on_timer_at"
   end
 
-  create_table "tokens", charset: "utf8mb4", force: :cascade do |t|
+  create_table "tokens", force: :cascade do |t|
     t.string "label"
     t.string "key_digest_hash"
     t.datetime "created_at", null: false

@@ -1,0 +1,26 @@
+<%
+resolve_path = lambda do |env|
+  override = ENV["DATABASE_FILE"]
+  return override unless override.nil? || override.empty?
+  base = ENV["DATABASE_NAME"]
+  base = "verbena_#{env}" if base.nil? || base.empty?
+  File.join("db", "#{base}.sqlite3")
+end
+%>
+
+default: &default
+  adapter: sqlite3
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  timeout: <%= ENV.fetch("DATABASE_TIMEOUT") { 5000 } %>
+
+development:
+  <<: *default
+  database: <%= resolve_path.call("development") %>
+
+test:
+  <<: *default
+  database: <%= resolve_path.call("test") %>
+
+production:
+  <<: *default
+  database: <%= resolve_path.call("production") %>

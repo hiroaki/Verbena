@@ -1,0 +1,32 @@
+services:
+  db:
+    image: mariadb:10.6.10
+    environment:
+      TZ: UTC
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
+      MYSQL_USER: ${MYSQL_USER:-railsuser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-railspass}
+    ports:
+      - '${MYSQL_FORWARD_PORT:-23306}:3306'
+    volumes:
+      - 'mysql-data:/var/lib/mysql'
+      - ./initdb:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    environment:
+      DATABASE_ADAPTER: mysql2
+      DATABASE_HOST: db
+      DATABASE_PORT: 3306
+      VERBENA_DATABASE_USER: ${VERBENA_DATABASE_USER:-railsuser}
+      VERBENA_DATABASE_PASSWORD: ${VERBENA_DATABASE_PASSWORD:-railspass}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  mysql-data:

@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:15
+    environment:
+      TZ: UTC
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-verbena_development}
+      POSTGRES_INITDB_ARGS: '--encoding=UTF8 --locale=C'
+    ports:
+      - '${POSTGRES_FORWARD_PORT:-25432}:5432'
+    volumes:
+      - 'postgres-data:/var/lib/postgresql/data'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    environment:
+      DATABASE_ADAPTER: postgresql
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      VERBENA_DATABASE_USER: ${VERBENA_DATABASE_USER:-postgres}
+      VERBENA_DATABASE_PASSWORD: ${VERBENA_DATABASE_PASSWORD:-postgres}
+      DATABASE_NAME: ${DATABASE_NAME:-verbena_development}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
