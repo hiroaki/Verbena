@@ -6,9 +6,9 @@ resolve_name = lambda do |env|
   "#{base_name}_#{env}"
 end
 username = ENV["VERBENA_DATABASE_USER"] || ENV["MYSQL_USER"]
-raise KeyError, "Set VERBENA_DATABASE_USER for mysql2 (recommended) or MYSQL_USER as a fallback" if username.nil? || username.empty?
+raise KeyError, "Set VERBENA_DATABASE_USER (preferred) or MYSQL_USER for mysql2" if username.nil? || username.empty?
 password = ENV["VERBENA_DATABASE_PASSWORD"] || ENV["MYSQL_PASSWORD"]
-raise KeyError, "Set VERBENA_DATABASE_PASSWORD for mysql2 (recommended) or MYSQL_PASSWORD as a fallback" if password.nil? || password.empty?
+raise KeyError, "Set VERBENA_DATABASE_PASSWORD (preferred) or MYSQL_PASSWORD for mysql2" if password.nil? || password.empty?
 %>
 
 default: &default
