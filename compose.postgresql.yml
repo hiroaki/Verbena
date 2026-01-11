@@ -26,8 +26,8 @@ services:
       DATABASE_ADAPTER: postgresql
       DATABASE_HOST: db
       DATABASE_PORT: 5432
-      VERBENA_DATABASE_USER: ${VERBENA_DATABASE_USER:-postgres}
-      VERBENA_DATABASE_PASSWORD: ${VERBENA_DATABASE_PASSWORD:-postgres}
+      VERBENA_DATABASE_USER: ${VERBENA_DATABASE_USER:-${POSTGRES_USER:-postgres}}
+      VERBENA_DATABASE_PASSWORD: ${VERBENA_DATABASE_PASSWORD:-${POSTGRES_PASSWORD:-postgres}}
     depends_on:
       db:
         condition: service_healthy

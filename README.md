@@ -63,12 +63,16 @@ $ cp dot.env.sample .env
 | `MYSQL_USER`         | アプリ用DBユーザー名。必須。 |
 | `MYSQL_PASSWORD`     | アプリ用DBユーザーパスワード。必須。 |
 
-PostgreSQL オーバーレイ (`compose.postgresql.yml`) を使用する場合は、以下の変数が利用されます（未設定時は表のデフォルト値を使用）：
+PostgreSQL オーバーレイ (`compose.postgresql.yml`) を使用する場合は、以下の環境変数を利用します。`POSTGRES_*` は PostgreSQL のスーパーユーザー用、`VERBENA_DATABASE_*` は Rails アプリが接続に使用するアプリケーションユーザー用です（未設定時は表のデフォルト値を使用）：
 
 | 変数名 | 説明 |
 |--------|------|
-| `POSTGRES_USER` | Rails アプリ用の DB ユーザー名。既定: `postgres` |
-| `POSTGRES_PASSWORD` | 上記ユーザーのパスワード。既定: `postgres` |
+| `POSTGRES_USER` | PostgreSQL スーパーユーザー名。既定: `postgres` |
+| `POSTGRES_PASSWORD` | 上記スーパーユーザーのパスワード。既定: `postgres` |
+| `VERBENA_DATABASE_USER` | Rails アプリ用の DB ユーザー名。既定: `POSTGRES_USER` と同じ（`postgres`） |
+| `VERBENA_DATABASE_PASSWORD` | 上記アプリ用ユーザーのパスワード。既定: `POSTGRES_PASSWORD` と同じ（`postgres`） |
+
+特に指定しない場合、アプリケーションユーザーと PostgreSQL スーパーユーザーは同じ資格情報になりますが、セキュリティ要件に応じて別々の値を設定できます。
 
 PostgreSQL オーバーレイも `DATABASE_NAME` をベースに `${DATABASE_NAME}_development` という規約でデータベース名を決定します。任意の名前を利用したい場合は `.env` で `DATABASE_NAME` を設定してください。
 
@@ -104,6 +108,20 @@ $ docker compose -f compose.yml -f compose.mysql.yml up -d
 
 ```sh
 $ docker compose -f compose.yml -f compose.mysql.yml exec web rails db:migrate:reset
+```
+
+#### マルチデータベース環境での注意点
+
+本プロジェクトの `db/schema.rb` は MySQL 環境を基準（リファレンス）として生成されています。そのため `charset: "utf8mb4"` などの MySQL 固有オプションが含まれています。
+
+PostgreSQL や SQLite などの他データベースを使用する場合、`bin/rails db:schema:load`（または `bin/setup` 内の `db:prepare`）を実行するとこれらの固有オプションが原因でエラーになる可能性があります。
+
+MySQL 以外のデータベースで環境構築を行う場合は、`db:schema:load` を介さない以下のコマンド（マイグレーションからの構築）を使用してください：
+
+```sh
+# PostgreSQL / SQLite の場合
+$ bin/rails db:create
+$ bin/rails db:migrate
 ```
 
 ## 設定

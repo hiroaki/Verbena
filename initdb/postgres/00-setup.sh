@@ -3,6 +3,13 @@ set -e
 
 # This script runs automatically when the container is initialized.
 # It creates the test database and ensures the application user exists.
+#
+# Environment variables used:
+#   DATABASE_NAME  - Base name for databases (default: verbena)
+#   POSTGRES_USER  - Superuser name (default: postgres)
+#   POSTGRES_DB    - Default database created by image (usually ${DATABASE_NAME}_development)
+#   APP_USER       - Application user name
+#   APP_PASS       - Application user password
 
 DB_BASE=${DATABASE_NAME:-verbena}
 DEV_DB="${DB_BASE}_development"
@@ -20,9 +27,9 @@ EOSQL
 # Handle application user creation if different from superuser
 if [ "$APP_USER" != "$POSTGRES_USER" ]; then
     echo "initdb: Creating application user ${APP_USER}"
-    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "postgres" <<-EOSQL
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "postgres" -v app_pass="$APP_PASS" <<-EOSQL
         -- Create user with password
-        CREATE USER "$APP_USER" WITH PASSWORD '$APP_PASS';
+        CREATE USER "$APP_USER" WITH PASSWORD :'app_pass';
         
         -- Grant ownership of databases to the app user
         -- This allows the app user to create schemas/tables (migrations)
