@@ -6,13 +6,14 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
       MYSQL_USER: ${MYSQL_USER:-railsuser}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-railspass}
+      MYSQL_DATABASE: '${DATABASE_NAME:-verbena}_development'
     ports:
       - '${MYSQL_FORWARD_PORT:-23306}:3306'
     volumes:
       - 'mysql-data:/var/lib/mysql'
-      - ./initdb:/docker-entrypoint-initdb.d
+      - ./initdb/mysql:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
+      test: ['CMD-SHELL', 'mysqladmin ping -h localhost -u root -p"$$MYSQL_ROOT_PASSWORD"']
       interval: 5s
       timeout: 5s
       retries: 5

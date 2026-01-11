@@ -5,12 +5,16 @@ services:
       TZ: UTC
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-verbena_development}
+      POSTGRES_DB: '${DATABASE_NAME:-verbena}_development'
       POSTGRES_INITDB_ARGS: '--encoding=UTF8 --locale=C'
+      DATABASE_NAME: '${DATABASE_NAME:-verbena}'
+      APP_USER: '${VERBENA_DATABASE_USER:-postgres}'
+      APP_PASS: '${VERBENA_DATABASE_PASSWORD:-postgres}'
     ports:
       - '${POSTGRES_FORWARD_PORT:-25432}:5432'
     volumes:
       - 'postgres-data:/var/lib/postgresql/data'
+      - ./initdb/postgres:/docker-entrypoint-initdb.d
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres}']
       interval: 5s
@@ -24,7 +28,6 @@ services:
       DATABASE_PORT: 5432
       VERBENA_DATABASE_USER: ${VERBENA_DATABASE_USER:-postgres}
       VERBENA_DATABASE_PASSWORD: ${VERBENA_DATABASE_PASSWORD:-postgres}
-      DATABASE_NAME: ${DATABASE_NAME:-verbena_development}
     depends_on:
       db:
         condition: service_healthy

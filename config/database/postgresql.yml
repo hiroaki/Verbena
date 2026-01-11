@@ -1,12 +1,14 @@
 <%
+base_name = ENV["DATABASE_NAME"]
+base_name = "verbena" if base_name.nil? || base_name.empty?
+
 resolve_name = lambda do |env|
-  override = ENV["DATABASE_NAME"]
-  override.nil? || override.empty? ? "verbena_#{env}" : override
+  "#{base_name}_#{env}"
 end
 username = ENV["VERBENA_DATABASE_USER"] || ENV["DATABASE_USERNAME"] || ENV["POSTGRES_USER"] || ENV["PGUSER"]
-raise KeyError, "Set VERBENA_DATABASE_USER or DATABASE_USERNAME for postgresql" if username.nil? || username.empty?
+raise KeyError, "Set VERBENA_DATABASE_USER for postgresql (recommended) or one of DATABASE_USERNAME/POSTGRES_USER/PGUSER" if username.nil? || username.empty?
 password = ENV["VERBENA_DATABASE_PASSWORD"] || ENV["DATABASE_PASSWORD"] || ENV["POSTGRES_PASSWORD"] || ENV["PGPASSWORD"]
-raise KeyError, "Set VERBENA_DATABASE_PASSWORD or DATABASE_PASSWORD for postgresql" if password.nil? || password.empty?
+raise KeyError, "Set VERBENA_DATABASE_PASSWORD for postgresql (recommended) or one of DATABASE_PASSWORD/POSTGRES_PASSWORD/PGPASSWORD" if password.nil? || password.empty?
 %>
 
 default: &default

@@ -38,23 +38,30 @@ has_privs_for_db() {
 	[ "${count}" -gt 0 ]
 }
 
-echo "initdb: ensuring privileges for user ${MYSQL_USER}"
+DB_BASE=${DATABASE_NAME:-verbena}
+DEV_DB="${DB_BASE}_development"
+TEST_DB="${DB_BASE}_test"
+
+echo "initdb: ensuring privileges for user ${MYSQL_USER} on ${DEV_DB} / ${TEST_DB}"
+
+mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "CREATE DATABASE IF NOT EXISTS \`${DEV_DB}\`;"
+mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "CREATE DATABASE IF NOT EXISTS \`${TEST_DB}\`;"
 
 # Check and grant privileges for development database
-if has_privs_for_db "verbena_development"; then
-	echo "initdb: privileges for ${MYSQL_USER} on verbena_development already present — skipping"
+if has_privs_for_db "${DEV_DB}"; then
+	echo "initdb: privileges for ${MYSQL_USER} on ${DEV_DB} already present — skipping"
 else
-	echo "initdb: granting privileges on verbena_development to ${MYSQL_USER}"
-	mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "GRANT ALL PRIVILEGES ON verbena_development.* TO '${MYSQL_USER}'@'%';"
+	echo "initdb: granting privileges on ${DEV_DB} to ${MYSQL_USER}"
+	mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "GRANT ALL PRIVILEGES ON \`${DEV_DB}\`.* TO '${MYSQL_USER}'@'%';"
 	SKIP_FLUSH=0
 fi
 
 # Check and grant privileges for test database
-if has_privs_for_db "verbena_test"; then
-	echo "initdb: privileges for ${MYSQL_USER} on verbena_test already present — skipping"
+if has_privs_for_db "${TEST_DB}"; then
+	echo "initdb: privileges for ${MYSQL_USER} on ${TEST_DB} already present — skipping"
 else
-	echo "initdb: granting privileges on verbena_test to ${MYSQL_USER}"
-	mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "GRANT ALL PRIVILEGES ON verbena_test.* TO '${MYSQL_USER}'@'%';"
+	echo "initdb: granting privileges on ${TEST_DB} to ${MYSQL_USER}"
+	mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "GRANT ALL PRIVILEGES ON \`${TEST_DB}\`.* TO '${MYSQL_USER}'@'%';"
 	SKIP_FLUSH=0
 fi
 

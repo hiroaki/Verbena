@@ -10,10 +10,18 @@ Verbena アプリケーションの設定に用いられる環境変数を説明
 
 | 変数名 | 用途 | 必須/任意 | 既定値 | 説明 |
 |--------|------|-----------|--------|------|
+| DATABASE_ADAPTER | アダプタ選択 | 任意 (Compose は自動設定) | なし | mysql2 / postgresql / sqlite3 のいずれか。ローカルで直接 Rails を起動する場合は必須 |
+| DATABASE_NAME | DB ベース名 | 任意 | verbena | `#{DATABASE_NAME}_<environment>` の規約で各環境の DB 名を決定します |
+| DATABASE_HOST | DB ホスト | 任意 | 127.0.0.1 | DB ホスト名/アドレス。Compose では自動的にコンテナ名を指定します |
+| DATABASE_PORT | DB ポート | 任意 | アダプタ既定 (mysql2: 3306, postgresql: 5432) | DB ポート番号 |
+| DATABASE_FILE | SQLite ファイル | 任意 | storage/verbena_<environment>.sqlite3 | SQLite 使用時の DB ファイルパス |
+
+| 変数名 | 用途 | 必須/任意 | 既定値 | 説明 |
+|--------|------|-----------|--------|------|
 | VERBENA_DATABASE_USER | DBユーザー | 本番必須 | なし | DB接続ユーザー名 |
 | VERBENA_DATABASE_PASSWORD | DBパスワード | 本番必須 | なし | DB接続パスワード |
 
-開発環境（Docker Compose）では `VERBENA_DATABASE_*` が未設定の場合、`config/database.yml` の設定により `MYSQL_USER` / `MYSQL_PASSWORD` にフォールバックします。
+開発環境（Docker Compose）では `VERBENA_DATABASE_*` を省略しても、各 DB オーバーレイがアダプタ固有の認証情報（例: MySQL なら `MYSQL_USER` / `MYSQL_PASSWORD`、PostgreSQL なら `POSTGRES_USER` / `POSTGRES_PASSWORD`）を設定するため、そのまま動作します。
 
 **注意**: 本番環境や Docker Compose を使わない環境などで initdb スクリプトを使わない場合は、アプリ側の DB 接続情報として `VERBENA_DATABASE_USER` / `VERBENA_DATABASE_PASSWORD` を設定してください。
 

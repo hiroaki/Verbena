@@ -2,4 +2,3 @@ services:
   web:
     environment:
       DATABASE_ADAPTER: sqlite3
-      DATABASE_FILE: ${DATABASE_FILE:-storage/verbena_development.sqlite3}
