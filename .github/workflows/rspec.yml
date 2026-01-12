@@ -18,7 +18,7 @@ jobs:
         env:
           MYSQL_ROOT_PASSWORD: password
         options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ppassword"
+          --health-cmd="mysqladmin ping -h mysql -uroot -ppassword"
           --health-interval=5s
           --health-timeout=5s
           --health-retries=20
@@ -45,7 +45,7 @@ jobs:
       - name: Configure DB env (mysql)
         run: |
           echo "DATABASE_ADAPTER=mysql2" >> $GITHUB_ENV
-          echo "DATABASE_HOST=127.0.0.1" >> $GITHUB_ENV
+          echo "DATABASE_HOST=mysql" >> $GITHUB_ENV
           echo "DATABASE_PORT=3306" >> $GITHUB_ENV
           echo "VERBENA_DATABASE_USER=root" >> $GITHUB_ENV
           echo "VERBENA_DATABASE_PASSWORD=password" >> $GITHUB_ENV
@@ -71,7 +71,7 @@ jobs:
         env:
           MYSQL_ROOT_PASSWORD: password
         options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ppassword"
+          --health-cmd="mysqladmin ping -h mysql -uroot -ppassword"
           --health-interval=5s
           --health-timeout=5s
           --health-retries=20
@@ -98,7 +98,7 @@ jobs:
       - name: Configure DB env (mysql)
         run: |
           echo "DATABASE_ADAPTER=mysql2" >> $GITHUB_ENV
-          echo "DATABASE_HOST=127.0.0.1" >> $GITHUB_ENV
+          echo "DATABASE_HOST=mysql" >> $GITHUB_ENV
           echo "DATABASE_PORT=3306" >> $GITHUB_ENV
           echo "VERBENA_DATABASE_USER=root" >> $GITHUB_ENV
           echo "VERBENA_DATABASE_PASSWORD=password" >> $GITHUB_ENV
@@ -154,7 +154,7 @@ jobs:
       - name: Configure DB env (postgresql)
         run: |
           echo "DATABASE_ADAPTER=postgresql" >> $GITHUB_ENV
-          echo "DATABASE_HOST=127.0.0.1" >> $GITHUB_ENV
+          echo "DATABASE_HOST=postgresql" >> $GITHUB_ENV
           echo "DATABASE_PORT=5432" >> $GITHUB_ENV
           echo "VERBENA_DATABASE_USER=postgres" >> $GITHUB_ENV
           echo "VERBENA_DATABASE_PASSWORD=postgres" >> $GITHUB_ENV
