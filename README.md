@@ -55,7 +55,7 @@ $ cp dot.env.sample .env
 
 #### データベース初期化用の環境変数
 
-初回起動時、データベースコンテナは `./initdb` 配下のスクリプトを自動実行してデータベースユーザーの権限を設定します。この際、**以下の環境変数が必要です**（`.env` または compose.yml で指定）：
+初回起動時、データベースコンテナは `./initdb` 配下のスクリプトを自動実行してデータベースユーザーの権限を設定します。この際、**以下の環境変数が必要です**（`.env` または `compose.mysql.yml` で指定）：
 
 | 変数名               | 説明 |
 |----------------------|------|
@@ -63,19 +63,65 @@ $ cp dot.env.sample .env
 | `MYSQL_USER`         | アプリ用DBユーザー名。必須。 |
 | `MYSQL_PASSWORD`     | アプリ用DBユーザーパスワード。必須。 |
 
+PostgreSQL オーバーレイ (`compose.postgresql.yml`) を使用する場合は、以下の環境変数を利用します。`POSTGRES_*` は PostgreSQL のスーパーユーザー用、`VERBENA_DATABASE_*` は Rails アプリが接続に使用するアプリケーションユーザー用です（未設定時は表のデフォルト値を使用）：
+
+| 変数名 | 説明 |
+|--------|------|
+| `POSTGRES_USER` | PostgreSQL スーパーユーザー名。既定: `postgres` |
+| `POSTGRES_PASSWORD` | 上記スーパーユーザーのパスワード。既定: `postgres` |
+| `VERBENA_DATABASE_USER` | Rails アプリ用の DB ユーザー名。既定: `POSTGRES_USER` と同じ（`postgres`） |
+| `VERBENA_DATABASE_PASSWORD` | 上記アプリ用ユーザーのパスワード。既定: `POSTGRES_PASSWORD` と同じ（`postgres`） |
+
+特に指定しない場合、アプリケーションユーザーと PostgreSQL スーパーユーザーは同じ資格情報になりますが、セキュリティ要件に応じて別々の値を設定できます。
+
+PostgreSQL オーバーレイも `DATABASE_NAME` をベースに `${DATABASE_NAME}_development` という規約でデータベース名を決定します。任意の名前を利用したい場合は `.env` で `DATABASE_NAME` を設定してください。
+
+`.env` で `DATABASE_NAME` を指定すると、その値をベース名として（未設定時は `verbena`）開発用 DB を `${DATABASE_NAME}_development` という規約で自動作成します。Rails も同じ規約で `development/test/production` 各環境の DB 名を解決するため、不整合が起こりません。
+
 なお、ボリュームに既存のデータがある場合は初期化スクリプトが実行されません（完全に初期状態へ戻す場合は「データベースの完全リセット」を参照してください）。
+
+#### Compose オーバーレイの選択
+
+Verbena の Docker Compose 構成は「共通 (compose.yml) + DB オーバーレイ」を組み合わせて利用します。使用したいデータベースに合わせて、以下のようにファイルを指定してください。
+
+```sh
+# MySQL / MariaDB
+$ docker compose -f compose.yml -f compose.mysql.yml up -d
+
+# PostgreSQL
+$ docker compose -f compose.yml -f compose.postgresql.yml up -d
+
+# SQLite (DB サービスは不要)
+$ docker compose -f compose.yml -f compose.sqlite.yml up -d
+```
+
+以降のコマンド例では MySQL オーバーレイ（`compose.mysql.yml`）を使用しています。PostgreSQL や SQLite を利用する場合は、適宜ファイル名を読み替えてください。
 
 イメージを作成し、そのコンテナを起動します。
 
 ```sh
-$ docker compose build
-$ docker compose up -d
+$ docker compose -f compose.yml -f compose.mysql.yml build
+$ docker compose -f compose.yml -f compose.mysql.yml up -d
 ```
 
 サービス "web" からデータベースを作成します。
 
 ```sh
-$ docker compose exec web rails db:migrate:reset
+$ docker compose -f compose.yml -f compose.mysql.yml exec web rails db:migrate:reset
+```
+
+#### マルチデータベース環境での注意点
+
+本プロジェクトの `db/schema.rb` は MySQL 環境を基準（リファレンス）として生成されています。そのため `charset: "utf8mb4"` などの MySQL 固有オプションが含まれています。
+
+PostgreSQL や SQLite などの他データベースを使用する場合、`bin/rails db:schema:load`（または `bin/setup` 内の `db:prepare`）を実行するとこれらの固有オプションが原因でエラーになる可能性があります。
+
+MySQL 以外のデータベースで環境構築を行う場合は、`db:schema:load` を介さない以下のコマンド（マイグレーションからの構築）を使用してください：
+
+```sh
+# PostgreSQL / SQLite の場合
+$ bin/rails db:create
+$ bin/rails db:migrate
 ```
 
 ## 設定
@@ -114,6 +160,7 @@ Verbena の設定は環境変数で行います。主な環境変数は次のと
 
 | 変数名 | 説明 |
 |--------|------|
+| `DATABASE_ADAPTER` | 使用するデータベースアダプタ（mysql2 / postgresql / sqlite3）。Docker Compose オーバーレイが自動設定しますが、ローカル実行時は必須。 |
 | `VERBENA_DELIVERY_METHOD` | メール配送方式。smtp / test / file。既定値: test（開発）/smtp（本番）。 |
 | `VERBENA_DELIVERY_SMTP_ADDRESS` | SMTP配送時のサーバアドレス。既定値: なし。 |
 | `VERBENA_DELIVERY_SMTP_PORT` | SMTP配送時のポート番号。既定値: なし。 |
@@ -258,10 +305,10 @@ $ bin/rails verbena:cleanup:by_ttl[true]
 
 ```sh
 # 全テストを実行
-docker compose exec web bundle exec rspec
+docker compose -f compose.yml -f compose.mysql.yml exec web bundle exec rspec
 
 # 特定ファイルだけ実行
-docker compose exec web bundle exec rspec spec/tasks/verbena/mail_queues_rake_spec.rb
+docker compose -f compose.yml -f compose.mysql.yml exec web bundle exec rspec spec/tasks/verbena/mail_queues_rake_spec.rb
 ```
 
 テストを実行すると `coverage` ディレクトリにカバレッジ・レポートが出力されますので、 `coverage/index.html` をブラウザで開いて、内容を確認してください。
@@ -272,17 +319,17 @@ docker compose exec web bundle exec rspec spec/tasks/verbena/mail_queues_rake_sp
 
 1. コンテナを停止してボリュームを削除:
   ```sh
-  $ docker compose down -v
+  $ docker compose -f compose.yml -f compose.mysql.yml down -v
   ```
 
 2. コンテナを再起動:
   ```sh
-  $ docker compose up -d
+  $ docker compose -f compose.yml -f compose.mysql.yml up -d
   ```
 
 3. データベースを再作成:
   ```sh
-  $ docker compose exec web rails db:migrate:reset
+  $ docker compose -f compose.yml -f compose.mysql.yml exec web rails db:migrate:reset
   ```
 
 ### タイムゾーン方針 (UTC)

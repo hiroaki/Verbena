@@ -1,17 +1,4 @@
 services:
-  db:
-    image: mariadb:10.6.10
-    environment:
-      TZ: UTC
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
-      MYSQL_USER: ${MYSQL_USER:-railsuser}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-railspass}
-    ports:
-      - '23306:3306'
-    volumes:
-      - 'db-data:/var/lib/mysql'
-      - ./initdb:/docker-entrypoint-initdb.d
-
   web:
     build: .
     ports:
@@ -21,11 +8,7 @@ services:
       - 'bundle:/usr/local/bundle'
     tty: true
     stdin_open: true
-    depends_on:
-      - db
     environment:
-      MYSQL_USER: ${MYSQL_USER:-railsuser}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-railspass}
       VERBENA_DELIVERY_METHOD: smtp
       VERBENA_DELIVERY_SMTP_DOMAIN: localdomain
       VERBENA_DELIVERY_SMTP_AUTHENTICATION: plain
@@ -35,5 +18,4 @@ services:
       VERBENA_DELIVERY_SMTP_PORT: 1025
 
 volumes:
-  db-data:
   bundle:

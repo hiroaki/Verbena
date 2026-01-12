@@ -1,0 +1,41 @@
+<%
+  base_name = ENV["DATABASE_NAME"]
+  base_name = "verbena" if base_name.nil? || base_name.empty?
+
+  resolve_name = lambda do |env|
+    "#{base_name}_#{env}"
+  end
+
+  username = ENV["VERBENA_DATABASE_USER"] || ENV["POSTGRES_USER"] || ENV["PGUSER"]
+  if username.nil? || username.empty?
+    raise KeyError, "Set VERBENA_DATABASE_USER (preferred), POSTGRES_USER, or PGUSER for postgresql"
+  end
+
+  password = ENV["VERBENA_DATABASE_PASSWORD"] || ENV["POSTGRES_PASSWORD"] || ENV["PGPASSWORD"]
+  if password.nil? || password.empty?
+    raise KeyError, "Set VERBENA_DATABASE_PASSWORD (preferred), POSTGRES_PASSWORD, or PGPASSWORD for postgresql"
+  end
+%>
+
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  host: <%= ENV.fetch("DATABASE_HOST") { "127.0.0.1" } %>
+  port: <%= ENV.fetch("DATABASE_PORT") { 5432 } %>
+  username: <%= username %>
+  password: <%= password %>
+  variables:
+    timezone: UTC
+
+development:
+  <<: *default
+  database: <%= resolve_name.call("development") %>
+
+test:
+  <<: *default
+  database: <%= resolve_name.call("test") %>
+
+production:
+  <<: *default
+  database: <%= resolve_name.call("production") %>
