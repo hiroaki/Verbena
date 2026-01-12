@@ -31,16 +31,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends default-libmysqlclient-dev libpq-dev libsqlite3-dev
+
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
           bundler-cache: true
-
-      - name: Install system packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends default-libmysqlclient-dev
 
       - name: Configure DB env (mysql)
         run: |
@@ -84,17 +84,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends default-libmysqlclient-dev libpq-dev libsqlite3-dev
+
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
           bundler-cache: true
-
-      - name: Install system packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            default-libmysqlclient-dev
 
       - name: Configure DB env (mysql)
         run: |
@@ -141,17 +140,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends default-libmysqlclient-dev libpq-dev libsqlite3-dev
+
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
           bundler-cache: true
-
-      - name: Install system packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libpq-dev
 
       - name: Configure DB env (postgresql)
         run: |
@@ -181,16 +179,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends default-libmysqlclient-dev libpq-dev libsqlite3-dev
+
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
           bundler-cache: true
-
-      - name: Install system packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libsqlite3-dev
 
       - name: Configure DB env (sqlite)
         run: |
