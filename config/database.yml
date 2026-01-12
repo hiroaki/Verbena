@@ -1,8 +1,13 @@
 <%
-adapter = ENV["DATABASE_ADAPTER"]
-raise KeyError, "Set DATABASE_ADAPTER (mysql2, postgresql, sqlite3)" if adapter.nil? || adapter.strip.empty?
-adapter = adapter.downcase
-config_path = File.expand_path("database/#{adapter}.yml", __dir__)
-raise ArgumentError, "Unsupported DATABASE_ADAPTER=#{adapter}" unless File.exist?(config_path)
+  adapter = ENV["DATABASE_ADAPTER"]
+  if adapter.nil? || adapter.strip.empty?
+    raise KeyError, "DATABASE_ADAPTER must be set to one of: mysql2, postgresql, sqlite3"
+  end
+  adapter = adapter.downcase
+
+  config_path = File.expand_path("database/#{adapter}.yml", __dir__)
+  unless File.exist?(config_path)
+    raise ArgumentError, "Unsupported DATABASE_ADAPTER=#{adapter}. Supported adapters are: mysql2, postgresql, sqlite3"
+  end
 %>
 <%= ERB.new(File.read(config_path)).result %>

@@ -1,11 +1,11 @@
 <%
-resolve_path = lambda do |env|
-  override = ENV["DATABASE_FILE"]
-  return override unless override.nil? || override.empty?
-  base = ENV["DATABASE_NAME"]
-  base = "verbena" if base.nil? || base.empty?
-  File.join("storage", "#{base}_#{env}.sqlite3")
-end
+  resolve_path = lambda do |env|
+    override = ENV["DATABASE_FILE"]
+    return override unless override.nil? || override.empty?
+    base = ENV["DATABASE_NAME"]
+    base = "verbena" if base.nil? || base.empty?
+    File.join("storage", "#{base}_#{env}.sqlite3")
+  end
 %>
 
 default: &default

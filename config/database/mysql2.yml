@@ -1,14 +1,20 @@
 <%
-base_name = ENV["DATABASE_NAME"]
-base_name = "verbena" if base_name.nil? || base_name.empty?
+  base_name = ENV["DATABASE_NAME"]
+  base_name = "verbena" if base_name.nil? || base_name.empty?
 
-resolve_name = lambda do |env|
-  "#{base_name}_#{env}"
-end
-username = ENV["VERBENA_DATABASE_USER"] || ENV["MYSQL_USER"]
-raise KeyError, "Set VERBENA_DATABASE_USER (preferred) or MYSQL_USER for mysql2" if username.nil? || username.empty?
-password = ENV["VERBENA_DATABASE_PASSWORD"] || ENV["MYSQL_PASSWORD"]
-raise KeyError, "Set VERBENA_DATABASE_PASSWORD (preferred) or MYSQL_PASSWORD for mysql2" if password.nil? || password.empty?
+  resolve_name = lambda do |env|
+    "#{base_name}_#{env}"
+  end
+
+  username = ENV["VERBENA_DATABASE_USER"] || ENV["MYSQL_USER"]
+  if username.nil? || username.empty?
+    raise KeyError, "Set VERBENA_DATABASE_USER (preferred) or MYSQL_USER for mysql2"
+  end
+
+  password = ENV["VERBENA_DATABASE_PASSWORD"] || ENV["MYSQL_PASSWORD"]
+  if password.nil? || password.empty?
+    raise KeyError, "Set VERBENA_DATABASE_PASSWORD (preferred) or MYSQL_PASSWORD for mysql2"
+  end
 %>
 
 default: &default

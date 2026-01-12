@@ -1,14 +1,20 @@
 <%
-base_name = ENV["DATABASE_NAME"]
-base_name = "verbena" if base_name.nil? || base_name.empty?
+  base_name = ENV["DATABASE_NAME"]
+  base_name = "verbena" if base_name.nil? || base_name.empty?
 
-resolve_name = lambda do |env|
-  "#{base_name}_#{env}"
-end
-username = ENV["VERBENA_DATABASE_USER"] || ENV["DATABASE_USERNAME"] || ENV["POSTGRES_USER"] || ENV["PGUSER"]
-raise KeyError, "Set VERBENA_DATABASE_USER (preferred), DATABASE_USERNAME, POSTGRES_USER, or PGUSER for postgresql" if username.nil? || username.empty?
-password = ENV["VERBENA_DATABASE_PASSWORD"] || ENV["DATABASE_PASSWORD"] || ENV["POSTGRES_PASSWORD"] || ENV["PGPASSWORD"]
-raise KeyError, "Set VERBENA_DATABASE_PASSWORD (preferred), DATABASE_PASSWORD, POSTGRES_PASSWORD, or PGPASSWORD for postgresql" if password.nil? || password.empty?
+  resolve_name = lambda do |env|
+    "#{base_name}_#{env}"
+  end
+
+  username = ENV["VERBENA_DATABASE_USER"] || ENV["POSTGRES_USER"] || ENV["PGUSER"]
+  if username.nil? || username.empty?
+    raise KeyError, "Set VERBENA_DATABASE_USER (preferred), POSTGRES_USER, or PGUSER for postgresql"
+  end
+
+  password = ENV["VERBENA_DATABASE_PASSWORD"] || ENV["POSTGRES_PASSWORD"] || ENV["PGPASSWORD"]
+  if password.nil? || password.empty?
+    raise KeyError, "Set VERBENA_DATABASE_PASSWORD (preferred), POSTGRES_PASSWORD, or PGPASSWORD for postgresql"
+  end
 %>
 
 default: &default
