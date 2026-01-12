@@ -23,6 +23,11 @@ module Verbena
     # Initialize configuration defaults for originally generated Rails version.
     config.load_defaults 7.0
 
+    # Please, add to the `ignore` list any other `lib` subdirectories that do
+    # not contain `.rb` files, or that should not be reloaded or eager loaded.
+    # Common ones are `templates`, `generators`, or `middleware`, for example.
+    config.autoload_lib(ignore: %w[assets tasks])
+
     # Configuration for the application, engines, and railties goes here.
     #
     # These settings can be overridden in specific environments using the files
@@ -30,9 +35,13 @@ module Verbena
     #
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
-    # OSS: Default to UTC for app and DB
+
+    # Default to UTC for app and DB
     config.time_zone = "UTC"
     config.active_record.default_timezone = :utc
+
+    # Don't generate system test files.
+    config.generators.system_tests = nil
 
     # Disable colorized logging when JSON log format is requested via ENV.
     # This keeps JSON logs clean of ANSI escape sequences across all environments.
@@ -42,10 +51,7 @@ module Verbena
       # config.active_record.verbose_query_logs = false
     end
 
-    # Don't generate system test files.
-    config.generators.system_tests = nil
-
-    # verbena 固有の設定
+    # Verbena 固有の設定
     # config/verbena.yml に値を記述します。
     config.verbena = config_for(:verbena)
   end
