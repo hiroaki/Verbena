@@ -39,7 +39,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
+          ruby-version: '3.4.8'
           bundler-cache: true
 
       - name: Configure DB env (mysql)
@@ -92,7 +92,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
+          ruby-version: '3.4.8'
           bundler-cache: true
 
       - name: Configure DB env (mysql)
@@ -148,7 +148,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
+          ruby-version: '3.4.8'
           bundler-cache: true
 
       - name: Configure DB env (postgresql)
@@ -187,7 +187,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
+          ruby-version: '3.4.8'
           bundler-cache: true
 
       - name: Configure DB env (sqlite)
