@@ -150,9 +150,12 @@ GEM
       racc (~> 1.4)
     nokogiri (1.19.0-arm64-darwin)
       racc (~> 1.4)
+    nokogiri (1.19.0-x86_64-linux-gnu)
+      racc (~> 1.4)
     parallel (1.27.0)
     pg (1.6.3-aarch64-linux)
     pg (1.6.3-arm64-darwin)
+    pg (1.6.3-x86_64-linux)
     pp (0.6.3)
       prettyprint
     prettyprint (0.2.0)
@@ -285,6 +288,7 @@ PLATFORMS
   aarch64-linux
   arm64-darwin-21
   arm64-darwin-24
+  x86_64-linux
 
 DEPENDENCIES
   bootsnap
