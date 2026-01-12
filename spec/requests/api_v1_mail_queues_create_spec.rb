@@ -24,7 +24,7 @@ RSpec.describe 'Api::V1::MailQueues create validations', type: :request do
     Verbena::Settings.configure(eml_max_bytes: 10)
     begin
       post_eml('x' * 11)
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       expect(json['code']).to eq('eml_too_large')
     ensure
       Verbena::Settings.configure(eml_max_bytes: old)
@@ -41,7 +41,7 @@ RSpec.describe 'Api::V1::MailQueues create validations', type: :request do
       Body
     EML
     post_eml(eml)
-    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response).to have_http_status(:unprocessable_content)
     expect(json['code']).to eq('no_recipients')
   end
 end

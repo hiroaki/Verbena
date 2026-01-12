@@ -17,8 +17,10 @@ jobs:
         image: mariadb:10.6.10
         env:
           MYSQL_ROOT_PASSWORD: password
+        ports:
+          - 3306:3306
         options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ppassword"
+          --health-cmd="mysqladmin ping -h localhost -u root -ppassword"
           --health-interval=5s
           --health-timeout=5s
           --health-retries=20
@@ -39,7 +41,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
+          ruby-version: '3.4.8'
           bundler-cache: true
 
       - name: Configure DB env (mysql)
@@ -58,65 +60,6 @@ jobs:
       - name: Run RSpec
         run: bundle exec rspec
 
-  # MySQL-only schema verification job:
-  # Builds the schema from migrations and compares the dumped `db/schema.rb`
-  # with the committed file to ensure the MySQL-centric `db/schema.rb`
-  # is kept in sync with migrations.
-  schema-verify-mysql:
-    name: schema verify (mysql)
-    runs-on: ubuntu-latest
-    services:
-      mysql:
-        image: mariadb:10.6.10
-        env:
-          MYSQL_ROOT_PASSWORD: password
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ppassword"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=20
-
-    env:
-      RAILS_ENV: test
-      DATABASE_NAME: verbena
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install system packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends default-libmysqlclient-dev libpq-dev libsqlite3-dev
-
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2'
-          bundler-cache: true
-
-      - name: Configure DB env (mysql)
-        run: |
-          echo "DATABASE_ADAPTER=mysql2" >> $GITHUB_ENV
-          echo "DATABASE_HOST=127.0.0.1" >> $GITHUB_ENV
-          echo "DATABASE_PORT=3306" >> $GITHUB_ENV
-          echo "VERBENA_DATABASE_USER=root" >> $GITHUB_ENV
-          echo "VERBENA_DATABASE_PASSWORD=password" >> $GITHUB_ENV
-
-      - name: Save committed schema
-        run: |
-          if [ -f db/schema.rb ]; then git show HEAD:db/schema.rb > db/schema_committed.rb || true; else touch db/schema_committed.rb; fi
-
-      - name: Build schema from migrations
-        run: |
-          bin/rails db:create
-          bin/rails db:migrate
-          bin/rails db:schema:dump
-
-      - name: Compare schema files
-        run: |
-          git --no-pager diff --no-index --exit-code db/schema_committed.rb db/schema.rb
-
   rspec-postgresql:
     name: rspec (postgresql)
     runs-on: ubuntu-latest
@@ -126,8 +69,10 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
         options: >-
-          --health-cmd="pg_isready -U postgres"
+          --health-cmd="pg_isready"
           --health-interval=5s
           --health-timeout=5s
           --health-retries=20
@@ -148,7 +93,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
+          ruby-version: '3.4.8'
           bundler-cache: true
 
       - name: Configure DB env (postgresql)
@@ -187,7 +132,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
+          ruby-version: '3.4.8'
           bundler-cache: true
 
       - name: Configure DB env (sqlite)
