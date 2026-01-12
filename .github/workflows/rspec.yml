@@ -76,6 +76,10 @@ jobs:
           --health-timeout=5s
           --health-retries=20
 
+    env:
+      RAILS_ENV: test
+      DATABASE_NAME: verbena
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -91,6 +95,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             default-libmysqlclient-dev
+
+      - name: Configure DB env (mysql)
+        run: |
+          echo "DATABASE_ADAPTER=mysql2" >> $GITHUB_ENV
+          echo "DATABASE_HOST=127.0.0.1" >> $GITHUB_ENV
+          echo "DATABASE_PORT=3306" >> $GITHUB_ENV
+          echo "VERBENA_DATABASE_USER=root" >> $GITHUB_ENV
+          echo "VERBENA_DATABASE_PASSWORD=password" >> $GITHUB_ENV
 
       - name: Save committed schema
         run: |
