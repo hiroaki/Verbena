@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_01_08_090000) do
+ActiveRecord::Schema[7.2].define(version: 2026_01_12_152049) do
   create_table "delivery_responses", charset: "utf8mb4", force: :cascade do |t|
     t.bigint "mail_queue_id", null: false
     t.datetime "responded_at"
