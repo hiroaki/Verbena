@@ -59,7 +59,6 @@ group :development, :test do
   gem 'pry-byebug'
   gem 'pry-doc'
   gem 'rspec-rails', '~> 6.0.0'
-  gem 'spring-commands-rspec'
 end
 
 group :development do
@@ -68,9 +67,6 @@ group :development do
 
   # Add speed badges [https://github.com/MiniProfiler/rack-mini-profiler]
   # gem "rack-mini-profiler"
-
-  # Speed up commands on slow machines / big apps [https://github.com/rails/spring]
-  gem "spring"
 end
 
 group :test do

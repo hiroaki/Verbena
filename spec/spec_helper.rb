@@ -1,9 +1,3 @@
-# NOTE: spring 経由で実行するとレポートが誤って報告される場合があります。
-# https://github.com/simplecov-ruby/simplecov#want-to-use-spring-with-simplecov
-# これを避けるひとつの方法として spring を無効にして実行します。
-#
-#   $ DISABLE_SPRING=1 rspec
-#
 require 'simplecov'
 SimpleCov.start 'rails' do
   add_group 'Services', 'app/services'
