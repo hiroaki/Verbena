@@ -63,67 +63,13 @@ module Verbena
       new(options.merge(session_id: session_id))
     end
 
-    # 一度も処理されていないレコードの中で、
-    # 現在時刻がタイマー時刻を経過しているレコードを対象にした送信処理を実行します。
-    def perform_by_timer
-      MailQueue.claim_by_timer!(session_id)
-      perform
-    end
-
-    # 一度も処理されていないレコードの中で、
-    # mail_queue_id で指定した mail_queues.id のレコードを対象にした送信処理を実行します。
-    def perform_by_mail_queue_id(mail_queue_id)
-      MailQueue.claim_by_id!(session_id, mail_queue_id)
-      perform
-    end
-
-    # 指定した session_id による配送処理の結果がステータス 4xx である対象の MailQueue のレコードを、
-    # 再処理可能な状態にリセットします。
-    # ただしその session_id による最古の配送時刻から timelimit 時間が経過している場合は処理しません。
-    def prepare_to_retry_for_session(timelimit = nil)
-      reset_mail_queues(
-        DeliveryResponse.last_status_4xx_within_time_limit(parse_timelimit_seconds(timelimit)).map(&:mail_queue_id)
-      )
-    end
-
-    # 指定した session_id による配送処理の結果が存在しない MailQueue のレコードを、
-    # 再処理可能な状態にリセットします。
-    # このメソッドは単に、関連する DeliveryResponse にレコードが存在しない MailQueue(s) を対象にします。
-    # 注意点として、指定した session_id による配送処理が、完了しているか否かはこのメソッドの範疇外です。
-    # このメソッドを実行する際には、配送時の動作ログをチェックし、
-    # 指定した session_id による配送処理が完了していることを確認のうえ、実行するようにしてください。
-    def prepare_to_retry_undelivered
-      reset_mail_queues(
-        MailQueue.undelivered.where(session_id: session_id).map(&:id)
-      )
-    end
-
-    # このインスタンスで処理したレコードのうち、レコードの id が mail_queue_ids のものについて、
-    # レコードの session_id をクリアします（ =「一度も処理していない」状態に戻します）。
-    # この処理によって、該当するレコードを、新たなセッションで処理できるようになります。
-    # NOTE:
-    #   #claimed のレコードに限定しているのは、その印がないレコードはほかのセッションが処理している可能性があるためです。
-    def reset_mail_queues(mail_queue_ids)
-      MailQueue.claimed(session_id).where(id: Array(mail_queue_ids)).update_all(session_id: nil, claimed_at: nil, updated_at: Time.current)
-    end
-
-    # "claim されている" レコードを対象にした送信処理を実行します。
-    # 通常は claim されているレコードがない状況から始めることになるため、
-    # このメソッドではなくいずれかの perform_by_... メソッドを利用します。
-    def perform
-      MailQueue.claimed(session_id).in_batches(**config_for_in_batches) do |rel|
-        Parallel.each(rel.all, config_for_parallel) do |mail_queue|
-          perform_one(mail_queue)
-        end
-      end
-    end
-
     # mail_queue のメールを送信し、結果をテーブル delivery_responses に記録します。
     # 送信時に例外が発生した際は、レスポンスコード 451 としています。
-    # これは必ずしも SMTP サーバからの返答ではないことに注意してください。
+    # ネットワークエラーや4xxエラーの場合は、ログ記録後に例外を再発生させ、ジョブのリトライに委ねます。
     def perform_one(mail_queue)
       res = mail_queue.delivery_responses.new(responded_at: Time.current)
 
+      error_to_raise = nil
       loglevel = :info
       message = nil
 
@@ -135,18 +81,30 @@ module Verbena
           # 通常はもっと短い文章です。
           res.contents = response.string.chomp.truncate(250)
 
-          if response.status == '250'
+          if response.status.to_s.start_with?('2')
+            # Success
             message = structured_log(
               event: 'deliver.result', level: 'info', session_id: session_id,
               mail_queue_id: mail_queue.id, message_id: res.message_id, smtp_status: res.status,
               message: "OK sending a message mail_queues.id=[#{mail_queue.id}] Message-ID=<#{mail.message_id}>, response: status=[#{res.status}] string=[#{res.contents}]"
             )
             loglevel = :info
+          elsif response.status.to_s.start_with?('4')
+             # 4xx Error: Retryable
+             message = structured_log(
+              event: 'deliver.result', level: 'error', session_id: session_id,
+              mail_queue_id: mail_queue.id, message_id: res.message_id, smtp_status: res.status,
+              message: "NG (Retryable) sending a message mail_queues.id=[#{mail_queue.id}] Message-ID=<#{mail.message_id}>, response: status=[#{res.status}] string=[#{res.contents}]"
+            )
+            loglevel = :error
+            # Raise exception to trigger job retry
+            error_to_raise = Net::SMTPServerBusy.new(response.string)
           else
+            # 5xx or others: Failure (Non-retryable)
             message = structured_log(
               event: 'deliver.result', level: 'error', session_id: session_id,
               mail_queue_id: mail_queue.id, message_id: res.message_id, smtp_status: res.status,
-              message: "NG sending a message mail_queues.id=[#{mail_queue.id}] Message-ID=<#{mail.message_id}>, response: status=[#{res.status}] string=[#{res.contents}]"
+              message: "NG (Fatal) sending a message mail_queues.id=[#{mail_queue.id}] Message-ID=<#{mail.message_id}>, response: status=[#{res.status}] string=[#{res.contents}]"
             )
             loglevel = :error
           end
@@ -159,14 +117,20 @@ module Verbena
           error: "#{ex.class}: #{ex.message}", message: "NG sending a message mail_queues.id=[#{mail_queue.id}]: #{ex.inspect}"
         )
 
-        # NOTE: #send_mail! にて例外が発生する場合があり、それは SMTP レスポンスとは厳密には違いますが、
-        # 送信できなかったというレスポンスを受けた、という体で、 delivery_responses へ登録します。
-        # たとえば実際の例として、 RCPT TO コマンドに渡すメールアドレスが不正な書式であったときは Net::SMTPSyntaxError が発生します。
-        #
-        # TODO: status コードは再利用するわけではないので、 999 などといった独自のエラーコードを設定してもよいかもしれません。
-        # 現在のコードでセットしている 451 は暫定的なものです。
         res.status = 451 # "Requested action aborted: local error in processing"
+
+        # Determine if it's a permanent failure based on exception type
+        if ex.is_a?(Net::SMTPSyntaxError)
+          res.status = 501 # Syntax error in parameters or arguments
+        elsif ex.is_a?(Net::SMTPFatalError)
+          res.status = 554 # Transaction failed (or 5.0.0 Unable to process SMTP response)
+        end
+
         res.contents = ex.inspect
+
+        if retryable_error?(ex)
+          error_to_raise = ex
+        end
       ensure
         logger.send(loglevel, message)
 
@@ -176,6 +140,8 @@ module Verbena
           logger.error(structured_log(event: 'delivery_response.create_failed', level: 'error', session_id: session_id, mail_queue_id: mail_queue.id, message_id: res.message_id, smtp_status: res.status, error: res.errors.inspect, message: 'FAILED to create DeliveryResponse'))
         end
       end
+
+      raise error_to_raise if error_to_raise
     end
 
     # mail_queue のメールを送信します。
@@ -223,6 +189,10 @@ module Verbena
       end
 
       total_seconds
+    end
+
+    def retryable_error?(ex)
+      DeliveryJob.retryable_error?(ex)
     end
   end
 end
