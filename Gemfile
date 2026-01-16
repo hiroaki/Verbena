@@ -74,3 +74,5 @@ group :test do
 end
 
 gem 'parallel'
+
+gem "solid_queue", "~> 1.3"
