@@ -1,6 +1,8 @@
 require 'rails_helper'
 
 RSpec.describe Verbena::MailQueuesService, type: :service do
+  include ActiveJob::TestHelper
+
   let!(:genzai_jikoku) { Time.zone.parse('2023-10-23 10:11:22') }
 
   before do
@@ -67,12 +69,18 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
 
         describe '4件のうちで例外が発生しない場合' do
           before do
+            ActiveJob::Base.queue_adapter = :test
+            clear_enqueued_jobs
             @result = instance.create_mail_queues_by_eml!(eml)
           end
 
-          describe '作成されるレコードについて' do
+          describe '作成されるレコードとジョブについて' do
             it 'mail_queues が 4件 作成される' do
               expect(MailQueue.all.count).to eq 4
+            end
+
+            it 'DeliveryJob が 4件 エンキューされる' do
+              expect(DeliveryJob).to have_been_enqueued.exactly(4).times
             end
 
             it 'eml_sources が 1件 作成される' do

@@ -50,11 +50,13 @@ module Verbena
         eml_source = EmlSource.create!(eml: eml)
 
         destinations.each do |envelope_to|
-          mail_queues << eml_source.mail_queues.create!(
+          mq = eml_source.mail_queues.create!(
             timer_at: timer_at,
             envelope_from: envelope_from,
             envelope_to: envelope_to,
           )
+          mail_queues << mq
+          enqueue_delivery_job(mq)
         end
       end
 
@@ -71,11 +73,14 @@ module Verbena
 
       MailQueue.transaction do
         eml_source = EmlSource.create!(eml: eml)
-        eml_source.mail_queues.create!(
+        mq = eml_source.mail_queues.create!(
           timer_at: timer_at,
           envelope_from: envelope_from,
           envelope_to: envelope_to,
         )
+
+        enqueue_delivery_job(mq)
+        mq
       end
     end
 
@@ -154,6 +159,14 @@ module Verbena
     end
 
     private
+
+    def enqueue_delivery_job(mail_queue)
+      if mail_queue.timer_at.present? && mail_queue.timer_at > Time.current
+        DeliveryJob.set(wait_until: mail_queue.timer_at).perform_later(mail_queue.id)
+      else
+        DeliveryJob.perform_later(mail_queue.id)
+      end
+    end
 
     # 長時間 claim されているが配送されていない mail_queues の claim を解放するコア実装
     #
