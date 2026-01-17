@@ -39,9 +39,6 @@ module Verbena
         # File delivery
         attr_accessor :file_delivery_dir
 
-        # Parallel / batching
-        attr_accessor :parallel_type, :parallel_concurrency, :in_batches_of
-
         # API pagination
         attr_accessor :api_pagination_default_limit, :api_pagination_limit_cap, :api_pagination_default_offset
 
@@ -50,9 +47,6 @@ module Verbena
 
         # General limits
         attr_accessor :eml_max_bytes
-
-        # Claim/backoff tuning
-        attr_accessor :claim_backoff_base_seconds, :claim_backoff_cap_seconds, :claim_max_retries
 
         # Cleanup TTL (days)
         attr_accessor :cleanup_ttl_days
@@ -123,30 +117,6 @@ module Verbena
       def envelope_from_override
         val = config.envelope_from_override.to_s.strip
         val.present? ? val : nil
-      end
-
-      def parallel_config
-        type = (config.parallel_type.presence || rails_parallel_type.presence || 'in_threads').to_s
-        conc = (config.parallel_concurrency.presence || rails_parallel_concurrency.presence || 2).to_i
-        { type.to_sym => conc }
-      end
-
-      def in_batches_config
-        of = config.in_batches_of.presence || rails_in_batches_of
-        of.present? ? { of: of.to_i } : (Rails.configuration.verbena[:in_batches].presence || {})
-      end
-
-      # Claim/backoff readers
-      def claim_backoff_base_seconds
-        (config.claim_backoff_base_seconds || 1.0).to_f
-      end
-
-      def claim_backoff_cap_seconds
-        (config.claim_backoff_cap_seconds || 300.0).to_f
-      end
-
-      def claim_max_retries
-        integer_cast(config.claim_max_retries, 5)
       end
 
       # General readers
@@ -240,18 +210,6 @@ module Verbena
       end
 
       # Rails config fallbacks
-      def rails_parallel_type
-        Rails.configuration.verbena[:parallel][:type] rescue nil
-      end
-
-      def rails_parallel_concurrency
-        Rails.configuration.verbena[:parallel][:concurrency] rescue nil
-      end
-
-      def rails_in_batches_of
-        Rails.configuration.verbena[:in_batches][:of] rescue nil
-      end
-
       def boolean_cast(value, default = nil)
         return default if value.nil?
         ActiveModel::Type::Boolean.new.cast(value)

@@ -103,6 +103,8 @@ GEM
     factory_bot_rails (6.5.1)
       factory_bot (~> 6.5)
       railties (>= 6.1.0)
+    foreman (0.90.0)
+      thor (~> 1.4)
     fugit (1.12.1)
       et-orbi (~> 1.4)
       raabro (~> 1.4)
@@ -304,6 +306,7 @@ DEPENDENCIES
   bootsnap
   debug
   factory_bot_rails
+  foreman (~> 0.90.0)
   importmap-rails
   jbuilder
   mysql2 (~> 0.5)

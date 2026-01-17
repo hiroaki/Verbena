@@ -41,12 +41,6 @@ Rails.application.config.to_prepare do
     # File delivery
     c.file_delivery_dir = ENV['VERBENA_FILE_DELIVERY_DIR']
 
-    # Parallel / batching
-    c.parallel_type = ENV['VERBENA_PARALLEL_TYPE']
-    c.parallel_concurrency = ENV['VERBENA_PARALLEL_CONCURRENCY']
-    c.in_batches_of = ENV['VERBENA_IN_BATCHES_OF']
-
-
     # API pagination (defaults with ENV overrides)
     c.api_pagination_default_limit = ENV['VERBENA_API_PAGINATION_DEFAULT_LIMIT']
     c.api_pagination_limit_cap = ENV['VERBENA_API_PAGINATION_LIMIT_CAP']
@@ -61,14 +55,6 @@ Rails.application.config.to_prepare do
 
     # Cleanup TTL (days) — assign raw ENV; normalization happens in Settings reader
     c.cleanup_ttl_days = ENV['VERBENA_CLEANUP_TTL_DAYS']
-
-    # Claim/backoff tuning (optional)
-    # - VERBENA_CLAIM_BACKOFF_BASE_SECONDS: base backoff (seconds, float)
-    # - VERBENA_CLAIM_BACKOFF_CAP_SECONDS: maximum backoff (seconds, float)
-    # - VERBENA_CLAIM_MAX_RETRIES: maximum retry attempts (integer)
-    c.claim_backoff_base_seconds = ENV['VERBENA_CLAIM_BACKOFF_BASE_SECONDS']
-    c.claim_backoff_cap_seconds = ENV['VERBENA_CLAIM_BACKOFF_CAP_SECONDS']
-    c.claim_max_retries = ENV['VERBENA_CLAIM_MAX_RETRIES']
   end
 
   case delivery_method

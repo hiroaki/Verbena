@@ -57,7 +57,6 @@ module Verbena
     # （なおひとつの mail_queue の削除は、連動して関連する delivery_responses も削除します）
     #
     # mail_queues について、不要となるのは次の条件をすべて満たす時です：
-    # - 送信済みである = session_id が nil ではない
     # - 送信済みである = delivery_responses に記録がある（複数あることもあります）
     # - そのひとつの delivery_responses.responded_at が、expiration よりも前の日時である
     #
@@ -73,11 +72,6 @@ module Verbena
 
     # 送信処理が行われており、かつ保存期限を過ぎた mail_queues （および関連する delivery_responses ）を削除します。
     #
-    # NOTE: DeliveryResponse が存在すれば一度は処理済みなのですが、
-    #   その後何らかの理由で session_id を未処理状態 nil に更新された場合は、
-    #   未処理（再処理待ち）として扱うことが考えられるため、
-    #   session_id IS NULL のレコードは削除対象から除外するように条件を追加しています。
-    #
     # NOTE: 運用の観点からの注意点です。一度でも配送処理が行われていれば、その配送の結果にかかわらず、削除対象となります。
     #   たとえばある MailQueue について、エラーレスポンスが記録されている場合、そのメールは配送先には届いていません。
     #   再送の手続きや、配送失敗の原因追跡調査などにレコードを再利用するには、削除のスケジュールに余裕を持たせるようにしてください。
@@ -85,7 +79,6 @@ module Verbena
       scope = MailQueue
         .joins(:delivery_responses)
         .where(delivery_responses: { responded_at: ...expiration }) # "...expiration" は "< expiration" です
-        .where.not(session_id: nil)
       if @dry_run
         # count distinct mail_queue ids to avoid double counting due to joins
         scope.distinct.count

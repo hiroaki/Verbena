@@ -9,14 +9,14 @@ RSpec.describe DeliveryJob, type: :job do
     it 'calls DeliveryService#perform_one with the correct mail_queue' do
       service_double = instance_double(Verbena::DeliveryService)
       # Job ID is random/generated, so we accept anything
-      expect(Verbena::DeliveryService).to receive(:with_session).with(anything).and_return(service_double)
+      expect(Verbena::DeliveryService).to receive(:new).with(job_id: anything).and_return(service_double)
       expect(service_double).to receive(:perform_one).with(mail_queue)
 
       described_class.perform_now(mail_queue.id)
     end
 
     it 'does not call DeliveryService if mail_queue is not found' do
-      expect(Verbena::DeliveryService).not_to receive(:with_session)
+      expect(Verbena::DeliveryService).not_to receive(:new)
       described_class.perform_now(-1)
     end
   end
@@ -29,7 +29,7 @@ RSpec.describe DeliveryJob, type: :job do
 
     it 'retries on Net::OpenTimeout' do
       service_double = instance_double(Verbena::DeliveryService)
-      allow(Verbena::DeliveryService).to receive(:with_session).and_return(service_double)
+      allow(Verbena::DeliveryService).to receive(:new).and_return(service_double)
       allow(service_double).to receive(:perform_one).and_raise(Net::OpenTimeout)
 
       # 1回目は失敗してリトライがキューイングされる

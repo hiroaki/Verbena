@@ -13,7 +13,7 @@ module Verbena
       {
         'event' => args[:event],
         'level' => args[:level],
-        'session_id' => args[:session_id],
+        'job_id' => args[:job_id],
         'mail_queue_id' => args[:mail_queue_id],
         'message_id' => args[:message_id],
         'smtp_status' => args[:smtp_status],

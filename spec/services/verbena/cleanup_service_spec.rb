@@ -390,7 +390,7 @@ RSpec.describe Verbena::CleanupService, type: :service do
           result = instance.cleanup
 
           expect(result).to include(:mail_queues, :eml_sources)
-          expect(result[:mail_queues]).to eq 1 # 古い処理済み1件のみ
+          expect(result[:mail_queues]).to eq 2 # 古い処理済み2件
           expect(result[:eml_sources]).to eq 1 # 未参照1件
 
           # dry-run のため削除は行われない

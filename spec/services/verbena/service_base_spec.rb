@@ -6,11 +6,11 @@ RSpec.describe Verbena::ServiceBase, type: :service do
 
   describe '#structured_log_hash' do
     it 'returns a hash with all fields' do
-      result = service.structured_log_hash(event: 'test', level: 'info', session_id: 'sid', mail_queue_id: 1, message: 'msg', message_id: 'mid', smtp_status: '250', error: 'err')
+      result = service.structured_log_hash(event: 'test', level: 'info', job_id: 'job1', mail_queue_id: 1, message: 'msg', message_id: 'mid', smtp_status: '250', error: 'err')
       expect(result).to eq({
         'event' => 'test',
         'level' => 'info',
-        'session_id' => 'sid',
+        'job_id' => 'job1',
         'mail_queue_id' => 1,
         'message_id' => 'mid',
         'smtp_status' => '250',
@@ -19,11 +19,11 @@ RSpec.describe Verbena::ServiceBase, type: :service do
       })
     end
     it 'omits nil fields' do
-      result = service.structured_log_hash(event: 'test', level: 'info', session_id: 'sid', mail_queue_id: 1)
+      result = service.structured_log_hash(event: 'test', level: 'info', job_id: 'job1', mail_queue_id: 1)
       expect(result).to eq({
         'event' => 'test',
         'level' => 'info',
-        'session_id' => 'sid',
+        'job_id' => 'job1',
         'mail_queue_id' => 1
       })
     end
@@ -31,26 +31,28 @@ RSpec.describe Verbena::ServiceBase, type: :service do
 
   describe '#structured_log_line' do
     it 'returns a string with all fields' do
-      result = service.structured_log_line(event: 'test', level: 'info', session_id: 'sid', mail_queue_id: 1, message: 'msg', message_id: 'mid', smtp_status: '250', error: 'err')
-      expect(result).to include('event=test', 'level=info', 'session_id=sid', 'mail_queue_id=1', 'message_id=mid', 'smtp_status=250', 'error=err', 'message=msg')
+      result = service.structured_log_line(event: 'test', level: 'info', job_id: 'job1', mail_queue_id: 1, message: 'msg', message_id: 'mid', smtp_status: '250', error: 'err')
+      expect(result).to include('event=test', 'level=info', 'job_id=job1', 'mail_queue_id=1', 'message_id=mid', 'smtp_status=250', 'error=err', 'message=msg')
     end
     it 'omits nil fields' do
-      result = service.structured_log_line(event: 'test', level: 'info', session_id: 'sid', mail_queue_id: 1)
-      expect(result).to include('event=test', 'level=info', 'session_id=sid', 'mail_queue_id=1')
+      result = service.structured_log_line(event: 'test', level: 'info', job_id: 'job1', mail_queue_id: 1)
+      expect(result).to include('event=test', 'level=info', 'job_id=job1', 'mail_queue_id=1')
       expect(result).not_to include('message_id=')
     end
   end
 
   describe '#structured_log (wrapper)' do
     it 'delegates to hash when json_logging_enabled?' do
+      params = { event: 'test', level: 'info', job_id: 'job1', mail_queue_id: 1, message: 'msg' }
       allow(service).to receive(:json_logging_enabled?).and_return(true)
-      result = service.structured_log(event: 'test', level: 'info', session_id: 'sid', mail_queue_id: 1, message: 'msg')
-      expect(result).to eq(service.structured_log_hash(event: 'test', level: 'info', session_id: 'sid', mail_queue_id: 1, message: 'msg'))
+      result = service.structured_log(**params)
+      expect(result).to eq(service.structured_log_hash(**params))
     end
     it 'delegates to line when not json_logging_enabled?' do
+      params = { event: 'test', level: 'info', job_id: 'job1', mail_queue_id: 1, message: 'msg' }
       allow(service).to receive(:json_logging_enabled?).and_return(false)
-      result = service.structured_log(event: 'test', level: 'info', session_id: 'sid', mail_queue_id: 1, message: 'msg')
-      expect(result).to eq(service.structured_log_line(event: 'test', level: 'info', session_id: 'sid', mail_queue_id: 1, message: 'msg'))
+      result = service.structured_log(**params)
+      expect(result).to eq(service.structured_log_line(**params))
     end
   end
 

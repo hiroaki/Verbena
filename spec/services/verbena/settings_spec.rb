@@ -18,9 +18,6 @@ RSpec.describe Verbena::Settings do
         api_pagination_default_limit: '7',
         api_pagination_limit_cap: '77',
         api_pagination_default_offset: '3',
-        parallel_type: 'in_threads',
-        parallel_concurrency: '4',
-        in_batches_of: '25',
         file_delivery_dir: '/tmp/mails'
       )
 
@@ -33,8 +30,6 @@ RSpec.describe Verbena::Settings do
       expect(described_class.api_pagination_limit_cap).to eq(77)
       expect(described_class.api_pagination_default_offset).to eq(3)
 
-      expect(described_class.parallel_config).to eq(in_threads: 4)
-      expect(described_class.in_batches_config).to eq(of: 25)
       expect(described_class.file_delivery_dir).to eq('/tmp/mails')
     end
   end

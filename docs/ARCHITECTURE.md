@@ -32,10 +32,9 @@ Verbenaは **「SMTP配送先サーバへの引き渡しまで」** を保証し
 
 ### 1. 並行処理の安全性
 
-- `MailQueue` の claim メカニズムにより、複数プロセスからの同時配送を安全に管理
-- `session_id` と `claimed_at` による所有権管理
-- デッドロック発生時の指数バックオフ＋ジッター再試行
-- stale claim（長時間処理が完了しない）の検出と解放
+- **SolidQueue** を採用し、標準的な非同期ジョブ基盤上でスケーラブルな並行処理を実現
+- `DeliveryJob` によるジョブ単位での安定した配送実行
+- ジョブのリトライ機構を利用した堅牢なエラーハンドリング
 
 ### 2. 追跡可能性
 
@@ -45,9 +44,8 @@ Verbenaは **「SMTP配送先サーバへの引き渡しまで」** を保証し
 
 ### 3. 柔軟な配送制御
 
-- タイマーベース配送（遅延配信）
-- 個別ID指定配送
-- 4xxステータスの再送管理
+- タイマーベース配送（遅延配信）：`ScheduledDeliveryJob` によるポーリングとエンキュー
+- 4xxステータスの再送管理：エラー時の再送処理による自動リカバリ
 - バッチサイズ・並行数の調整可能
 
 ### 4. 運用容易性
@@ -71,9 +69,11 @@ DeliveryResponse (配送結果)
 ### 配送フロー
 
 1. **Ingest**: `MailQueuesService` がEMLを解析し、受信者ごとの `MailQueue` を生成
-2. **Claim**: `MailQueue.claim_by_timer!` / `claim_by_id!` が配送対象をマーク
-3. **Deliver**: `DeliveryService` がSMTP配送を実行し、結果を記録
-4. **Cleanup**: `CleanupService` が配送済みキューと孤立EMLを削除
+2. **Scheduling**:
+   - 即時配送の場合: 作成直後に `DeliveryJob` がエンキューされます
+   - 予約配送の場合: `ScheduledDeliveryJob` が定期実行され、時間が来たものを検知して `DeliveryJob` をエンキューします
+3. **Deliver**: `DeliveryJob` 内で `DeliveryService` がSMTP配送を実行し、結果を記録
+4. **Cleanup**: `CleanupService` (または `CleanupJob`) が配送済みキューと孤立EMLを削除
 
 ## 将来の拡張計画
 
@@ -92,19 +92,7 @@ DeliveryResponse (配送結果)
 
 ## 設計上の意思決定
 
-### なぜ `UPDATE ... LIMIT` を使わないのか
+### なぜ独自キューから SolidQueue へ移行したのか
 
-- MySQL/MariaDB固有の構文で、PostgreSQLに移植できない
-- `pluck(:id)` + `update_all` によるバッチ更新は、ポータビリティと性能のバランスが良い
-
-### なぜ `SELECT ... FOR UPDATE` を使わないのか
-
-- 大量行のロック競合でスループットが低下する
-- `session_id: nil` ガードによる楽観的並行制御の方が、スケールしやすい
-
-### なぜトランザクション内で claim しないのか
-
-- 長時間ロックを保持したくない
-- 短命トランザクション + 冪等な再試行の組み合わせで、安全性とスループットを両立
-
-詳細は [CLAIM_HARDENING.md](CLAIM_HARDENING.md) を参照してください。
+- 当初はDBベースの独自キュー (`MailQueue.claim!`) を実装していましたが、Rails 8 で標準搭載された SolidQueue へ移行しました
+- これにより、DBポーリングやロック競合の管理などの複雑な実装を排除し、標準的でメンテナンス性の高いジョブ基盤を利用できるようになりました

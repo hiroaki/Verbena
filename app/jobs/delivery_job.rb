@@ -18,7 +18,7 @@ class DeliveryJob < ApplicationJob
     mail_queue = MailQueue.find_by(id: mail_queue_id)
     return unless mail_queue
 
-    # Use the job_id as the session_id for logging/tracking purposes
-    Verbena::DeliveryService.with_session(job_id).perform_one(mail_queue)
+    # Use the job_id as the job_id for logging/tracking purposes
+    Verbena::DeliveryService.new(job_id: job_id).perform_one(mail_queue)
   end
 end

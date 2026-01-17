@@ -1,45 +1,38 @@
 namespace :verbena do
   namespace :delivery do
-    desc 'mail_queue のメッセージを配送する(タイマー制御)'
-    task by_timer: :environment  do |_task, args|
-      begin
-        Verbena::DeliveryService.new.perform_by_timer
-      rescue StandardError => e
-        $stderr.puts "ERROR: by_timer failed: #{e.class}: #{e.message}"
-        Kernel.exit(1)
+    desc '直近の配送がステータス4xxであったメッセージを再送キューに入れる'
+    task :prepare_retry => :environment do |_task, _args|
+      puts "Searching for retryable messages (last status 4xx)..."
+      count = 0
+
+      # 全レコードをスキャンするのは非効率ですが、メンテナンス用タスクのため許容します。
+      # 本来は delivery_responses 側から検索すべきですが、最新ステータスの判定が必要なため
+      # 親から辿っています。
+      MailQueue.find_each do |mq|
+        last_response = mq.delivery_responses.order(created_at: :desc).first
+        if last_response&.status.to_s.start_with?('4')
+          DeliveryJob.perform_later(mq.id)
+          count += 1
+          print "."
+        end
       end
+      puts "\nEnqueued #{count} jobs for retry."
     end
 
-    desc 'mail_queue のメッセージを配送する(ID指定)'
-    task by_ids: :environment  do |_task, args|
-      begin
-        Verbena::DeliveryService.new.perform_by_mail_queue_id(args.extras)
-      rescue StandardError => e
-        $stderr.puts "ERROR: by_ids failed: #{e.class}: #{e.message}"
-        Kernel.exit(1)
-      end
-    end
+    desc '配送結果が無いメッセージを配送キューに入れる'
+    task :reset_undelivered, [:older_than_hours] => :environment do |_task, args|
+      older_than_hours = (args[:older_than_hours] || 24).to_i
+      time_threshold = older_than_hours.hours.ago
 
-    desc 'session_id の処理のうちで直近の配送がステータス4xxであったメッセージを再送可能状態にする'
-    task :prepare_retry, [:session_id] => :environment do |_task, args|
-      begin
-        count = Verbena::DeliveryService.with_session(args[:session_id]).prepare_to_retry_for_session(args.extras.first)
-        puts "prepare_retry: reset #{count} mail_queues for session_id=#{args[:session_id]}"
-      rescue StandardError => e
-        $stderr.puts "ERROR: prepare_retry failed: #{e.class}: #{e.message}"
-        Kernel.exit(1)
-      end
-    end
+      puts "Searching for undelivered messages older than #{older_than_hours} hours (before #{time_threshold})..."
+      count = 0
 
-    desc 'session_id の処理のうちで配送結果が無いメッセージを再送可能状態にする'
-    task :reset_undelivered, [:session_id] => :environment do |_task, args|
-      begin
-        count = Verbena::DeliveryService.with_session(args[:session_id]).prepare_to_retry_undelivered
-        puts "reset_undelivered: reset #{count} mail_queues for session_id=#{args[:session_id]}"
-      rescue StandardError => e
-        $stderr.puts "ERROR: reset_undelivered failed: #{e.class}: #{e.message}"
-        Kernel.exit(1)
+      MailQueue.where(timer_at: ..time_threshold).where.missing(:delivery_responses).find_each do |mq|
+        DeliveryJob.perform_later(mq.id)
+        count += 1
+        print "."
       end
+      puts "\nEnqueued #{count} jobs for undelivered."
     end
   end
 end
