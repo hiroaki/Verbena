@@ -56,6 +56,7 @@ Rails.application.configure do
   # Tell Active Support which deprecation messages to disallow.
   config.active_support.disallowed_deprecation_warnings = []
 
+  # Active Job のアダプターとして Solid Queue を使用します。
   config.active_job.queue_adapter = :solid_queue
 
   # Raises error for missing translations.
