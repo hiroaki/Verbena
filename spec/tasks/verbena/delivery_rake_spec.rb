@@ -75,7 +75,7 @@ RSpec.describe 'verbena:delivery rake tasks' do
       it 'enqueues jobs for undelivered messages older than threshold and prints count' do
         task.reenable
         expect {
-          expect { task.invoke }.to output(/Enqueued 1 jobs for undelivered/).to_stdout
+          expect { task.invoke }.to output(/Enqueued 1 job for undelivered/).to_stdout
         }.to have_enqueued_job(DeliveryJob).exactly(1).times
       end
 

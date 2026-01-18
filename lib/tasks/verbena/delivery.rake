@@ -16,7 +16,7 @@ namespace :verbena do
           print "."
         end
       end
-      puts "\nEnqueued #{count} jobs for retry."
+      puts "\nEnqueued #{count} #{count == 1 ? 'job' : 'jobs'} for retry."
     end
 
     desc '配送結果が無いメッセージを配送キューに入れる'
@@ -32,7 +32,7 @@ namespace :verbena do
         count += 1
         print "."
       end
-      puts "\nEnqueued #{count} jobs for undelivered."
+      puts "\nEnqueued #{count} #{count == 1 ? 'job' : 'jobs'} for undelivered."
     end
   end
 end
