@@ -57,8 +57,8 @@ module Verbena
     # （なおひとつの mail_queue の削除は、連動して関連する delivery_responses も削除します）
     #
     # mail_queues について、不要となるのは次の条件をすべて満たす時です：
-    # - 送信済みである = delivery_responses に記録がある（複数あることもあります）
-    # - そのひとつの delivery_responses.responded_at が、expiration よりも前の日時である
+    # - 「送信済み」である = 関連する delivery_responses のレコードが 1 件以上存在する（複数あることもあります）
+    # - そのいずれかの delivery_responses.responded_at が、expiration よりも前の日時である
     #
     # また eml_sources について、不要となるのは次の条件を満たす時です：
     # - 自身を参照する mail_queues が存在しない

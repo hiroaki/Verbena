@@ -37,9 +37,11 @@ RSpec.describe DeliveryJob, type: :job do
         described_class.perform_later(mail_queue.id)
       end
 
-      # ここですべて実行すると、リトライ回数分だけ実行されて失敗するはず
-      # ただし wait: :exponentially_longer があるので、すぐには実行されない可能性がある
-      # 構成の存在確認だけ行いたいが、簡易的にクラス定義をチェックする手もある
+      # 注意: 実際の retry_on の挙動（複数回のリトライ実行や backoff 間隔）はここでは検証しない。
+      # wait: :exponentially_longer によりリトライは将来時刻にスケジュールされるため、
+      # テスト環境 (test アダプタ / 時刻制御なし) で統合的に実行を追跡するのが難しい。
+      # このテストでは「例外発生時にリトライ用ジョブがキューに積まれる」という構成が存在することのみを確認する。
+      # より詳細な retry_on の動作検証は ActiveJob 自身のテストに委ね、このアプリ側では設定の有無に留めている。
     end
   end
 end
