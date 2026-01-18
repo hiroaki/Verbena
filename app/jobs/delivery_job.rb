@@ -7,8 +7,9 @@ class DeliveryJob < ApplicationJob
     Errno::ECONNRESET, Errno::ECONNREFUSED, Errno::ETIMEDOUT
   ].freeze
 
-  retry_on(*RETRYABLE_ERRORS, wait: :exponentially_longer, attempts: 5)
+  DELIVERY_MAX_RETRIES = ENV.fetch("VERBENA_DELIVERY_MAX_RETRIES", 5).to_i
 
+  retry_on(*RETRYABLE_ERRORS, wait: :exponentially_longer, attempts: DELIVERY_MAX_RETRIES)
   def self.retryable_error?(exception)
     RETRYABLE_ERRORS.any? { |klass| exception.is_a?(klass) }
   end
