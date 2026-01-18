@@ -15,9 +15,15 @@ RSpec.describe DeliveryJob, type: :job do
       described_class.perform_now(mail_queue.id)
     end
 
-    it 'does not call DeliveryService if mail_queue is not found' do
+    it 'does not call DeliveryService if mail_queue is not found and logs a warning' do
+      logger_double = instance_double(ActiveSupport::Logger)
+      job_instance = described_class.new(-1)
+      allow(job_instance).to receive(:logger).and_return(logger_double)
+      expect(logger_double).to receive(:warn).with(/mail_queue not found \(id=-1\)/)
+
       expect(Verbena::DeliveryService).not_to receive(:new)
-      described_class.perform_now(-1)
+
+      job_instance.perform_now
     end
   end
 
