@@ -33,11 +33,11 @@ RSpec.describe 'verbena:delivery rake tasks' do
       let!(:mq4) { FactoryBot.create(:mail_queue, :touched) }
 
       before do
-        FactoryBot.create(:delivery_response, mail_queue_id: mq1.id, responded_at: current_time - 2.hour, created_at: current_time - 2.hour, status: '400')
-        FactoryBot.create(:delivery_response, mail_queue_id: mq2.id, responded_at: current_time - 3.hour, created_at: current_time - 3.hour, status: '400')
-        FactoryBot.create(:delivery_response, mail_queue_id: mq2.id, responded_at: current_time - 2.hour, created_at: current_time - 2.hour, status: '250')
-        FactoryBot.create(:delivery_response, mail_queue_id: mq3.id, responded_at: current_time - 2.hour, created_at: current_time - 2.hour, status: '250')
-        FactoryBot.create(:delivery_response, mail_queue_id: mq4.id, responded_at: current_time - 4.hour, created_at: current_time - 4.hour, status: '400')
+        FactoryBot.create(:delivery_response, mail_queue_id: mq1.id, responded_at: current_time - 2.hour, status: '400')
+        FactoryBot.create(:delivery_response, mail_queue_id: mq2.id, responded_at: current_time - 3.hour, status: '400')
+        FactoryBot.create(:delivery_response, mail_queue_id: mq2.id, responded_at: current_time - 2.hour, status: '250')
+        FactoryBot.create(:delivery_response, mail_queue_id: mq3.id, responded_at: current_time - 2.hour, status: '250')
+        FactoryBot.create(:delivery_response, mail_queue_id: mq4.id, responded_at: current_time - 4.hour, status: '400')
       end
 
       it 'enqueues jobs for retryable messages (4xx status) and prints count' do

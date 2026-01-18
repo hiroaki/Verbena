@@ -13,7 +13,7 @@ namespace :verbena do
       # - または、delivery_responsesテーブルから直接クエリ（JOINやサブクエリで最新ステータスを取得）。
       # - 大規模データセット向けに、プログレスインジケータ（例: 100件ごとにドット表示）を追加。
       MailQueue.find_each do |mq|
-        last_response = mq.delivery_responses.order(created_at: :desc).first
+        last_response = mq.delivery_responses.order(responded_at: :desc).first
         if last_response&.status.to_s.start_with?('4')
           DeliveryJob.perform_later(mq.id)
           count += 1
