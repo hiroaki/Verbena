@@ -3,8 +3,7 @@ class DeliveryJob < ApplicationJob
 
   RETRYABLE_ERRORS = [
     Net::OpenTimeout, Net::ReadTimeout, Net::WriteTimeout,
-    Net::SMTPServerBusy, Net::SMTPAuthenticationError,
-    Net::SMTPUnknownError, Net::SMTPUnsupportedCommand,
+    Net::SMTPServerBusy,
     Errno::ECONNRESET, Errno::ECONNREFUSED, Errno::ETIMEDOUT
   ].freeze
 
