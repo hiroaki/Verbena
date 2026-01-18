@@ -25,7 +25,15 @@ namespace :verbena do
 
     desc '配送結果が無いメッセージを配送キューに入れる'
     task :reset_undelivered, [:older_than_hours] => :environment do |_task, args|
-      older_than_hours = (args[:older_than_hours] || 24).to_i
+      older_than_arg = args[:older_than_hours]
+      older_than_hours =
+        if older_than_arg.nil? || older_than_arg.to_s.strip.empty?
+          24
+        elsif older_than_arg.to_s =~ /\A\d+\z/
+          older_than_arg.to_i
+        else
+          raise ArgumentError, "older_than_hours must be a non-negative integer number of hours, got: #{older_than_arg.inspect}"
+        end
       time_threshold = older_than_hours.hours.ago
 
       puts "Searching for undelivered messages older than #{older_than_hours} hours (before #{time_threshold})..."

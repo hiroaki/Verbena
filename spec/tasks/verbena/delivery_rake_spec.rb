@@ -87,5 +87,12 @@ RSpec.describe 'verbena:delivery rake tasks' do
         }.to have_enqueued_job(DeliveryJob).exactly(2).times
       end
     end
+
+    context 'when invalid argument is passed' do
+      it 'raises ArgumentError for non-numeric argument' do
+        task.reenable
+        expect { task.invoke('abc') }.to raise_error(ArgumentError, /older_than_hours must be a non-negative integer number of hours/)
+      end
+    end
   end
 end
