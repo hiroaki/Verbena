@@ -79,6 +79,7 @@ module Verbena
       scope = MailQueue
         .joins(:delivery_responses)
         .where(delivery_responses: { responded_at: ...expiration }) # "...expiration" は "< expiration" です
+        .where(delivery_status: [MailQueue.delivery_statuses[:succeeded], MailQueue.delivery_statuses[:failed]])
       if @dry_run
         # count distinct mail_queue ids to avoid double counting due to joins
         scope.distinct.count

@@ -18,7 +18,22 @@ class DeliveryJob < ApplicationJob
       return
     end
 
+    mail_queue.with_lock do
+      mail_queue.update!(
+        delivery_status: :processing,
+        attempts_count: mail_queue.attempts_count + 1,
+        last_attempted_at: Time.current,
+        locked_until: Time.current + 5.minutes
+      )
+    end
+
     # Use the job_id as the job_id for logging/tracking purposes
     Verbena::DeliveryService.new(job_id: job_id).perform_one(mail_queue)
+
+    mail_queue.update!(delivery_status: :succeeded, locked_until: nil)
+  rescue => ex
+    status = Verbena::RetryableErrors.retryable_error?(ex) ? :retrying : :failed
+    mail_queue.update!(delivery_status: status, locked_until: nil)
+    raise ex if status == :retrying
   end
 end

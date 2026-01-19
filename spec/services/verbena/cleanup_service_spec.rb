@@ -211,6 +211,20 @@ RSpec.describe Verbena::CleanupService, type: :service do
             end
           end
 
+          context '処理中ステータスの mail_queue が 1件 あり、保存期限切れのレスポンスがある場合' do
+            before do
+              mq = FactoryBot.create(:mail_queue, :touched)
+              mq.update!(delivery_status: :processing)
+              FactoryBot.create(:delivery_response, mail_queue: mq, responded_at: genzai_jikoku - 3.days)
+            end
+
+            it '処理中のため削除対象から除外される' do
+              expect(MailQueue.count).to eq 1
+              instance.cleanup_mail_queues
+              expect(MailQueue.count).to eq 1
+            end
+          end
+
           # 削除対象となる条件を満たさない（保存期限切れではない）
           context '2日前に処理済みが 1件 ある場合' do
             before do
@@ -390,7 +404,7 @@ RSpec.describe Verbena::CleanupService, type: :service do
           result = instance.cleanup
 
           expect(result).to include(:mail_queues, :eml_sources)
-          expect(result[:mail_queues]).to eq 2 # 古い処理済み2件
+          expect(result[:mail_queues]).to eq 1 # 古い処理済み1件（processing/pendingは除外）
           expect(result[:eml_sources]).to eq 1 # 未参照1件
 
           # dry-run のため削除は行われない

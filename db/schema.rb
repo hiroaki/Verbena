@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_01_16_120000) do
+ActiveRecord::Schema[7.2].define(version: 2026_01_19_000000) do
   create_table "delivery_responses", charset: "utf8mb4", force: :cascade do |t|
     t.bigint "mail_queue_id", null: false
     t.datetime "responded_at"
@@ -38,7 +38,12 @@ ActiveRecord::Schema[7.2].define(version: 2026_01_16_120000) do
     t.string "envelope_to", null: false
     t.bigint "eml_source_id", null: false
     t.datetime "claimed_at"
+    t.string "delivery_status", default: "pending", null: false
+    t.datetime "locked_until"
+    t.integer "attempts_count", default: 0, null: false
+    t.datetime "last_attempted_at"
     t.index ["claimed_at"], name: "index_mail_queues_on_claimed_at"
+    t.index ["delivery_status"], name: "index_mail_queues_on_delivery_status"
     t.index ["eml_source_id"], name: "index_mail_queues_on_eml_source_id"
     t.index ["session_id", "claimed_at"], name: "index_mail_queues_on_session_id_and_claimed_at"
     t.index ["session_id"], name: "index_mail_queues_on_session_id"
