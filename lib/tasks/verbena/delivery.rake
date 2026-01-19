@@ -9,8 +9,11 @@ namespace :verbena do
       # 本来は delivery_responses 側から検索すべきですが、最新ステータスの判定が必要なため
       # 親から辿っています。
       # TODO: 将来の効率化のため、以下の改善を検討:
-      # - SQL条件で絞り込み可能なように、MailQueueに最新のdelivery_statusカラムを追加（例: 4xx, 5xx, success）。
-      # - または、delivery_responsesテーブルから直接クエリ（JOINやサブクエリで最新ステータスを取得）。
+      # - MailQueue に最新の delivery_status カラムを追加して SQL 条件で絞り込む（例: 4xx, 5xx, success）。
+      #   - このカラムにインデックスを貼ることで大量データでも高速に検索できる（例: add_index :mail_queues, :latest_delivery_status）。
+      # - delivery_responses テーブルから直接クエリ（JOIN やサブクエリで最新ステータスを取得）。
+      #   - 必要なら last_response を保持するマテリアライズドビューを作成し、定期的に REFRESH することで検索を高速化する案も有効。
+      # - delivery_responses 側に（mail_queue_id, responded_at DESC）を利用したインデックスを検討する（例: add_index :delivery_responses, [:mail_queue_id, :responded_at]）。
       # - 大規模データセット向けに、プログレスインジケータ（例: 100件ごとにドット表示）を追加。
       MailQueue.find_each do |mq|
         last_response = mq.delivery_responses.order(responded_at: :desc).first
