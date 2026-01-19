@@ -36,7 +36,21 @@ class DeliveryJob < ApplicationJob
     mail_queue.update!(delivery_status: :succeeded, locked_until: nil)
   rescue => ex
     status = Verbena::RetryableErrors.retryable_error?(ex) ? :retrying : :failed
-    mail_queue.update!(delivery_status: status, locked_until: nil)
+
+    # Reload the record to ensure we operate on the latest DB state and avoid stale
+    # in-memory attributes (especially if the error occurred during the initial
+    # update! inside the lock). If the record no longer exists, log and skip.
+    mq = MailQueue.find_by(id: mail_queue_id)
+    if mq
+      begin
+        mq.update!(delivery_status: status, locked_until: nil)
+      rescue => update_ex
+        logger.error("DeliveryJob: failed to update mail_queue status (id=#{mail_queue_id}): #{update_ex.class}: #{update_ex.message}")
+      end
+    else
+      logger.warn("DeliveryJob: mail_queue not found during rescue (id=#{mail_queue_id}) - cannot update status")
+    end
+
     raise ex if status == :retrying
   end
 end
