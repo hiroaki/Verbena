@@ -10,6 +10,11 @@ FactoryBot.define do
     last_attempted_at { nil }
     association :eml_source
 
+    # transient 属性でステータスを外から指定できるようにします。
+    transient do
+      status { 'succeeded' }
+    end
+
     # 未着手
     trait :untouched do
       session_id { nil }
@@ -19,7 +24,9 @@ FactoryBot.define do
     # 着手済
     trait :touched do
       session_id { SecureRandom.uuid }
-      delivery_status { 'succeeded' }
+      # デフォルトは transient の `status`（:succeeded）だが、テスト側で上書き可能
+      delivery_status { status }
+      attempts_count { 1 }
     end
   end
 end
