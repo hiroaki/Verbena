@@ -33,6 +33,7 @@ Verbena アプリケーションの設定に用いられる環境変数を説明
 |--------|------|-----------|--------|------|
 | VERBENA_DELIVERY_METHOD | 配送方式 | 任意 | test（開発）/smtp（本番） | smtp / test / file |
 | VERBENA_ENVELOPE_FROM_OVERRIDE | Envelope-From上書き | 任意 | なし | SMTPのenvelope-from強制上書き |
+| VERBENA_DELIVERY_MAX_RETRIES | 配送リトライ回数 | 任意 | 5 | ネットワークエラーや一時的なSMTP 4xx エラー発生時にジョブを再試行する最大回数（ActiveJob の `retry_on` に渡されます） |
 
 ### SMTP設定
 
