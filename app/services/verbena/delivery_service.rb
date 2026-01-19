@@ -119,9 +119,8 @@ module Verbena
 
     private
 
-
     def retryable_error?(ex)
-      DeliveryJob.retryable_error?(ex)
+      Verbena::RetryableErrors.retryable_error?(ex)
     end
   end
 end
