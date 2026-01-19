@@ -51,6 +51,13 @@ module Verbena
         # Cleanup TTL (days)
         attr_accessor :cleanup_ttl_days
 
+        # Delivery retry/lock related
+        attr_accessor :delivery_max_retries
+        attr_accessor :delivery_lock_ttl_seconds, :delivery_lock_max_seconds
+
+        # Delivery lock TTLs (seconds)
+        attr_accessor :delivery_lock_ttl_seconds, :delivery_lock_max_seconds
+
         def initialize
           @delivery_method = nil
         end
@@ -128,6 +135,22 @@ module Verbena
       def cleanup_ttl_days
         days = integer_cast(config.cleanup_ttl_days, 30)
         days <= 0 ? 30 : days
+      end
+
+      # Delivery retry attempts (default 5)
+      def delivery_max_retries
+        n = integer_cast(config.delivery_max_retries, 5)
+        n <= 0 ? 5 : n
+      end
+
+      # Delivery lock TTL (base seconds)
+      def delivery_lock_ttl_seconds
+        integer_cast(config.delivery_lock_ttl_seconds, 300)
+      end
+
+      # Delivery lock maximum seconds (cap)
+      def delivery_lock_max_seconds
+        integer_cast(config.delivery_lock_max_seconds, 3600)
       end
 
       # Configure settings at boot time.

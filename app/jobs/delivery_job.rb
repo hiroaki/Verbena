@@ -1,8 +1,7 @@
 class DeliveryJob < ApplicationJob
   queue_as :default
 
-  DELIVERY_MAX_RETRIES = ENV.fetch("VERBENA_DELIVERY_MAX_RETRIES", 5).to_i
-  retry_on(*Verbena::RetryableErrors.retryable_errors, wait: :exponentially_longer, attempts: DELIVERY_MAX_RETRIES)
+  retry_on(*Verbena::RetryableErrors.retryable_errors, wait: :exponentially_longer, attempts: Verbena::Settings.delivery_max_retries)
 
   def self.retryable_error?(exception)
     Verbena::RetryableErrors.retryable_error?(exception)
@@ -19,11 +18,15 @@ class DeliveryJob < ApplicationJob
     end
 
     mail_queue.with_lock do
+      attempt_number = mail_queue.attempts_count + 1
+      base_ttl = Verbena::Settings.delivery_lock_ttl_seconds
+      max_ttl = Verbena::Settings.delivery_lock_max_seconds
+      ttl_seconds = [base_ttl * attempt_number, max_ttl].min
       mail_queue.update!(
         delivery_status: :processing,
-        attempts_count: mail_queue.attempts_count + 1,
+        attempts_count: attempt_number,
         last_attempted_at: Time.current,
-        locked_until: Time.current + 5.minutes
+        locked_until: Time.current + ttl_seconds
       )
     end
 

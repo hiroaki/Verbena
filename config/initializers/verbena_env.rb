@@ -55,6 +55,13 @@ Rails.application.config.to_prepare do
 
     # Cleanup TTL (days) — assign raw ENV; normalization happens in Settings reader
     c.cleanup_ttl_days = ENV['VERBENA_CLEANUP_TTL_DAYS']
+
+    # Delivery retry attempts
+    c.delivery_max_retries = ENV['VERBENA_DELIVERY_MAX_RETRIES']
+
+    # Delivery lock TTLs
+    c.delivery_lock_ttl_seconds = ENV['VERBENA_DELIVERY_LOCK_TTL_SECONDS']
+    c.delivery_lock_max_seconds = ENV['VERBENA_DELIVERY_LOCK_MAX_SECONDS']
   end
 
   case delivery_method
