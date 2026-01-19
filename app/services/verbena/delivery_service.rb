@@ -3,6 +3,15 @@
 #   # MailQueue ID を指定して1件処理する（ActiveJob経由で呼び出される想定）
 #   Verbena::DeliveryService.new.perform_one(mail_queue)
 #
+# 説明・責務:
+# - 本サービスは単一の `MailQueue` レコードを送信し、その結果を `DeliveryResponse` として記録します。
+# - `DeliveryResponse#responded_at` はこのサービスでセットされます。
+# - 一時的なネットワークエラーや SMTP の 4xx 系（リトライ可能）については、レスポンスを保存した上で例外を再発生させます。
+#   例外を再発生させることにより、ActiveJob 側（`DeliveryJob` の `retry_on` 設定）でリトライ制御が行われます。
+# - 致命的な 5xx 系エラーは `DeliveryResponse` に記録し、例外を再発生させずジョブを成功扱いとします。
+# - リトライの最大回数は環境変数 `VERBENA_DELIVERY_MAX_RETRIES`（既定: 5）で制御され、`DeliveryJob` の設定に従います。
+# - ロギング／トレース用に `job_id` を受け取り、内部で使用します（`Verbena::DeliveryService.new(job_id: ...)`）。
+#
 module Verbena
   class DeliveryService < ServiceBase
     include DeliveryHelper
