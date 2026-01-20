@@ -93,9 +93,7 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
           end
 
           describe '作成される mail_queues レコード 4件 について' do
-            it 'session_id が、いずれも nil である' do
-              expect(MailQueue.all.map {|mq| mq.session_id}).to eq [nil, nil, nil, nil]
-            end
+            # session_id column removed; no longer asserted
 
             it 'timer_at が、いずれも Date: ヘッダの値の日時 である' do
               expect(MailQueue.all.map {|mq| mq.timer_at}).to eq [header_date, header_date, header_date, header_date]
@@ -202,9 +200,7 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
             expect(created_mail_queue.timer_at).to eq timer_at
           end
 
-          it 'session_id が nil である' do
-            expect(created_mail_queue.session_id).to be_nil
-          end
+          # session_id column removed; no longer asserted
 
           it 'claimed_at が nil である' do
             expect(created_mail_queue.claimed_at).to be_nil
