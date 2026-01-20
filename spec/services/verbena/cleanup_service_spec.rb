@@ -197,8 +197,8 @@ RSpec.describe Verbena::CleanupService, type: :service do
             before do
               mq = FactoryBot.create(:mail_queue, :untouched)
 
-              # いちど処理したあとに、未処理状態（ session_id = nil ）に変更した場合は DeliveryResponse が残っている状態になります。
-              # このレコードは mail_queue と同じく削除対象にはならないため、削除されないことを確認するようにします。
+              # 一度配送処理が行われたあとで見かけ上の状態が未処理に見えても、
+              # `delivery_responses` が存在するレコードは「処理済み」と見なされ、削除対象にならないことを確認します。
               FactoryBot.create(:delivery_response, mail_queue: mq, responded_at: genzai_jikoku - 2.days)
             end
 
