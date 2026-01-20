@@ -1,7 +1,7 @@
 class DeliveryJob < ApplicationJob
   queue_as :default
 
-  retry_on(*Verbena::RetryableErrors.retryable_errors, wait: :exponentially_longer, attempts: Verbena::Settings.delivery_max_retries)
+  retry_on(*Verbena::RetryableErrors.retryable_errors, wait: :exponentially_longer, attempts: -> { Verbena::Settings.delivery_max_retries })
 
   def self.retryable_error?(exception)
     Verbena::RetryableErrors.retryable_error?(exception)
