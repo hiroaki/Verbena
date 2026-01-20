@@ -56,18 +56,6 @@ RSpec.describe Verbena::DeliveryService, type: :service do
   end
 
   describe 'インスタンスメソッド' do
-
-
-
-
-
-
-
-
-
-
-
-
     describe '#perform_one' do
       let!(:instance) { described_class.new }
       let!(:eml_source) do
@@ -185,6 +173,12 @@ Hello World!
             expect {
               instance.perform_one(mail_queue)
             }.to raise_error(Net::SMTPServerBusy)
+
+            # Ensure the error response was persisted before the exception
+            mail_queue.reload
+            last = mail_queue.delivery_responses.order(:created_at).last
+            expect(last).to be_present
+            expect(last.status).not_to eq '250'
           end
         end
 
