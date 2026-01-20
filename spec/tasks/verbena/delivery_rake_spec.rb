@@ -6,9 +6,14 @@ RSpec.describe 'verbena:delivery rake tasks' do
 
   before do
     ActiveJob::Base.queue_adapter = :test
+
     # Ensure no leftover enqueued/performed jobs from other specs interfere
     ActiveJob::Base.queue_adapter.enqueued_jobs.clear
     ActiveJob::Base.queue_adapter.performed_jobs.clear
+
+    # Ensure DB state isolation to avoid flaky find_each scans
+    MailQueue.delete_all
+    DeliveryResponse.delete_all
 
     travel_to current_time
 
