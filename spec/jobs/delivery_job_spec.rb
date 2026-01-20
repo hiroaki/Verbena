@@ -26,6 +26,37 @@ RSpec.describe DeliveryJob, type: :job do
       job_instance.perform_now
     end
 
+    context 'when mail_queue is stuck in processing' do
+      let(:service_double) { instance_double(Verbena::DeliveryService) }
+
+      before do
+        allow(Verbena::DeliveryService).to receive(:new).and_return(service_double)
+        allow(service_double).to receive(:perform_one)
+      end
+
+      it 'skips if lock is active (future)' do
+        mail_queue.update!(delivery_status: :processing, locked_until: 1.hour.from_now)
+
+        expect(service_double).not_to receive(:perform_one)
+        described_class.perform_now(mail_queue.id)
+      end
+
+      it 'fails (raises error) if lock is expired (past) to prevent double delivery' do
+        mail_queue.update!(delivery_status: :processing, locked_until: 1.hour.ago)
+
+        expect(service_double).not_to receive(:perform_one)
+
+        expect {
+          described_class.perform_now(mail_queue.id)
+        }.to raise_error(DeliveryJob::StuckLockError)
+
+        mail_queue.reload
+        # It should be marked failed and lock cleared for manual follow-up
+        expect(mail_queue.delivery_status).to eq('failed')
+        expect(mail_queue.locked_until).to be_nil
+      end
+    end
+
     context 'error handling and status transitions' do
       let(:service_double) { instance_double(Verbena::DeliveryService) }
 
@@ -61,7 +92,7 @@ RSpec.describe DeliveryJob, type: :job do
         relation_double = instance_double(ActiveRecord::Relation)
         allow(relation_double).to receive(:update_all).and_return(0)
 
-        allow(MailQueue).to receive(:where).with(id: mail_queue.id, delivery_status: :processing).and_return(relation_double)
+        allow(MailQueue).to receive(:where).with(hash_including(id: mail_queue.id, delivery_status: :processing)).and_return(relation_double)
 
         logger_double = instance_double(ActiveSupport::Logger)
         job_instance = described_class.new(mail_queue.id)
