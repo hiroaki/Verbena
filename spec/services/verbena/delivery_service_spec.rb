@@ -193,6 +193,18 @@ Hello World!
             instance.perform_one(mail_queue)
           end
         end
+
+        context 'structured_log が nil を返した場合' do
+          before do
+            allow(instance).to receive(:send_mail!).and_raise(StandardError, 'foo bar baz')
+            allow(instance).to receive(:structured_log).and_return(nil)
+          end
+
+          it 'ログに "(nil)" が出力される' do
+            expect(instance.logger).to receive(:error).with("(nil)")
+            instance.perform_one(mail_queue)
+          end
+        end
       end
     end
 

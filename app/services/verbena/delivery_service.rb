@@ -34,7 +34,7 @@ module Verbena
 
       error_to_raise = nil
       loglevel = :info
-      message = nil
+      message = "(nil)" # default guard to avoid nil logging when exceptions hit before assignment
 
       begin
         send_mail!(mail_queue) do |mail, response|
@@ -95,7 +95,8 @@ module Verbena
           error_to_raise = ex
         end
       ensure
-        logger.send(loglevel, message)
+        # log with a safe fallback
+        logger.send(loglevel, message || "(nil)")
 
         if res.save
           logger.info(structured_log(event: 'delivery_response.created', level: 'info', job_id: job_id, mail_queue_id: mail_queue.id, message_id: res.message_id, smtp_status: res.status, message: "CREATED DeliveryResponse #{res.id}"))

@@ -25,6 +25,57 @@ RSpec.describe DeliveryJob, type: :job do
 
       job_instance.perform_now
     end
+
+    context 'error handling and status transitions' do
+      let(:service_double) { instance_double(Verbena::DeliveryService) }
+
+      before do
+        allow(Verbena::DeliveryService).to receive(:new).and_return(service_double)
+      end
+
+      it 'marks retrying and re-raises on retryable error' do
+        allow(service_double).to receive(:perform_one).and_raise(Net::OpenTimeout)
+
+        job_instance = described_class.new
+        expect {
+          job_instance.perform(mail_queue.id)
+        }.to raise_error(Net::OpenTimeout)
+
+        expect(mail_queue.reload.delivery_status).to eq('retrying')
+      end
+
+      it 'marks failed and re-raises on non-retryable error' do
+        allow(service_double).to receive(:perform_one).and_raise(ArgumentError, 'boom')
+
+        job_instance = described_class.new
+        expect {
+          job_instance.perform(mail_queue.id)
+        }.to raise_error(ArgumentError)
+
+        expect(mail_queue.reload.delivery_status).to eq('failed')
+      end
+
+      it 'logs a warning and does not overwrite when success update finds no rows (race)' do
+        allow(service_double).to receive(:perform_one).and_return(true)
+
+        relation_double = instance_double(ActiveRecord::Relation)
+        allow(relation_double).to receive(:update_all).and_return(0)
+
+        allow(MailQueue).to receive(:where).with(id: mail_queue.id, delivery_status: :processing).and_return(relation_double)
+
+        logger_double = instance_double(ActiveSupport::Logger)
+        job_instance = described_class.new(mail_queue.id)
+        allow(job_instance).to receive(:logger).and_return(logger_double)
+        allow(logger_double).to receive(:warn)
+        allow(logger_double).to receive(:info)
+
+        expect {
+          job_instance.perform_now
+        }.not_to raise_error
+
+        expect(logger_double).to have_received(:warn).with(/Race condition detected on success/)
+      end
+    end
   end
 
   describe 'retry configuration' do
