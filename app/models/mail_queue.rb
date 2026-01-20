@@ -3,6 +3,9 @@ class MailQueue < ApplicationRecord
   has_many :delivery_responses, dependent: :destroy
 
   # 配信ステータス:
+  # - migrate: マイグレーション適用時に既存レコードを一時的にマーキングするための状態。
+  #   マイグレーション後は運用判断で個別に再分類/対応してください。
+  #   自動判定に不安がある場合や、本番データがまだ無い初期リリース時に利用します。
   # - pending: 配信待ち。ジョブがまだ処理を開始していない初期状態。
   # - processing: 現在処理中。ジョブがロックを取り、配信処理を実行している状態。
   # - retrying: 再試行待ち。一時的なエラーにより再送が予定されている状態（ActiveJob のリトライ対象）。
@@ -22,6 +25,7 @@ class MailQueue < ApplicationRecord
   # - キー名と保存値が同じという冗長性については意図的なものです。
   #   可読性と運用上のわかりやすさを優先しています。
   enum :delivery_status, {
+    migrate: 'migrate',
     pending: 'pending',
     processing: 'processing',
     retrying: 'retrying',
