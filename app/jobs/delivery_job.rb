@@ -18,6 +18,12 @@ class DeliveryJob < ApplicationJob
     end
 
     mail_queue.with_lock do
+      # Avoid double execution if already processed/processing by another worker
+      if %w[processing succeeded].include?(mail_queue.delivery_status)
+        logger.info("DeliveryJob: Skipped mail_queue (id=#{mail_queue_id}) because status is already '#{mail_queue.delivery_status}'")
+        return
+      end
+
       attempt_number = mail_queue.attempts_count + 1
       base_ttl = Verbena::Settings.delivery_lock_ttl_seconds
       max_ttl = Verbena::Settings.delivery_lock_max_seconds
@@ -33,22 +39,22 @@ class DeliveryJob < ApplicationJob
     # Use the job_id as the job_id for logging/tracking purposes
     Verbena::DeliveryService.new(job_id: job_id).perform_one(mail_queue)
 
-    mail_queue.update!(delivery_status: :succeeded, locked_until: nil)
+    # Conditional update to prevent overwriting if modified by others
+    result = MailQueue.where(id: mail_queue.id, delivery_status: :processing)
+                      .update_all(delivery_status: :succeeded, locked_until: nil, updated_at: Time.current)
+
+    if result.zero?
+      logger.warn("DeliveryJob: Race condition detected on success. MailQueue(#{mail_queue.id}) was modified by others.")
+    end
   rescue => ex
     status = Verbena::RetryableErrors.retryable_error?(ex) ? :retrying : :failed
 
-    # Reload the record to ensure we operate on the latest DB state and avoid stale
-    # in-memory attributes (especially if the error occurred during the initial
-    # update! inside the lock). If the record no longer exists, log and skip.
-    mq = MailQueue.find_by(id: mail_queue_id)
-    if mq
-      begin
-        mq.update!(delivery_status: status, locked_until: nil)
-      rescue => update_ex
-        logger.error("DeliveryJob: failed to update mail_queue status (id=#{mail_queue_id}): #{update_ex.class}: #{update_ex.message}")
-      end
-    else
-      logger.warn("DeliveryJob: mail_queue not found during rescue (id=#{mail_queue_id}) - cannot update status")
+    # Conditional update to safely set error status
+    result = MailQueue.where(id: mail_queue_id, delivery_status: :processing)
+                      .update_all(delivery_status: status, locked_until: nil, updated_at: Time.current)
+
+    if result.zero?
+      logger.warn("DeliveryJob: Race condition detected on error. MailQueue(#{mail_queue_id}) was modified by others. Skip status update.")
     end
 
     raise ex if status == :retrying
