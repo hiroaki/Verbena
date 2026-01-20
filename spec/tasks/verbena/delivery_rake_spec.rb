@@ -6,7 +6,12 @@ RSpec.describe 'verbena:delivery rake tasks' do
 
   before do
     ActiveJob::Base.queue_adapter = :test
+    # Ensure no leftover enqueued/performed jobs from other specs interfere
+    ActiveJob::Base.queue_adapter.enqueued_jobs.clear
+    ActiveJob::Base.queue_adapter.performed_jobs.clear
+
     travel_to current_time
+
     # Recreate Rake.application per example to avoid task definitions leaking
     # between examples (Rake.application is global). This ensures each example
     # loads a fresh task set and `task.reenable` works reliably.
