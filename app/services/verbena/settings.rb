@@ -55,9 +55,6 @@ module Verbena
         attr_accessor :delivery_max_retries
         attr_accessor :delivery_lock_ttl_seconds, :delivery_lock_max_seconds
 
-        # Delivery lock TTLs (seconds)
-        attr_accessor :delivery_lock_ttl_seconds, :delivery_lock_max_seconds
-
         def initialize
           @delivery_method = nil
         end
