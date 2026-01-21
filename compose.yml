@@ -9,13 +9,7 @@ services:
     tty: true
     stdin_open: true
     environment:
-      VERBENA_DELIVERY_METHOD: smtp
-      VERBENA_DELIVERY_SMTP_DOMAIN: localdomain
-      VERBENA_DELIVERY_SMTP_AUTHENTICATION: plain
-      VERBENA_DELIVERY_SMTP_USER_NAME: dummy
-      VERBENA_DELIVERY_SMTP_PASSWORD: dummy
-      VERBENA_DELIVERY_SMTP_ADDRESS: mailcatcher
-      VERBENA_DELIVERY_SMTP_PORT: 1025
+      VERBENA_DELIVERY_METHOD: file
 
 volumes:
   bundle:
