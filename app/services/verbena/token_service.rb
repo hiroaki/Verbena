@@ -38,7 +38,7 @@ module Verbena
             logger.warn(structured_log(
               event: 'token.revoke_failed',
               level: 'warn',
-              session_id: nil,
+              job_id: nil,
               mail_queue_id: nil,
               message: "revoke failed id=#{tok.id} error=#{e.class}:#{e.message}",
               message_id: tok.id,

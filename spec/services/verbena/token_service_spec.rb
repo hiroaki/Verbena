@@ -41,9 +41,18 @@ RSpec.describe Verbena::TokenService, type: :service do
     end
 
     context 'when revoke! raises an error for a token' do
+      let(:logger) { instance_double(Logger) }
+
+      before do
+        allow(logger).to receive(:warn)
+      end
+
       it 'continues processing other tokens and returns count of successful revokes' do
         token_error = FactoryBot.create(:token, key: 'e-a', expires_at: 1.day.ago, revoked_at: nil)
         token_success = FactoryBot.create(:token, key: 'e-b', expires_at: 1.day.ago, revoked_at: nil)
+
+        # Use logger double via service instance
+        svc = described_class.new(logger: logger)
 
         # raise only for `token_error`; allow others (including `token_success`) to call the real method
         allow(token_error).to receive(:revoke!).and_raise(StandardError.new('boom'))
@@ -54,7 +63,9 @@ RSpec.describe Verbena::TokenService, type: :service do
         allow(Token).to receive(:expired).and_return(relation)
         allow(relation).to receive(:find_in_batches).and_yield([token_error, token_success, expired_token])
 
-        result = service.revoke_expired!
+        expect(logger).to receive(:warn).with(a_string_matching(/event=token.revoke_failed|token.revoke_failed/)).once
+
+        result = svc.revoke_expired!
 
         # The service should return the number of tokens it actually revoked.
         actual_revoked_count = [token_error, token_success, expired_token].count { |t| t.reload.revoked_at.present? }

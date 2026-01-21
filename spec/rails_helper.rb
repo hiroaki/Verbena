@@ -63,6 +63,7 @@ RSpec.configure do |config|
 
   # 時刻を止めるヘルパー #travel_to を使います。
   config.include ActiveSupport::Testing::TimeHelpers
+  config.include ActiveJob::TestHelper
 end
 
 # WORKAROUND: 使っている箇所のコメントを参照してください。

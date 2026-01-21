@@ -58,8 +58,14 @@ Rails.application.configure do
   # Highlight code that triggered database queries in logs.
   config.active_record.verbose_query_logs = true
 
+  # Active Job のアダプターとして Solid Queue を使用します。
+  config.active_job.queue_adapter = :solid_queue
+
   # Highlight code that enqueued background job in logs.
   config.active_job.verbose_enqueue_logs = true
+
+  # Solid Queue のログを標準出力に出力します（コンテナログで確認するため）。
+  config.solid_queue.logger = ActiveSupport::Logger.new(STDOUT)
 
   # Suppress logger output for asset requests.
   config.assets.quiet = true

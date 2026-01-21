@@ -84,27 +84,12 @@ Verbenaの責務範囲は「SMTP配送管理」であり、開封追跡は対象
 
 ## システム設計について
 
-### Q. なぜ `UPDATE ... LIMIT` を使わないのですか？
+### Q. なぜ SolidQueue を採用したのですか？
 
-**A. ポータビリティのためです。**
+**A. Rails標準機能であり、信頼性とメンテナンス性が高いためです。**
 
-`UPDATE ... LIMIT` はMySQL/MariaDB固有の構文で、PostgreSQLでは使えません。
-Verbenaでは `pluck(:id)` + `update_all` の組み合わせでバッチ更新を行い、RDBMS非依存を保っています。
-
-詳細は [CLAIM_HARDENING.md](CLAIM_HARDENING.md) を参照してください。
-
-### Q. なぜトランザクション内で claim しないのですか？
-
-**A. スループットとスケーラビリティのためです。**
-
-長時間トランザクション内でロックを保持すると、並行処理のスループットが低下します。
-Verbenaでは以下の方針を採用しています：
-
-- 短命トランザクション + 楽観的並行制御（`session_id: nil` ガード）
-- デッドロック発生時は指数バックオフで再試行
-- 冪等な処理により、再試行しても安全
-
-詳細は [CLAIM_HARDENING.md](CLAIM_HARDENING.md) および [ARCHITECTURE.md](ARCHITECTURE.md) を参照してください。
+以前は独自のDBポーリングとロック機構（Claim機能）を実装していましたが、Rails 8 で標準搭載された SolidQueue へ移行しました。
+これにより、複雑なロック管理やデッドロック対策のメンテナンスコストを削減し、標準的な非同期処理パターンを利用できるようになりました。
 
 ### Q. 他の配信システムと連携できますか？
 
@@ -119,49 +104,32 @@ Verbenaでは以下の方針を採用しています：
 
 ### Q. 大量配信時のパフォーマンスはどうですか？
 
-**A. 並行配信数やバッチサイズを調整することで、スケールします。**
+**A. SolidQueue のワーカー数などの並行数を調整することで、スケールします。**
 
-以下の環境変数で調整可能です：
+以下のような環境変数で調整可能です：
 
 ```bash
-# 並行配信方式とスレッド数
-VERBENA_PARALLEL_TYPE=in_threads
-VERBENA_PARALLEL_CONCURRENCY=10
-
-# バッチサイズ
-VERBENA_IN_BATCHES_OF=1000
+# SolidQueueのワーカー数やスレッド数など
+SOLID_QUEUE_WORKER_CONCURRENCY=5
+SOLID_QUEUE_WORKER_THREADS=3
 ```
-
-目安：
-- 10スレッド並行で、約100通/秒
-- 実際のスループットはSMTPサーバの性能に依存
 
 実際のスループットは、SMTPサーバの性能やネットワーク環境に依存します。
 
-### Q. stale claim（処理が止まったレコード）はどうなりますか？
+### Q. 処理が止まったジョブはどうなりますか？
 
-**A. 一定時間後に自動解放できます。**
+**A. SolidQueue が管理し、失敗したジョブは `failed_execution_jobs` テーブルに記録されます。**
+
+以下の手段で確認・再試行が可能です：
 
 ```ruby
-# 24時間以上 claimed 状態のレコードを解放
-service = Verbena::MailQueuesService.new
-service.release_stale_claims!(older_than_hours: 24.0)
+# 失敗したジョブの確認
+SolidQueue::FailedExecution.count
+SolidQueue::FailedExecution.last.error
 
-# ドライラン（件数のみ確認）
-service.count_stale_claims(older_than_hours: 24.0)
+# 失敗したジョブの再試行
+SolidQueue::FailedExecution.last.retry
 ```
-
-Rakeタスクも用意されています：
-
-```bash
-# stale claimを解放
-rails verbena:claim:release_stale[24]
-
-# 状況確認（解放はしない）
-rails verbena:claim:show_stale
-```
-
-詳細は [CLAIM_HARDENING.md](CLAIM_HARDENING.md) を参照してください。
 
 ### Q. ログはどのように管理すれば良いですか？
 
@@ -171,7 +139,7 @@ rails verbena:claim:show_stale
 ログを JSON Lines 形式で出力できます。これにより、Fluentd / Logstash / CloudWatch Logs などでの集約・分析が容易になります。
 
 ```json
-{"event":"deliver.result","level":"info","session_id":"20231201-120000-abc123","mail_queue_id":42,"message_id":"<xyz@example.com>","smtp_status":"250","message":"OK sending..."}
+{"event":"deliver.result","level":"info","mail_queue_id":42,"message_id":"<xyz@example.com>","smtp_status":"250","message":"OK sending..."}
 ```
 
 ## トラブルシューティング
@@ -180,15 +148,19 @@ rails verbena:claim:show_stale
 
 **確認事項**:
 
-1. **claim されているレコードの確認**
+1. **滞留しているジョブの確認**
    ```ruby
-   MailQueue.claimed('session_id').count
+   SolidQueue::Job.count
+   SolidQueue::ScheduledExecution.count  # 予約実行待ち
+   SolidQueue::ReadyExecution.count      # 実行待ち
+   SolidQueue::ClaimedExecution.count    # 実行中
    ```
 
-2. **stale claim の確認**
-   ```bash
-   rails verbena:claim:show_stale  # 現在 claim 中で未配送のレコードを表示
+2. **失敗したジョブの確認**
+   ```ruby
+   SolidQueue::FailedExecution.count
    ```
+   エラー詳細を確認してください。
 
 3. **ログの確認**
    ```bash
@@ -199,6 +171,7 @@ rails verbena:claim:show_stale
    ```ruby
    DeliveryResponse.where('created_at > ?', 1.hour.ago).group(:status).count
    ```
+
 
 ### Q. Docker環境でビルドが失敗します
 

@@ -9,7 +9,7 @@ module Api
       # api_v1_mail_queues GET /api/v1/mail_queues
       def index
         # Start from a projected relation (no eager load, no evaluation yet)
-        scope = MailQueue.select(:id, :session_id, :timer_at, :envelope_from, :envelope_to, :eml_source_id, :created_at, :updated_at)
+        scope = MailQueue.select(:id, :timer_at, :envelope_from, :envelope_to, :eml_source_id, :created_at, :updated_at)
         # Minimal order support per OSS_TODO: default id desc; accept only "id asc" or "id desc"
         scope = apply_order(scope)
         # Apply pagination at the DB level (still lazy until render)
@@ -109,7 +109,7 @@ module Api
         end
 
         def serialize_mail_queue(mq)
-          base = mq.as_json(only: [:id, :session_id, :timer_at, :envelope_from, :envelope_to, :eml_source_id, :created_at, :updated_at])
+          base = mq.as_json(only: [:id, :timer_at, :envelope_from, :envelope_to, :eml_source_id, :created_at, :updated_at])
           if include_responses_latest?
             latest = responses_relation(mq).limit(1)
             base["responses"] = latest.as_json(only: [:id, :status, :contents, :message_id, :responded_at, :created_at, :updated_at])

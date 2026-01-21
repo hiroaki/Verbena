@@ -4,7 +4,7 @@
 # - VERBENA_LOG_FORMAT=json: structure logs as JSON with fixed keys
 #
 # Keys (when possible):
-#   event, level, timestamp, session_id, mail_queue_id, message_id, smtp_status, error, message
+#   event, level, timestamp, job_id, mail_queue_id, message_id, smtp_status, error, message
 
 require 'json'
 

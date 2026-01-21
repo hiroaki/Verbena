@@ -197,8 +197,8 @@ RSpec.describe Verbena::CleanupService, type: :service do
             before do
               mq = FactoryBot.create(:mail_queue, :untouched)
 
-              # いちど処理したあとに、未処理状態（ session_id = nil ）に変更した場合は DeliveryResponse が残っている状態になります。
-              # このレコードは mail_queue と同じく削除対象にはならないため、削除されないことを確認するようにします。
+              # 一度配送処理が行われたあとで見かけ上の状態が未処理に見えても、
+              # `delivery_responses` が存在するレコードは「処理済み」と見なされ、削除対象にならないことを確認します。
               FactoryBot.create(:delivery_response, mail_queue: mq, responded_at: genzai_jikoku - 2.days)
             end
 
@@ -208,6 +208,20 @@ RSpec.describe Verbena::CleanupService, type: :service do
               instance.cleanup_mail_queues
               expect(MailQueue.all.size).to eq 1
               expect(DeliveryResponse.all.size).to eq 1
+            end
+          end
+
+          context '処理中ステータスの mail_queue が 1件 あり、保存期限切れのレスポンスがある場合' do
+            before do
+              mq = FactoryBot.create(:mail_queue, :touched)
+              mq.update!(delivery_status: :processing)
+              FactoryBot.create(:delivery_response, mail_queue: mq, responded_at: genzai_jikoku - 3.days)
+            end
+
+            it '処理中のため削除対象から除外される' do
+              expect(MailQueue.count).to eq 1
+              instance.cleanup_mail_queues
+              expect(MailQueue.count).to eq 1
             end
           end
 
@@ -390,7 +404,7 @@ RSpec.describe Verbena::CleanupService, type: :service do
           result = instance.cleanup
 
           expect(result).to include(:mail_queues, :eml_sources)
-          expect(result[:mail_queues]).to eq 1 # 古い処理済み1件のみ
+          expect(result[:mail_queues]).to eq 1 # 古い処理済み1件（processing/pendingは除外）
           expect(result[:eml_sources]).to eq 1 # 未参照1件
 
           # dry-run のため削除は行われない

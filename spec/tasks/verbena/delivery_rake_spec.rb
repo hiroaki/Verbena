@@ -5,7 +5,18 @@ RSpec.describe 'verbena:delivery rake tasks' do
   let!(:current_time) { Time.zone.parse('2023-10-23 16:00:00') }
 
   before do
+    ActiveJob::Base.queue_adapter = :test
+
+    # Ensure no leftover enqueued/performed jobs from other specs interfere
+    ActiveJob::Base.queue_adapter.enqueued_jobs.clear
+    ActiveJob::Base.queue_adapter.performed_jobs.clear
+
+    # Ensure DB state isolation to avoid flaky find_each scans
+    MailQueue.delete_all
+    DeliveryResponse.delete_all
+
     travel_to current_time
+
     # Recreate Rake.application per example to avoid task definitions leaking
     # between examples (Rake.application is global). This ensures each example
     # loads a fresh task set and `task.reenable` works reliably.
@@ -25,20 +36,11 @@ RSpec.describe 'verbena:delivery rake tasks' do
       task.reenable
     end
 
-    context 'when session_id is missing' do
-      it 'prints an error to stderr and calls exit(1) without killing the process' do
-        task.reenable
-        allow(Kernel).to receive(:exit)  # stub to prevent process termination
-        expect { task.invoke(nil) }.to output(/ERROR: prepare_retry failed/).to_stderr
-        expect(Kernel).to have_received(:exit).with(1)
-      end
-    end
-
-    context 'when valid session_id and timelimit provided' do
-      let!(:mq1) { FactoryBot.create(:mail_queue, :touched, session_id: 'sess') }
-      let!(:mq2) { FactoryBot.create(:mail_queue, :touched, session_id: 'sess') }
-      let!(:mq3) { FactoryBot.create(:mail_queue, :touched, session_id: 'sess') }
-      let!(:mq4) { FactoryBot.create(:mail_queue, :touched, session_id: 'sess') }
+    context 'when retryable messages exist' do
+      let!(:mq1) { FactoryBot.create(:mail_queue, :touched) }
+      let!(:mq2) { FactoryBot.create(:mail_queue, :touched) }
+      let!(:mq3) { FactoryBot.create(:mail_queue, :touched) }
+      let!(:mq4) { FactoryBot.create(:mail_queue, :touched) }
 
       before do
         FactoryBot.create(:delivery_response, mail_queue_id: mq1.id, responded_at: current_time - 2.hour, status: '400')
@@ -48,10 +50,16 @@ RSpec.describe 'verbena:delivery rake tasks' do
         FactoryBot.create(:delivery_response, mail_queue_id: mq4.id, responded_at: current_time - 4.hour, status: '400')
       end
 
-      it 'prints the number of reset mail_queues to stdout' do
+      it 'enqueues jobs for retryable messages (4xx status) and prints count' do
         task.reenable
-        # Use timelimit 03:00:00 so only mq1 is within window
-        expect { task.invoke('sess', '03:00:00') }.to output(/prepare_retry: reset 1 mail_queues for session_id=sess/).to_stdout
+        # mq1: last status 400 -> Retry
+        # mq2: last status 250 -> OK
+        # mq3: last status 250 -> OK
+        # mq4: last status 400 -> Retry
+        # Total 2 jobs to enqueue
+        expect {
+          expect { task.invoke }.to output(/Enqueued 2 jobs for retry/).to_stdout
+        }.to have_enqueued_job(DeliveryJob).exactly(2).times
       end
     end
   end
@@ -63,28 +71,37 @@ RSpec.describe 'verbena:delivery rake tasks' do
       task.reenable
     end
 
-    context 'when session_id is missing' do
-      it 'prints an error to stderr and calls exit(1) without killing the process' do
+    context 'when undelivered messages exist' do
+      let!(:mq1) { FactoryBot.create(:mail_queue, timer_at: current_time - 25.hours) }
+      let!(:mq2) { FactoryBot.create(:mail_queue, timer_at: current_time - 23.hours) }
+      let!(:mq3) { FactoryBot.create(:mail_queue, timer_at: current_time - 30.hours) }
+
+      before do
+        # mq1 has no delivery_responses, old -> Reset (default 24h)
+        # mq2 has no delivery_responses, new -> Skip (default 24h)
+        mq3.delivery_responses.create! # has response -> Skip
+      end
+
+      it 'enqueues jobs for undelivered messages older than threshold and prints count' do
         task.reenable
-        allow(Kernel).to receive(:exit)  # stub to prevent process termination
-        expect { task.invoke(nil) }.to output(/ERROR: reset_undelivered failed/).to_stderr
-        expect(Kernel).to have_received(:exit).with(1)
+        expect {
+          expect { task.invoke }.to output(/Enqueued 1 job for undelivered/).to_stdout
+        }.to have_enqueued_job(DeliveryJob).exactly(1).times
+      end
+
+      it 'accepts argument for threshold' do
+        task.reenable
+        # Threshold 22h -> mq1(25h), mq2(23h) both reset
+        expect {
+          expect { task.invoke('22') }.to output(/Enqueued 2 jobs for undelivered/).to_stdout
+        }.to have_enqueued_job(DeliveryJob).exactly(2).times
       end
     end
 
-    context 'when valid session_id provided' do
-      let!(:mq1) { FactoryBot.create(:mail_queue, session_id: 'something') }
-      let!(:mq2) { FactoryBot.create(:mail_queue, session_id: 'something') }
-      let!(:mq3) { FactoryBot.create(:mail_queue, session_id: 'other') }
-
-      before do
-        # mq1 has no delivery_responses (should be reset)
-        mq2.delivery_responses.create!
-      end
-
-      it 'prints the number of reset mail_queues to stdout' do
+    context 'when invalid argument is passed' do
+      it 'raises ArgumentError for non-numeric argument' do
         task.reenable
-        expect { task.invoke('something') }.to output(/reset_undelivered: reset 1 mail_queues for session_id=something/).to_stdout
+        expect { task.invoke('abc') }.to raise_error(ArgumentError, /older_than_hours must be a non-negative integer number of hours/)
       end
     end
   end
