@@ -11,4 +11,9 @@ Rails.application.routes.draw do
       resources :mail_queues, only: [:index, :create, :show, :update, :destroy]
     end
   end
+
+  # https://github.com/rails/mission_control-jobs
+  namespace :admin do
+    mount MissionControl::Jobs::Engine, at: "/jobs"
+  end
 end

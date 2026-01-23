@@ -54,5 +54,11 @@ module Verbena
     # Verbena 固有の設定
     # config/verbena.yml に値を記述します。
     config.verbena = config_for(:verbena)
+
+    # Use our admin controller for mission_control-jobs authentication/authorization.
+    # Implement `authenticate_admin!` in `Admin::BaseController`.
+    MissionControl::Jobs.base_controller_class = "Admin::BaseController"
+    # Disable engine-level basic auth since we handle it in Admin::BaseController
+    MissionControl::Jobs.http_basic_auth_enabled = false
   end
 end
