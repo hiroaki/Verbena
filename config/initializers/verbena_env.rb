@@ -62,6 +62,10 @@ Rails.application.config.to_prepare do
     # Delivery lock TTLs
     c.delivery_lock_ttl_seconds = ENV['VERBENA_DELIVERY_LOCK_TTL_SECONDS']
     c.delivery_lock_max_seconds = ENV['VERBENA_DELIVERY_LOCK_MAX_SECONDS']
+
+    # Admin authentication
+    c.admin_username = ENV['VERBENA_ADMIN_USERNAME']
+    c.admin_password = ENV['VERBENA_ADMIN_PASSWORD']
   end
 
   case delivery_method

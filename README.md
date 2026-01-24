@@ -244,6 +244,14 @@ $ bin/rails verbena:delivery:reset_undelivered
 $ bin/rails verbena:delivery:reset_undelivered[1]
 ```
 
+## ジョブ管理画面
+
+ジョブ管理の Web インタフェースとして `mission_control-jobs` (gem) を組み込んでいます。ジョブキューや現在のキューで待機中のジョブを確認したり、失敗したジョブを調べて再試行または破棄したりできます。
+
+ジョブ管理画面には Basic 認証がかけられており、ユーザ名とパスワードの設定は環境変数 `VERBENA_ADMIN_USERNAME` と `VERBENA_ADMIN_PASSWORD` で行います。それら環境変数をセットした "web" コンテナを起動したのち、次の URL にアクセスしてください。
+
+http://localhost:23000/admin/jobs
+
 
 ## メンテナンス - 古いレコードの削除
 

@@ -55,6 +55,9 @@ module Verbena
         attr_accessor :delivery_max_retries
         attr_accessor :delivery_lock_ttl_seconds, :delivery_lock_max_seconds
 
+        # Admin authentication
+        attr_accessor :admin_username, :admin_password
+
         def initialize
           @delivery_method = nil
         end
@@ -148,6 +151,17 @@ module Verbena
       # Delivery lock maximum seconds (cap)
       def delivery_lock_max_seconds
         integer_cast(config.delivery_lock_max_seconds, 3600)
+      end
+
+      # Admin authentication readers
+      def admin_username
+        val = config.admin_username
+        val.blank? ? nil : val.strip
+      end
+
+      def admin_password
+        val = config.admin_password
+        val.blank? ? nil : val.strip
       end
 
       # Configure settings at boot time.
