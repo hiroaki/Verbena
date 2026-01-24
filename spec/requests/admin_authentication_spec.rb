@@ -38,4 +38,11 @@ RSpec.describe 'Admin Basic Authentication', type: :request do
     get '/admin/jobs', headers: basic_auth_header('admin', 'jobs')
     expect(response).to have_http_status(:unauthorized)
   end
+
+  it 'rejects when no Authorization header is provided' do
+    Verbena::Settings.configure(admin_username: 'admin', admin_password: 'jobs')
+    get '/admin/jobs'
+    expect(response).to have_http_status(:unauthorized)
+    expect(response.headers['WWW-Authenticate']).to be_present
+  end
 end

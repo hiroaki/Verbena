@@ -17,5 +17,11 @@ RSpec.describe Verbena::Settings do
       expect(described_class.admin_username).to be_nil
       expect(described_class.admin_password).to be_nil
     end
+
+    it 'returns nil for whitespace-only values' do
+      described_class.configure(admin_username: '   ', admin_password: "\t\n")
+      expect(described_class.admin_username).to be_nil
+      expect(described_class.admin_password).to be_nil
+    end
   end
 end
