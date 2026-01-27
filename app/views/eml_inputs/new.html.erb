@@ -1,0 +1,200 @@
+<section class="section">
+  <div class="container">
+    <h1 class="title">EML投入（デモ用）</h1>
+
+    <% if flash[:notice] %>
+      <div class="notification is-success"><%= flash[:notice] %></div>
+    <% end %>
+    <% if flash[:alert] %>
+      <div class="notification is-danger"><%= flash[:alert] %></div>
+    <% end %>
+
+    <div data-controller="tabs">
+      <div class="tabs is-toggle is-fullwidth" role="tablist">
+        <ul>
+          <li data-tabs-target="tab" class="is-active"><a href="#" data-action="click->tabs#change">フォーム入力</a></li>
+          <li data-tabs-target="tab"><a href="#" data-action="click->tabs#change">EMLアップロード</a></li>
+        </ul>
+      </div>
+
+      <div data-tabs-target="panel">
+        <div class="box">
+          <h2 class="subtitle">フォーム入力から生成して送信</h2>
+          <p class="content">To/Cc/Bcc/Subject/本文/送信日時を入力し、EMLを生成してAPIへ送信します。</p>
+
+          <%= form_with url: eml_inputs_path, scope: :fields, local: true, html: { class: 'form' } do |f| %>
+            <%= hidden_field_tag :input_mode, 'fields' %>
+
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <%= f.label :from, 'From', class: 'label' %>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <div class="control">
+                    <%= f.text_field :from, value: @fields_values[:from], placeholder: 'sender@example.com', class: 'input' %>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <%= f.label :to, 'To', class: 'label' %>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <div class="control">
+                    <%= f.text_field :to, value: @fields_values[:to], placeholder: 'user@example.com, other@example.com', class: 'input' %>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <%= f.label :cc, 'Cc', class: 'label' %>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <div class="control">
+                    <%= f.text_field :cc, value: @fields_values[:cc], placeholder: 'cc@example.com', class: 'input' %>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <%= f.label :bcc, 'Bcc', class: 'label' %>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <div class="control">
+                    <%= f.text_field :bcc, value: @fields_values[:bcc], placeholder: 'bcc@example.com', class: 'input' %>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <%= f.label :subject, 'Subject', class: 'label' %>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <div class="control">
+                    <%= f.text_field :subject, value: @fields_values[:subject], placeholder: 'Subject text', class: 'input' %>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <%= f.label :body, '本文', class: 'label' %>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <div class="control">
+                    <%= f.text_area :body, value: @fields_values[:body], rows: 6, placeholder: '本文を入力してください', class: 'textarea' %>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <%= f.label :sent_at, '送信日時 (Dateヘッダ)', class: 'label' %>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <div class="control">
+                    <%= f.datetime_local_field :sent_at, value: @fields_values[:sent_at], class: 'input' %>
+                  </div>
+                  <p class="help">※未指定の場合は現在時刻が使用されます</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <%= f.label :token, 'Token (Authorization)', class: 'label' %>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <div class="control">
+                    <%= f.text_field :token, value: @fields_values[:token], placeholder: 'API Token', class: 'input', required: true %>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="field">
+              <div class="control">
+                <%= f.submit 'EML生成して送信', class: 'button is-primary' %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
+      <div data-tabs-target="panel" hidden>
+        <div class="box">
+          <h2 class="subtitle">EMLファイルをアップロードして送信</h2>
+          <p class="content">既存のEMLファイルをアップロードし、必要に応じて送信日時を上書きしてAPIへ送信します。</p>
+
+          <%= form_with url: eml_inputs_path, scope: :upload, local: true, html: { multipart: true, class: 'form' } do |f| %>
+            <%= hidden_field_tag :input_mode, 'upload' %>
+
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <%= f.label :eml_file, 'EMLファイル', class: 'label' %>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <div class="control">
+                    <%= f.file_field :eml_file, accept: '.eml,message/rfc822', class: 'input' %>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <%= f.label :sent_at, '送信日時 (Dateヘッダとして上書き)', class: 'label' %>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <div class="control">
+                    <%= f.datetime_local_field :sent_at, value: @upload_values[:sent_at], class: 'input' %>
+                  </div>
+                  <p class="help">※未指定の場合はEMLファイル内のDateヘッダが使用されます</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <%= f.label :token, 'Token (Authorization)', class: 'label' %>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <div class="control">
+                    <%= f.text_field :token, value: @upload_values[:token], placeholder: 'API Token', class: 'input', required: true %>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="field">
+              <div class="control">
+                <%= f.submit 'EMLファイルを送信', class: 'button is-primary' %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

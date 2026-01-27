@@ -6,6 +6,8 @@ Rails.application.routes.draw do
 
   get 'login', to: 'sessions#new'
 
+  resources :eml_inputs, only: [:new, :create]
+
   namespace :api do
     namespace :v1 do
       resources :mail_queues, only: [:index, :create, :show, :update, :destroy]
