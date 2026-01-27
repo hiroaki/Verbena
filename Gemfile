@@ -73,9 +73,5 @@ group :test do
   gem "simplecov", require: false
 end
 
-gem "parallel"
-
 gem "solid_queue", "~> 1.3"
 gem "mission_control-jobs"
-
-gem "foreman", "~> 0.90.0", :group => :development
