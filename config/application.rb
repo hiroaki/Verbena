@@ -36,12 +36,20 @@ module Verbena
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
 
+    # Don't generate system test files.
+    config.generators.system_tests = nil
+
+    #----------
+    # 追加設定
+    #
+
+    # Verbena 固有の設定
+    # config/verbena.yml に値を記述します。
+    config.verbena = config_for(:verbena)
+
     # Default to UTC for app and DB
     config.time_zone = "UTC"
     config.active_record.default_timezone = :utc
-
-    # Don't generate system test files.
-    config.generators.system_tests = nil
 
     # Disable colorized logging when JSON log format is requested via ENV.
     # This keeps JSON logs clean of ANSI escape sequences across all environments.
@@ -50,10 +58,6 @@ module Verbena
       # Optionally reduce noisy verbose query logs in JSON mode (uncomment if desired):
       # config.active_record.verbose_query_logs = false
     end
-
-    # Verbena 固有の設定
-    # config/verbena.yml に値を記述します。
-    config.verbena = config_for(:verbena)
 
     # Use our admin controller for mission_control-jobs authentication/authorization.
     # Implement `authenticate_admin!` in `Admin::BaseController`.
