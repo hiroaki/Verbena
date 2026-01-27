@@ -1,6 +1,2 @@
-#!/usr/bin/env bash
-
-# bundle install is presumably done by entrypoint or manual step, but just in case
-# bundle check || bundle install
-
-exec bundle exec foreman start -f Procfile
+#!/usr/bin/env ruby
+exec "./bin/rails", "server", *ARGV
