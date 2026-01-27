@@ -9,6 +9,8 @@ services:
     tty: true
     stdin_open: true
     environment:
+      BINDING: 0.0.0.0
+      PORT: 3000
       VERBENA_DELIVERY_METHOD: file
 
 volumes:
