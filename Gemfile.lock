@@ -334,6 +334,7 @@ PLATFORMS
 DEPENDENCIES
   bootsnap
   bulma-rails (~> 1.0.0)
+  dartsass-rails (~> 0.5.1)
   debug
   factory_bot_rails
   importmap-rails
