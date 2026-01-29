@@ -7,19 +7,31 @@ require 'logger'
 
 module Verbena
   # デモ用: HTTP 経由で Verbena API へ EML を送信する delivery_method
+  #
+  # deliver! の仕様:
+  # - 正常時は Net::HTTPResponse を返します（戻り値は #code を持ちます）。
+  # - 設定 `:return_response` が true の場合、Net::HTTPResponse を返します。
+  # - 設定 `:return_response` が false (デフォルト) の場合、慣習に従い元の `mail` オブジェクトを返します。
+  # - 配送失敗時（HTTP 2xx 以外を含む）は必ず `DeliveryError` を発生させます。
   class HttpDelivery
+    class DeliveryError < StandardError; end
+
+    DEFAULTS = {
+      logger: nil,
+      return_response: false,
+      open_timeout: 5,
+      read_timeout: 30,
+      verify_ssl: true,
+    }.freeze
+
     attr_accessor :settings
 
     def initialize(values)
-      defaults = {
-        logger: (defined?(Rails) && Rails.respond_to?(:logger) ? Rails.logger : Logger.new($stdout)),
-        return_response: false,
-        open_timeout: 5,
-        read_timeout: 30,
-        verify_ssl: true, # デフォルトはSSL検証あり
-      }
-      merged = defaults.merge(values || {})
+      merged = DEFAULTS.merge(values || {})
       @settings = merged.respond_to?(:transform_keys) ? merged.transform_keys { |k| k.to_sym rescue k } : merged
+
+      # logger は外部から与えられていればそれを使います（ない場合はインスタンスは遅延生成します）
+      @logger = @settings.delete(:logger)
     end
 
     def deliver!(mail)
@@ -27,15 +39,24 @@ module Verbena
       mail[:bcc].include_in_headers = true if mail[:bcc]
 
       response = post_eml!(mail.to_s)
-      settings[:logger].info(log_message("delivered response=#{response.code}", mail))
+      logger.info(log_message("delivered response=#{response.code}", mail))
 
       settings[:return_response] ? response : mail
     rescue => ex
-      settings[:logger].error(log_message("error #{ex.class}: #{ex.message}", mail))
+      logger.error(log_message("error #{ex.class}: #{ex.message}", mail))
       raise
     end
 
     private
+
+    def logger
+      @logger ||= Logger.new($stdout)
+    end
+
+    def log_message(reason, mail)
+      destinations = mail.respond_to?(:destinations) ? Array(mail.destinations) : []
+      "Verbena::HttpDelivery#deliver! #{reason} destinations=[#{destinations.join(', ')}]"
+    end
 
     def ensure_required_settings!
       raise ArgumentError, 'url_enqueue is required' if settings[:url_enqueue].to_s.strip.empty?
@@ -52,22 +73,20 @@ module Verbena
       http = Net::HTTP.new(uri.host, uri.port)
       if uri.scheme == 'https'
         http.use_ssl = true
-        # verify_ssl フラグで制御 (デフォルト: true -> VERIFY_PEER)
-        # false が渡された場合のみ VERIFY_NONE とする
         http.verify_mode = settings[:verify_ssl] ? OpenSSL::SSL::VERIFY_PEER : OpenSSL::SSL::VERIFY_NONE
       end
       http.open_timeout = settings[:open_timeout] if settings[:open_timeout]
       http.read_timeout = settings[:read_timeout] if settings[:read_timeout]
 
       response = http.request(req)
-      raise "unexpected response #{response.code}" unless response.code.to_s.start_with?('2')
+      unless response.code.to_s.start_with?('2')
+        error_message = "API request failed with status #{response.code}"
+        # ボディがある場合は追加情報として含める (例: エラー理由など)
+        error_message += ": #{response.body[0..200]}" if response.body.present?
+        raise DeliveryError, error_message
+      end
 
       response
-    end
-
-    def log_message(reason, mail)
-      destinations = mail.respond_to?(:destinations) ? Array(mail.destinations) : []
-      "Verbena::HttpDelivery#deliver! #{reason} destinations=[#{destinations.join(', ')}]"
     end
   end
 end
