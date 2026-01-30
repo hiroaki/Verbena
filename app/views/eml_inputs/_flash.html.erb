@@ -1,0 +1,11 @@
+<%= content_tag :div, id: 'eml-inputs-flash' do %>
+  <% if notice.present? %>
+    <%# If results is provided, expose them on the success notification for client-side logic %>
+    <% data = local_assigns[:results] || [] %>
+    <%= content_tag :div, notice, class: 'notification is-success', data: (data.present? ? { results: Array(data).join(',') } : {}) %>
+  <% end %>
+
+  <% if alert.present? %>
+    <div class="notification is-danger"><%= alert %></div>
+  <% end %>
+<% end %>

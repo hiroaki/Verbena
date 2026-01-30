@@ -15,19 +15,40 @@ class EmlInputsController < ApplicationController
   end
 
   def create
+    # 統一された配送処理（sent_at, tokenはモードに依存しない共通パラメータ）
+    sent_at = params[:sent_at]
+    token = params[:token].to_s.strip
+    validate_token!(token)
+
     # EMLファイルがアップロードされていればuploadモード、なければfieldsモード
     is_upload = params[:upload].present? && params[:upload][:eml_file].present?
-    mail = is_upload ? process_upload_mode : process_fields_mode
+    mail = is_upload ? process_upload_mode! : process_fields_mode!
 
-    # 統一された配送処理（token, sent_atはモードに依存しない共通パラメータ）
-    token = params[:token].to_s.strip
-    sent_at_param = params[:sent_at]
+    # 送信
+    response = deliver_mail(mail, token, sent_at)
+    Rails.logger.info("deliver_main and returns:  #{response.inspect}")
 
-    validate_token!(token)
-    response = deliver_mail(mail, token, sent_at_param)
-    response_code = response.respond_to?(:code) ? response.code : 'unknown'
-    flash[:notice] = "送信しました (status #{response_code})"
-    redirect_to new_eml_input_path
+    # Try to extract created MailQueue IDs from the API response body (JSON)
+    results = parse_results!(response.body)
+    notice = "送信しました (作成ID: #{results.join(',')})"
+
+    respond_to do |format|
+      format.turbo_stream do
+        # Use flash.now for Turbo responses so the notice is not persisted across
+        # a full page reload (Turbo stream updates the fragment in-place).
+        flash.now[:notice] = notice
+        render turbo_stream: turbo_stream.replace(
+          "eml-inputs-flash",
+          partial: "eml_inputs/flash",
+          locals: { notice: notice, alert: nil, results: results }
+        )
+      end
+      format.html do
+        # For full-page HTML redirect, persist the flash to the next request.
+        flash[:notice] = notice
+        redirect_to new_eml_input_path
+      end
+    end
   rescue InputError, Verbena::HttpDelivery::DeliveryError => ex
     Rails.logger.warn("eml.inputs#create user error: #{ex.class}: #{ex.message}")
     flash.now[:alert] = "送信に失敗しました: #{ex.message}"
@@ -41,21 +62,14 @@ class EmlInputsController < ApplicationController
   private
 
   # アップロードモード: EMLファイル → Mail オブジェクト
-  def process_upload_mode
-    attrs = upload_params
-    validate_eml_file!(attrs[:eml_file])
-
-    eml_content = attrs[:eml_file].read
-    mail = Mail.new(eml_content)
-
-    # (日時の上書きは配送時に行うため、ここでは処理しない)
-    mail
+  def process_upload_mode!
+    validate_eml_file!(upload_params[:eml_file])
+    Mail.new(upload_params[:eml_file].read)
   end
 
   # フィールドモード: フォーム入力 → Mail オブジェクト
-  def process_fields_mode
-    attrs = fields_params
-    build_mail_from_fields(attrs)
+  def process_fields_mode!
+    build_mail_from_fields(fields_params)
   end
 
   # Mail オブジェクトの構築（フィールドモード専用）
@@ -67,7 +81,6 @@ class EmlInputsController < ApplicationController
     mail.from = attrs[:from] if attrs[:from].present?
     mail.subject = attrs[:subject] if attrs[:subject].present?
     mail.body = attrs[:body] if attrs[:body].present?
-    # フィールドモードではデフォルトで現在時刻を Date ヘッダに設定しておく
     mail.date = Time.current
     mail
   end
@@ -75,12 +88,12 @@ class EmlInputsController < ApplicationController
   # Mail オブジェクトの配送（共通処理）
   # 戻り値: Verbena::HttpDelivery が返す HTTP 風のレスポンスオブジェクト（#code を期待）
   # 期待形でない場合はログに警告を出します。
-  def deliver_mail(mail, token, sent_at_param = nil)
+  def deliver_mail(mail, token, sent_at = nil)
     # BCCヘッダを配送時に含めるために明示的に有効化
     mail[:bcc].include_in_headers = true if mail[:bcc]
 
-    if sent_at_param.present?
-      mail.date = parsed_time_or_nil(sent_at_param) || Time.current
+    if sent_at.present?
+      mail.date = parsed_time_or_nil(sent_at) || Time.current
     end
 
     mail.delivery_method(Verbena::HttpDelivery, delivery_settings(token))
@@ -117,11 +130,9 @@ class EmlInputsController < ApplicationController
     max_size = MAX_EML_UPLOAD_SIZE
 
     if upload.respond_to?(:size) && !upload.size.nil?
-      # size が利用できる場合はそれを信頼して空チェックと上限チェックを行う
       raise InputError, 'EMLが空です' if upload.size.to_i == 0
       raise InputError, "EMLファイルが大きすぎます (最大 #{max_size} バイト)" if upload.size.to_i > max_size
     else
-      # size が不明な場合は最小限の読み取りで確認する（メモリ消費を抑える）
       if upload.respond_to?(:read)
         content = upload.read(max_size + 1)
         raise InputError, 'EMLが空です' if content.blank?
@@ -154,11 +165,22 @@ class EmlInputsController < ApplicationController
                        raw_fields.to_h.symbolize_keys
                      end
 
-    # ファイル入力はブラウザで再選択が必要 → 値は戻さない
     @upload_values = {}
-    @upload_requires_reselect = raw_upload.respond_to?(:[]) && raw_upload[:eml_file].present?
 
-    render :new, status: :unprocessable_entity
+    # Prefer Turbo Stream response when the client accepts it (replace only flash).
+    flash.now[:alert] ||= "送信に失敗しました"
+    respond_to do |format|
+      format.turbo_stream do
+        render turbo_stream: turbo_stream.replace(
+          "eml-inputs-flash",
+          partial: "eml_inputs/flash",
+          locals: { notice: nil, alert: flash.now[:alert] }
+        ), status: :unprocessable_entity
+      end
+      format.html do
+        render :new, status: :unprocessable_entity
+      end
+    end
   end
 
   def delivery_settings(token)
@@ -206,19 +228,34 @@ class EmlInputsController < ApplicationController
 
   def split_addresses(raw)
     return [] if raw.blank?
-
-    # Mail::AddressList を使用して安全にアドレスのみを抽出する
     Mail::AddressList.new(raw.to_s).addresses.map(&:address).reject(&:blank?)
   rescue Mail::Field::ParseError
-    # パースエラーの場合は意図しない送信を防ぐため例外とする
     raise InputError, '不正なメールアドレス形式が含まれています'
   end
 
   def fields_params
-    params.expect(:fields).permit(:to, :cc, :bcc, :from, :subject, :body)
+    raw = params[:fields]
+    if raw.respond_to?(:permit)
+      raw.permit(:to, :cc, :bcc, :from, :subject, :body)
+    else
+      ActionController::Parameters.new
+    end
   end
 
   def upload_params
-    params.expect(:upload).permit(:eml_file)
+    raw = params[:upload]
+    if raw.respond_to?(:permit)
+      raw.permit(:eml_file)
+    else
+      ActionController::Parameters.new
+    end
+  end
+
+  def parse_results!(body)
+    parsed = JSON.parse(body)
+    return parsed['ids']
+  rescue JSON::ParserError => ex
+    Rails.logger.error("parse_results JSON parse error: #{ex.class}: #{ex.message}")
+    raise ex
   end
 end
