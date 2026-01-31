@@ -12,10 +12,11 @@ class EmlInputsController < ApplicationController
   def new
     @fields_values = {}
     @upload_values = {}
+    @token = nil
+    @sent_at = nil
   end
 
   def create
-    # 統一された配送処理（sent_at, tokenはモードに依存しない共通パラメータ）
     sent_at = params[:sent_at]
     token = params[:token].to_s.strip
     validate_token!(token)
@@ -32,23 +33,8 @@ class EmlInputsController < ApplicationController
     results = parse_results!(response.body)
     notice = "送信しました (作成ID: #{results.join(',')})"
 
-    respond_to do |format|
-      format.turbo_stream do
-        # Use flash.now for Turbo responses so the notice is not persisted across
-        # a full page reload (Turbo stream updates the fragment in-place).
-        flash.now[:notice] = notice
-        render turbo_stream: turbo_stream.replace(
-          "eml-inputs-flash",
-          partial: "eml_inputs/flash",
-          locals: { notice: notice, alert: nil, results: results }
-        )
-      end
-      format.html do
-        # For full-page HTML redirect, persist the flash to the next request.
-        flash[:notice] = notice
-        redirect_to new_eml_input_path
-      end
-    end
+    flash[:notice] = notice
+    redirect_to new_eml_input_path
   rescue InputError, Verbena::HttpDelivery::DeliveryError => ex
     Rails.logger.warn("eml.inputs#create user error: #{ex.class}: #{ex.message}")
     flash.now[:alert] = "送信に失敗しました: #{ex.message}"
@@ -147,40 +133,23 @@ class EmlInputsController < ApplicationController
 
   def render_error_restoring_inputs
     # エラー時は入力値を保持して再表示
-    begin
-      raw_fields = params.expect(:fields)
-    rescue ActionController::ParameterMissing
-      raw_fields = {}
-    end
-
-    begin
-      raw_upload = params.expect(:upload)
-    rescue ActionController::ParameterMissing
-      raw_upload = {}
-    end
-
+    # params[:fields] がない場合も想定して安全に取得
+    raw_fields = params[:fields]
     @fields_values = if raw_fields.respond_to?(:permit)
                        raw_fields.permit(:to, :cc, :bcc, :from, :subject, :body).to_h.symbolize_keys
                      else
-                       raw_fields.to_h.symbolize_keys
+                       {}
                      end
 
     @upload_values = {}
 
-    # Prefer Turbo Stream response when the client accepts it (replace only flash).
+    # Ensure token/sent_at are available to the view when rendering
+    @token = params[:token]
+    @sent_at = params[:sent_at]
+
+    # Render new with preserved inputs for HTML clients
     flash.now[:alert] ||= "送信に失敗しました"
-    respond_to do |format|
-      format.turbo_stream do
-        render turbo_stream: turbo_stream.replace(
-          "eml-inputs-flash",
-          partial: "eml_inputs/flash",
-          locals: { notice: nil, alert: flash.now[:alert] }
-        ), status: :unprocessable_entity
-      end
-      format.html do
-        render :new, status: :unprocessable_entity
-      end
-    end
+    render :new, status: :unprocessable_entity
   end
 
   def delivery_settings(token)

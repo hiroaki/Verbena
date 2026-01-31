@@ -1,113 +1,93 @@
-<%# form body partial. locals: f, fields_values, upload_values, upload_requires_reselect %>
+<%# Combined form body partial. locals: f, fields_values, upload_values, upload_requires_reselect %>
 
-<!-- フォーム入力パネル -->
-<div data-tabs-target="panel">
-  <div class="box">
-    <h2 class="subtitle">フォーム入力から生成して送信</h2>
-    <p class="content">To/Cc/Bcc/Subject/本文/送信日時を入力し、EMLを生成してAPIへ送信します。</p>
+<h2 class="subtitle">EMLファイルをアップロード、または各項目を入力して送信します。</h2>
 
-    <div class="field is-horizontal">
-      <div class="field-label is-normal">
-        <%= label_tag 'fields[from]', 'From', class: 'label' %>
-      </div>
-      <div class="field-body">
-        <div class="field">
-          <div class="control">
-            <%= text_field_tag 'fields[from]', fields_values[:from], placeholder: 'sender@example.com', class: 'input' %>
-          </div>
-        </div>
-      </div>
+<div class="box">
+  <!-- Upload first -->
+  <div class="field is-horizontal">
+    <div class="field-label is-normal">
+      <%= label_tag 'upload[eml_file]', 'EMLファイル', class: 'label' %>
     </div>
-
-    <div class="field is-horizontal">
-      <div class="field-label is-normal">
-        <%= label_tag 'fields[to]', 'To', class: 'label' %>
-      </div>
-      <div class="field-body">
-        <div class="field">
-          <div class="control">
-            <%= text_field_tag 'fields[to]', fields_values[:to], placeholder: 'user@example.com, other@example.com', class: 'input' %>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="field is-horizontal">
-      <div class="field-label is-normal">
-        <%= label_tag 'fields[cc]', 'Cc', class: 'label' %>
-      </div>
-      <div class="field-body">
-        <div class="field">
-          <div class="control">
-            <%= text_field_tag 'fields[cc]', fields_values[:cc], placeholder: 'cc@example.com', class: 'input' %>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="field is-horizontal">
-      <div class="field-label is-normal">
-        <%= label_tag 'fields[bcc]', 'Bcc', class: 'label' %>
-      </div>
-      <div class="field-body">
-        <div class="field">
-          <div class="control">
-            <%= text_field_tag 'fields[bcc]', fields_values[:bcc], placeholder: 'bcc@example.com', class: 'input' %>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="field is-horizontal">
-      <div class="field-label is-normal">
-        <%= label_tag 'fields[subject]', 'Subject', class: 'label' %>
-      </div>
-      <div class="field-body">
-        <div class="field">
-          <div class="control">
-            <%= text_field_tag 'fields[subject]', fields_values[:subject], placeholder: 'Subject text', class: 'input' %>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="field is-horizontal">
-      <div class="field-label is-normal">
-        <%= label_tag 'fields[body]', '本文', class: 'label' %>
-      </div>
-      <div class="field-body">
-        <div class="field">
-          <div class="control">
-            <%= text_area_tag 'fields[body]', fields_values[:body], rows: 6, placeholder: '本文を入力してください', class: 'textarea' %>
-          </div>
+    <div class="field-body">
+      <div class="field">
+        <div class="control">
+          <%= file_field_tag 'upload[eml_file]', accept: '.eml,message/rfc822', class: 'input' %>
         </div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- アップロードパネル -->
-<div data-tabs-target="panel">
-  <div class="box">
-    <h2 class="subtitle">EMLファイルをアップロードして送信</h2>
-    <p class="content">既存のEMLファイルをアップロードし、必要に応じて送信日時を上書きしてAPIへ送信します。</p>
+  <hr>
 
-    <div class="field is-horizontal">
-      <div class="field-label is-normal">
-        <%= label_tag 'upload[eml_file]', 'EMLファイル', class: 'label' %>
-      </div>
-      <div class="field-body">
-        <div class="field">
-          <div class="control">
-            <%= file_field_tag 'upload[eml_file]', accept: '.eml,message/rfc822', class: 'input' %>
-          </div>
-        </div>
-      </div>
+  <!-- Fields to build EML when no upload -->
+  <div class="field is-horizontal">
+    <div class="field-label is-normal">
+      <%= label_tag 'fields[from]', 'From', class: 'label' %>
+    </div>
+    <div class="field-body">
+      <div class="field"><div class="control">
+        <%= text_field_tag 'fields[from]', fields_values[:from], placeholder: 'sender@example.com', class: 'input' %>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="field is-horizontal">
+    <div class="field-label is-normal">
+      <%= label_tag 'fields[to]', 'To', class: 'label' %>
+    </div>
+    <div class="field-body">
+      <div class="field"><div class="control">
+        <%= text_field_tag 'fields[to]', fields_values[:to], placeholder: 'user@example.com, other@example.com', class: 'input' %>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="field is-horizontal">
+    <div class="field-label is-normal">
+      <%= label_tag 'fields[cc]', 'Cc', class: 'label' %>
+    </div>
+    <div class="field-body">
+      <div class="field"><div class="control">
+        <%= text_field_tag 'fields[cc]', fields_values[:cc], placeholder: 'cc@example.com', class: 'input' %>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="field is-horizontal">
+    <div class="field-label is-normal">
+      <%= label_tag 'fields[bcc]', 'Bcc', class: 'label' %>
+    </div>
+    <div class="field-body">
+      <div class="field"><div class="control">
+        <%= text_field_tag 'fields[bcc]', fields_values[:bcc], placeholder: 'bcc@example.com', class: 'input' %>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="field is-horizontal">
+    <div class="field-label is-normal">
+      <%= label_tag 'fields[subject]', 'Subject', class: 'label' %>
+    </div>
+    <div class="field-body">
+      <div class="field"><div class="control">
+        <%= text_field_tag 'fields[subject]', fields_values[:subject], placeholder: 'Subject text', class: 'input' %>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="field is-horizontal">
+    <div class="field-label is-normal">
+      <%= label_tag 'fields[body]', '本文', class: 'label' %>
+    </div>
+    <div class="field-body">
+      <div class="field"><div class="control">
+        <%= text_area_tag 'fields[body]', fields_values[:body], rows: 6, placeholder: '本文を入力してください', class: 'textarea' %>
+      </div></div>
     </div>
   </div>
 </div>
 
-<!-- 共通の認証・送信セクション（タブの外） -->
+<!-- Shared auth / send section -->
 <div class="box">
   <div class="field is-horizontal">
     <div class="field-label is-normal">
@@ -116,7 +96,7 @@
     <div class="field-body">
       <div class="field">
         <div class="control">
-          <%= datetime_local_field_tag :sent_at, params[:sent_at], class: 'input' %>
+          <%= datetime_local_field_tag :sent_at, sent_at, class: 'input' %>
         </div>
         <p class="help">※フィールド入力時は未指定なら現在時刻になります。アップロード時は未指定ならEML内のDateが使われます。</p>
       </div>
@@ -130,7 +110,7 @@
     <div class="field-body">
       <div class="field">
         <div class="control">
-          <%= text_field_tag :token, params[:token], placeholder: 'API Token', class: 'input', required: true %>
+          <%= text_field_tag :token, token, placeholder: 'API Token', class: 'input', required: true %>
         </div>
       </div>
     </div>

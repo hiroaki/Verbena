@@ -6,24 +6,17 @@
       <%= render partial: 'eml_inputs/flash', locals: { notice: flash[:notice], alert: flash[:alert] } %>
     </div>
 
-    <%= form_with url: eml_inputs_path, local: false, html: { class: 'form', id: 'main-form', multipart: true } do |f| %>
-      <div data-controller="tabs">
-        <div class="tabs is-toggle is-fullwidth" role="tablist">
-          <ul>
-            <li data-tabs-target="tab"><a href="#" data-action="click->tabs#change">フォーム入力</a></li>
-            <li data-tabs-target="tab"><a href="#" data-action="click->tabs#change">EMLアップロード</a></li>
-          </ul>
-        </div>
-
-        <div id="eml-inputs-form-body">
-          <%= render partial: 'eml_inputs/form_body',
-                     locals: {
-                       f: f,
-                       fields_values: @fields_values || {},
-                       upload_values: @upload_values || {},
-                       upload_requires_reselect: @upload_requires_reselect
-                     } %>
-        </div>
+    <%= form_with url: eml_inputs_path, local: true, html: { class: 'form', id: 'main-form', multipart: true } do |f| %>
+      <div id="eml-inputs-form-body">
+        <%= render partial: 'eml_inputs/form_body',
+                   locals: {
+                     f: f,
+                     fields_values: @fields_values,
+                     upload_values: @upload_values,
+                     upload_requires_reselect: @upload_requires_reselect,
+                     token: @token,
+                     sent_at: @sent_at
+                   } %>
       </div>
     <% end %>
   </div>
