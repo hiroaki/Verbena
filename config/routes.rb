@@ -6,7 +6,10 @@ Rails.application.routes.draw do
 
   get 'login', to: 'sessions#new'
 
-  resources :eml_inputs, only: [:new, :create]
+  # Demo/sample routes: enable only in development and test environments
+  if Rails.env.development? || Rails.env.test?
+    resources :eml_inputs, only: [:new, :create]
+  end
 
   namespace :api do
     namespace :v1 do
