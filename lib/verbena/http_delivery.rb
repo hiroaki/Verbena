@@ -29,7 +29,11 @@ module Verbena
 
     def initialize(values)
       merged = DEFAULTS.merge(values || {})
-      @settings = merged.respond_to?(:transform_keys) ? merged.transform_keys { |k| k.to_sym rescue k } : merged
+      @settings = if merged.respond_to?(:transform_keys)
+                     merged.transform_keys { |k| k.is_a?(String) ? k.to_sym : k }
+                   else
+                     merged
+                   end
 
       # logger は外部から与えられていればそれを使います（ない場合はインスタンスは遅延生成します）
       @logger = @settings.delete(:logger)
