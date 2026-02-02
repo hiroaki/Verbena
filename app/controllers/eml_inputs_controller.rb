@@ -27,7 +27,7 @@ class EmlInputsController < ApplicationController
 
     # 送信
     response = deliver_mail(mail, token, sent_at)
-    Rails.logger.info("deliver_main and returns:  #{response.inspect}")
+    Rails.logger.info("deliver_main and returns: #{response.inspect}")
 
     # Try to extract created MailQueue IDs from the API response body (JSON)
     results = parse_results!(response.body)

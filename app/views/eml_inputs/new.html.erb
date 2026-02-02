@@ -2,9 +2,7 @@
   <div class="container">
     <h1 class="title">EML投入（デモ用）</h1>
 
-    <div id="eml-inputs-flash">
-      <%= render partial: 'eml_inputs/flash', locals: { notice: flash[:notice], alert: flash[:alert] } %>
-    </div>
+    <%= render partial: 'eml_inputs/flash', locals: { notice: flash[:notice], alert: flash[:alert] } %>
 
     <%= form_with url: eml_inputs_path, local: true, html: { class: 'form', id: 'main-form', multipart: true } do |f| %>
       <div id="eml-inputs-form-body">
