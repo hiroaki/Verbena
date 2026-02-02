@@ -4,6 +4,7 @@ require 'net/http'
 require 'uri'
 require 'mail'
 require 'logger'
+require 'openssl'
 
 module Verbena
   # デモ用: HTTP 経由で Verbena API へ EML を送信する delivery_method
