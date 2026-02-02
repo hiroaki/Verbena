@@ -8,10 +8,7 @@
       <div id="eml-inputs-form-body">
         <%= render partial: 'eml_inputs/form_body',
                    locals: {
-                     f: f,
                      fields_values: @fields_values,
-                     upload_values: @upload_values,
-                     upload_requires_reselect: @upload_requires_reselect,
                      token: @token,
                      sent_at: @sent_at
                    } %>

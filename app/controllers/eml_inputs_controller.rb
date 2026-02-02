@@ -11,7 +11,6 @@ class EmlInputsController < ApplicationController
 
   def new
     @fields_values = {}
-    @upload_values = {}
     @token = nil
     @sent_at = nil
   end
@@ -138,8 +137,6 @@ class EmlInputsController < ApplicationController
                      else
                        {}
                      end
-
-    @upload_values = {}
 
     # 開発環境でのデモ用途のため token も再表示させていますが、
     # 取り扱いに注意してください。
