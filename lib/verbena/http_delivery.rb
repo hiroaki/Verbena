@@ -83,7 +83,8 @@ module Verbena
       unless response.code.to_s.start_with?('2')
         error_message = "API request failed with status #{response.code}"
         # ボディがある場合は追加情報として含める (例: エラー理由など)
-        error_message += ": #{response.body[0..200]}" if response.body.present?
+        body = response.body.to_s
+        error_message += ": #{body[0..200]}" unless body.empty?
         raise DeliveryError, error_message
       end
 
