@@ -17,7 +17,7 @@ RSpec.describe Verbena::HttpDelivery do
   end
 
   it 'returns Net::HTTPResponse on success when return_response is true' do
-    response = instance_double(Net::HTTPResponse, code: '201', body: '', to_s: 'resp')
+    response = instance_double(Net::HTTPResponse, code: '200', body: '', to_s: 'resp')
 
     http_double = double('http', request: response)
     allow(http_double).to receive(:use_ssl=)
@@ -47,7 +47,7 @@ RSpec.describe Verbena::HttpDelivery do
     settings2 = settings.merge(return_response: false)
     d2 = described_class.new(settings2)
 
-    response = double('response', code: '202', body: double('body', to_s: '', present?: false))
+    response = double('response', code: '200', body: double('body', to_s: '', present?: false))
     http_double = double('http', request: response)
     allow(http_double).to receive(:use_ssl=)
     allow(http_double).to receive(:verify_mode=)

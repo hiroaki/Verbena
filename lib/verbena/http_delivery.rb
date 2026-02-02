@@ -10,7 +10,8 @@ module Verbena
   # デモ用: HTTP 経由で Verbena API へ EML を送信する delivery_method
   # - 設定 `:return_response` が true の場合、HTTP 応答として `Net::HTTPResponse` を返します。
   # - 設定 `:return_response` が false (デフォルト) の場合、Action Mailer の慣習に従い元の `mail` オブジェクトを返します。
-  # - 配送失敗時（HTTP 2xx 以外を含む）は必ず `DeliveryError` を発生させます。
+  # - HTTP レスポンスが 2xx 以外の場合は `DeliveryError` を発生させます。
+  # - DNS/接続/タイムアウトなどの低レベルなネットワーク例外は、そのまま上位へ再送出されます（必要に応じて呼び出し側でラップしてください）。
   class HttpDelivery
     class DeliveryError < StandardError; end
 
