@@ -8,11 +8,8 @@ require 'openssl'
 
 module Verbena
   # デモ用: HTTP 経由で Verbena API へ EML を送信する delivery_method
-  #
-  # deliver! の仕様:
-  # - 正常時は Net::HTTPResponse を返します（戻り値は #code を持ちます）。
-  # - 設定 `:return_response` が true の場合、Net::HTTPResponse を返します。
-  # - 設定 `:return_response` が false (デフォルト) の場合、慣習に従い元の `mail` オブジェクトを返します。
+  # - 設定 `:return_response` が true の場合、HTTP 応答として `Net::HTTPResponse` を返します。
+  # - 設定 `:return_response` が false (デフォルト) の場合、Action Mailer の慣習に従い元の `mail` オブジェクトを返します。
   # - 配送失敗時（HTTP 2xx 以外を含む）は必ず `DeliveryError` を発生させます。
   class HttpDelivery
     class DeliveryError < StandardError; end

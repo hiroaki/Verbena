@@ -92,12 +92,10 @@ class EmlInputsController < ApplicationController
     result
   end
 
-  # バリデーション: Token
   def validate_token!(token)
     raise InputError, 'Tokenを入力してください' if token.blank?
   end
 
-  # バリデーション: EMLファイル
   def validate_eml_file!(upload)
     raise InputError, 'EMLファイルを選択してください' unless upload.present?
 
@@ -143,11 +141,11 @@ class EmlInputsController < ApplicationController
 
     @upload_values = {}
 
-    # Ensure token/sent_at are available to the view when rendering
+    # 開発環境でのデモ用途のため token も再表示させていますが、
+    # 取り扱いに注意してください。
     @token = params[:token]
     @sent_at = params[:sent_at]
 
-    # Render new with preserved inputs for HTML clients
     flash.now[:alert] ||= "送信に失敗しました"
     render :new, status: :unprocessable_entity
   end
