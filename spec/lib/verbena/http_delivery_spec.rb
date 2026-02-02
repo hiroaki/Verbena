@@ -7,7 +7,7 @@ require_relative '../../../lib/verbena/http_delivery'
 RSpec.describe Verbena::HttpDelivery do
   let(:url) { 'http://example.test/api/v1/mail_queues' }
   let(:token) { 'secret-token' }
-  let(:settings) { { url_enqueue: url, access_token: token, return_response: true, logger: Logger.new(nil), verify_ssl: false } }
+  let(:settings) { { url_enqueue: url, access_token: token, return_response: true, logger: Logger.new(IO::NULL), verify_ssl: false } }
   let(:delivery) { described_class.new(settings) }
   let(:mail) { Mail.new(to: 'to@example.test', from: 'from@example.test', subject: 'hi', body: 'hello') }
 
