@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
+require 'rails_helper'
 require 'net/http'
 require_relative '../../../lib/verbena/http_delivery'
 
