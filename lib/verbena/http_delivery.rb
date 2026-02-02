@@ -26,7 +26,11 @@ module Verbena
 
     def initialize(values)
       merged = DEFAULTS.merge(values || {})
-      @settings = merged.respond_to?(:transform_keys) ? merged.transform_keys { |k| k.to_sym rescue k } : merged
+      @settings = if merged.respond_to?(:transform_keys)
+                     merged.transform_keys { |k| k.is_a?(String) ? k.to_sym : k }
+                   else
+                     merged
+                   end
 
       # logger は外部から与えられていればそれを使います（ない場合はインスタンスは遅延生成します）
       @logger = @settings.delete(:logger)
@@ -80,7 +84,8 @@ module Verbena
       unless response.code.to_s.start_with?('2')
         error_message = "API request failed with status #{response.code}"
         # ボディがある場合は追加情報として含める (例: エラー理由など)
-        error_message += ": #{response.body[0..200]}" if response.body.present?
+        body = response.body.to_s
+        error_message += ": #{body[0..200]}" unless body.empty?
         raise DeliveryError, error_message
       end
 
