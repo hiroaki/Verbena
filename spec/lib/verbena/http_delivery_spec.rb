@@ -19,7 +19,8 @@ RSpec.describe Verbena::HttpDelivery do
   it 'returns Net::HTTPResponse on success when return_response is true' do
     response = instance_double(Net::HTTPResponse, code: '200', body: '', to_s: 'resp')
 
-    http_double = double('http', request: response)
+    http_double = double('http')
+    allow(http_double).to receive(:request).and_return(response)
     allow(http_double).to receive(:use_ssl=)
     allow(http_double).to receive(:verify_mode=)
     allow(http_double).to receive(:open_timeout=)
@@ -33,7 +34,8 @@ RSpec.describe Verbena::HttpDelivery do
     # Use a plain String for the response body to better mirror Net::HTTPResponse
     response = double('response', code: '500', body: 'server error')
 
-    http_double = double('http', request: response)
+    http_double = double('http')
+    allow(http_double).to receive(:request).and_return(response)
     allow(http_double).to receive(:use_ssl=)
     allow(http_double).to receive(:verify_mode=)
     allow(http_double).to receive(:open_timeout=)
@@ -48,7 +50,8 @@ RSpec.describe Verbena::HttpDelivery do
     d2 = described_class.new(settings2)
 
     response = double('response', code: '200', body: double('body', to_s: '', present?: false))
-    http_double = double('http', request: response)
+    http_double = double('http')
+    allow(http_double).to receive(:request).and_return(response)
     allow(http_double).to receive(:use_ssl=)
     allow(http_double).to receive(:verify_mode=)
     allow(http_double).to receive(:open_timeout=)
