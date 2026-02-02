@@ -30,9 +30,8 @@ RSpec.describe Verbena::HttpDelivery do
   end
 
   it 'raises DeliveryError on non-2xx responses' do
-    body_obj = double('body', to_s: 'server error', present?: true)
-    allow(body_obj).to receive(:[]).and_return('server error')
-    response = double('response', code: '500', body: body_obj)
+    # Use a plain String for the response body to better mirror Net::HTTPResponse
+    response = double('response', code: '500', body: 'server error')
 
     http_double = double('http', request: response)
     allow(http_double).to receive(:use_ssl=)
