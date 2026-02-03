@@ -37,7 +37,7 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
             To: you@example.com
             Cc: ichiro@example.com, jirou@example.com
             Bcc: saburo@example.com
-            Subject: =?UTF-8?Q?=E3=81=94=E6=8C=A8=E6=8B%B6?=
+            Subject: =?UTF-8?Q?=E3=81=94=E6=8C=A8=E6=8B=B6?=
             Content-Type: text/plain; charset="UTF-8"
 
             こんにちは。
@@ -110,7 +110,7 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
           <<~EML1
             From: me@example.com
             To: you@example.com
-            Subject: =?UTF-8?Q?=E3=81=94=E6=8C=A8=E6=8B%B6?=
+            Subject: =?UTF-8?Q?=E3=81=94=E6=8C=A8=E6=8B=B6?=
             Content-Type: text/plain; charset="UTF-8"
 
             こんにちは。
