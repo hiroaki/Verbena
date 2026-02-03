@@ -1,0 +1,125 @@
+<%# Combined form body partial. locals: fields_values, token, sent_at %>
+
+<h2 class="subtitle">EMLファイルをアップロード、または各項目を入力して送信します。</h2>
+
+<div class="box">
+  <!-- Upload first -->
+  <div class="field is-horizontal">
+    <div class="field-label is-normal">
+      <%= label_tag 'upload[eml_file]', 'EMLファイル', class: 'label' %>
+    </div>
+    <div class="field-body">
+      <div class="field">
+        <div class="control">
+          <%= file_field_tag 'upload[eml_file]', accept: '.eml,message/rfc822', class: 'input' %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- Fields to build EML when no upload -->
+  <div class="field is-horizontal">
+    <div class="field-label is-normal">
+      <%= label_tag 'fields[from]', 'From', class: 'label' %>
+    </div>
+    <div class="field-body">
+      <div class="field"><div class="control">
+        <%= text_field_tag 'fields[from]', fields_values[:from], placeholder: 'sender@example.com', class: 'input' %>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="field is-horizontal">
+    <div class="field-label is-normal">
+      <%= label_tag 'fields[to]', 'To', class: 'label' %>
+    </div>
+    <div class="field-body">
+      <div class="field"><div class="control">
+        <%= text_field_tag 'fields[to]', fields_values[:to], placeholder: 'user@example.com, other@example.com', class: 'input' %>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="field is-horizontal">
+    <div class="field-label is-normal">
+      <%= label_tag 'fields[cc]', 'Cc', class: 'label' %>
+    </div>
+    <div class="field-body">
+      <div class="field"><div class="control">
+        <%= text_field_tag 'fields[cc]', fields_values[:cc], placeholder: 'cc@example.com', class: 'input' %>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="field is-horizontal">
+    <div class="field-label is-normal">
+      <%= label_tag 'fields[bcc]', 'Bcc', class: 'label' %>
+    </div>
+    <div class="field-body">
+      <div class="field"><div class="control">
+        <%= text_field_tag 'fields[bcc]', fields_values[:bcc], placeholder: 'bcc@example.com', class: 'input' %>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="field is-horizontal">
+    <div class="field-label is-normal">
+      <%= label_tag 'fields[subject]', 'Subject', class: 'label' %>
+    </div>
+    <div class="field-body">
+      <div class="field"><div class="control">
+        <%= text_field_tag 'fields[subject]', fields_values[:subject], placeholder: 'Subject text', class: 'input' %>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="field is-horizontal">
+    <div class="field-label is-normal">
+      <%= label_tag 'fields[body]', '本文', class: 'label' %>
+    </div>
+    <div class="field-body">
+      <div class="field"><div class="control">
+        <%= text_area_tag 'fields[body]', fields_values[:body], rows: 6, placeholder: '本文を入力してください', class: 'textarea' %>
+      </div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Shared auth / send section -->
+<div class="box">
+  <div class="field is-horizontal">
+    <div class="field-label is-normal">
+      <%= label_tag :sent_at, '送信日時', class: 'label' %>
+    </div>
+    <div class="field-body">
+      <div class="field">
+        <div class="control">
+          <%= datetime_local_field_tag :sent_at, sent_at, class: 'input' %>
+        </div>
+        <p class="help">※フィールド入力時は未指定なら現在時刻になります。アップロード時は未指定ならEML内のDateが使われます。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="field is-horizontal">
+    <div class="field-label is-normal">
+      <%= label_tag :token, 'Token (Authorization)', class: 'label' %>
+    </div>
+    <div class="field-body">
+      <div class="field">
+        <div class="control">
+          <%= text_field_tag :token, token, placeholder: 'API Token', class: 'input', required: true %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="field">
+    <div class="control">
+      <%= submit_tag '送信', class: 'button is-primary is-fullwidth' %>
+    </div>
+    <p class="help">※EMLファイルがアップロードされている場合はそちらが優先されます</p>
+  </div>
+</div>

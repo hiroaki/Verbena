@@ -1,0 +1,9 @@
+<%= content_tag :div, id: 'eml-inputs-flash' do %>
+  <% if notice.present? %>
+    <%= content_tag :div, notice, class: 'notification is-success' %>
+  <% end %>
+
+  <% if alert.present? %>
+    <div class="notification is-danger"><%= alert %></div>
+  <% end %>
+<% end %>
