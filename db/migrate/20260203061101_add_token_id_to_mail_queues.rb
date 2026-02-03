@@ -15,13 +15,16 @@ class AddTokenIdToMailQueues < ActiveRecord::Migration[8.1]
     # 2. 既存データがある場合のみ、紐付け用のトークンを用意して更新
     if MigrationMailQueue.exists?
       now = Time.current
-      token = MigrationToken.create!(
-        key_digest_hash: "migration-dummy-hash-#{SecureRandom.hex(16)}",
-        label: 'System Access (Migration)',
-        created_at: now,
-        updated_at: now,
-        expires_at: 10.years.from_now # 十分な未来
-      )
+      token = MigrationToken.find_by(label: 'System Access (Migration)')
+      unless token
+        token = MigrationToken.create!(
+          key_digest_hash: "migration-dummy-hash-#{SecureRandom.hex(16)}",
+          label: 'System Access (Migration)',
+          created_at: now,
+          updated_at: now,
+          expires_at: 10.years.from_now # 十分な未来
+        )
+      end
 
       # 既存の全 MailQueue レコードにトークンを紐付ける
       MigrationMailQueue.update_all(token_id: token.id)
