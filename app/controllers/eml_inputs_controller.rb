@@ -220,6 +220,6 @@ class EmlInputsController < ApplicationController
     return parsed['ids']
   rescue JSON::ParserError => ex
     Rails.logger.error("parse_results JSON parse error: #{ex.class}: #{ex.message}")
-    raise ex
+    raise
   end
 end
