@@ -2,6 +2,8 @@ require 'rails_helper'
 require 'rake'
 
 RSpec.describe 'verbena:mail_queues tasks' do
+  let(:token) { FactoryBot.create(:token, key: 'sekret') }
+
   before do
     # Recreate Rake.application per example to avoid task definitions leaking
     # between examples (Rake.application is global). This ensures each example
@@ -19,6 +21,12 @@ RSpec.describe 'verbena:mail_queues tasks' do
     task_add.reenable
     task_add_raw.reenable
     task_delete.reenable
+    allow(Token).to receive(:authenticate).and_return(token)
+    ENV['VERBENA_TOKEN'] = 'sekret'
+  end
+
+  after do
+    ENV.delete('VERBENA_TOKEN')
   end
 
   describe 'add' do
@@ -99,7 +107,7 @@ RSpec.describe 'verbena:mail_queues tasks' do
     end
 
     it 'deletes existing mail_queue and prints success message' do
-      mq = FactoryBot.create(:mail_queue)
+      mq = FactoryBot.create(:mail_queue, token: token)
 
       expect {
         task_delete.invoke(mq.id.to_s)

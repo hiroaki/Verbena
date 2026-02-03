@@ -9,7 +9,8 @@ module Api
       # api_v1_mail_queues GET /api/v1/mail_queues
       def index
         # Start from a projected relation (no eager load, no evaluation yet)
-        scope = MailQueue.select(:id, :timer_at, :envelope_from, :envelope_to, :eml_source_id, :created_at, :updated_at)
+        # current_token に紐づくレコードのみを対象とする
+        scope = current_token.mail_queues.select(:id, :timer_at, :envelope_from, :envelope_to, :eml_source_id, :created_at, :updated_at)
         # Minimal order support per OSS_TODO: default id desc; accept only "id asc" or "id desc"
         scope = apply_order(scope)
         # Apply pagination at the DB level (still lazy until render)
@@ -19,7 +20,8 @@ module Api
 
       # api_v1_mail_queues POST /api/v1/mail_queues
       def create
-        mail_queues = Verbena::MailQueuesService.new.create_mail_queues_by_eml!(@eml_string)
+        # Service に current_token を渡して初期化
+        mail_queues = Verbena::MailQueuesService.new(token: current_token).create_mail_queues_by_eml!(@eml_string)
         render json: { message: 'ok', ids: mail_queues.map(&:id) }, status: :ok
       rescue Verbena::MailQueuesService::NoRecipientsError
         render_error('no_recipients', 'no recipients', :unprocessable_entity)
@@ -29,6 +31,7 @@ module Api
 
       # api_v1_mail_queue GET /api/v1/mail_queues/:id
       def show
+        # prepare_mail_queue で current_token スコープでロードされているため、ここではそのままシリアライズ
         render json: serialize_mail_queue(mail_queue)
       end
 
@@ -50,7 +53,7 @@ module Api
 
       # api_v1_mail_queue DELETE /api/v1/mail_queues/:id
       def destroy
-        Verbena::MailQueuesService.new.destroy_mail_queue!(mail_queue)
+        Verbena::MailQueuesService.new(token: current_token).destroy_mail_queue!(mail_queue)
         render json: { message: 'ok' }, status: :ok
       end
 
@@ -69,7 +72,7 @@ module Api
         end
 
         def prepare_mail_queue
-          @mail_queue = MailQueue.find(params[:id])
+          @mail_queue = current_token.mail_queues.find(params[:id])
         rescue ActiveRecord::RecordNotFound => ex
           render_error('not_found', 'resource not found', :not_found)
         end

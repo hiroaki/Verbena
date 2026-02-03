@@ -17,7 +17,7 @@ RSpec.describe 'Api::V1 time format', type: :request do
   end
 
   it 'returns ISO8601 UTC timestamps (ending with Z) in show response' do
-    mq = FactoryBot.create(:mail_queue, timer_at: Time.current)
+    mq = FactoryBot.create(:mail_queue, timer_at: Time.current, token: token)
 
     get "/api/v1/mail_queues/#{mq.id}", headers: auth_headers
     expect(response).to have_http_status(:ok)
@@ -32,7 +32,7 @@ RSpec.describe 'Api::V1 time format', type: :request do
   end
 
   it 'returns ISO8601 UTC (Z) for embedded responses when requested' do
-    mq = FactoryBot.create(:mail_queue)
+    mq = FactoryBot.create(:mail_queue, token: token)
     FactoryBot.create(:delivery_response, mail_queue: mq, responded_at: Time.zone.parse('2025-01-02 03:04:05'))
     get "/api/v1/mail_queues/#{mq.id}", params: { include: 'responses' }, headers: auth_headers
     expect(response).to have_http_status(:ok)

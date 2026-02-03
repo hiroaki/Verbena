@@ -1,5 +1,6 @@
 class MailQueue < ApplicationRecord
   belongs_to :eml_source
+  belongs_to :token
   has_many :delivery_responses, dependent: :destroy
 
   # 配信ステータス:

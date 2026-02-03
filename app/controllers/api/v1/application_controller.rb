@@ -5,6 +5,8 @@ module Api
 
       before_action :authenticate_or_render_error
 
+      attr_reader :current_token
+
       def render_unauthorized
         render_error('unauthorized', 'token invalid', :unauthorized)
       end
@@ -38,7 +40,7 @@ module Api
 
         def authenticated?
           authenticate_with_http_token do |token, _options|
-            Token.authenticated?(token)
+            @current_token = Token.authenticate(token)
           end
         end
 

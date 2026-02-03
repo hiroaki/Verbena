@@ -24,6 +24,8 @@ class Token < ApplicationRecord
   validates :key, presence: true, on: :create
   validate :prevent_key_change, on: :update
 
+  has_many :mail_queues, dependent: :restrict_with_error
+
   scope :active, -> { where(revoked_at: nil).where("expires_at > ?", Time.current) }
   scope :expired, -> { where(revoked_at: nil).where("expires_at <= ?", Time.current) }
 
@@ -73,25 +75,22 @@ class Token < ApplicationRecord
     raise ActiveRecord::RecordInvalid, token
   end
 
-  def self.authenticated?(str)
-    return false if str.blank?
-
-    digest = DIGEST_ALGORITHM.hexdigest(str)
-    # Note: use a single query to fetch a valid token, then update last_used_at if found
-    tok = where(key_digest_hash: digest)
-            .where(revoked_at: nil)
-            .where("expires_at > ?", Time.current)
-            .first
-
-    return false unless tok
+  def self.authenticate(str)
+    token = find_active_by_key(str)
+    return nil unless token
 
     # Update last_used_at (best-effort; ignore race errors)
     begin
-      tok.update_columns(last_used_at: Time.current)
+      token.update_columns(last_used_at: Time.current)
     rescue StandardError => e
-      Rails.logger.warn("[Token] last_used_at update failed id=#{tok.id} error_class=#{e.class} error=#{e.message}")
+      Rails.logger.warn("[Token] last_used_at update failed id=#{token.id} error_class=#{e.class} error=#{e.message}")
     end
-    true
+
+    token
+  end
+
+  def self.authenticated?(str)
+    !!authenticate(str)
   end
 
   # Explicit revocation helper (sets revoked_at).
@@ -117,5 +116,11 @@ class Token < ApplicationRecord
     self.key_digest_hash = DIGEST_ALGORITHM.hexdigest(key)
     # Clear the plain `key` from memory after digesting to avoid accidental reuse
     self.key = nil
+  end
+
+  def self.find_active_by_key(key)
+    return nil if key.blank?
+    digest = DIGEST_ALGORITHM.hexdigest(key)
+    active.find_by(key_digest_hash: digest)
   end
 end

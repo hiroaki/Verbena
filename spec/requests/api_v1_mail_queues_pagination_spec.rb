@@ -17,8 +17,8 @@ RSpec.describe 'Api::V1::MailQueues pagination', type: :request do
   end
 
   before do
-    # Create 30 mail_queues with incremental IDs and timestamps
-    FactoryBot.create_list(:mail_queue, 30)
+    # Create 30 mail_queues with incremental IDs and timestamps, owned by the auth token
+    FactoryBot.create_list(:mail_queue, 30, token: token)
   end
 
   it 'returns default page (limit=50, offset=0) ordered by id desc' do

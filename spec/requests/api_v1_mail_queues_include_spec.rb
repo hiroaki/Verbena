@@ -16,7 +16,7 @@ RSpec.describe 'Api::V1::MailQueues include responses', type: :request do
   end
 
   it 'returns latest response when include=responses:latest' do
-    mq = FactoryBot.create(:mail_queue)
+    mq = FactoryBot.create(:mail_queue, token: token)
     # older
     FactoryBot.create(:delivery_response, mail_queue: mq, responded_at: 1.day.ago, status: '250', message_id: 'm-old')
     # latest
@@ -31,7 +31,7 @@ RSpec.describe 'Api::V1::MailQueues include responses', type: :request do
   end
 
   it 'returns all responses when include=responses' do
-    mq = FactoryBot.create(:mail_queue)
+    mq = FactoryBot.create(:mail_queue, token: token)
     FactoryBot.create_list(:delivery_response, 3, mail_queue: mq)
 
     get "/api/v1/mail_queues/#{mq.id}", params: { include: 'responses' }, headers: auth_headers
@@ -41,7 +41,7 @@ RSpec.describe 'Api::V1::MailQueues include responses', type: :request do
   end
 
   it 'applies default limit when responses exceed cap' do
-    mq = FactoryBot.create(:mail_queue)
+    mq = FactoryBot.create(:mail_queue, token: token)
     FactoryBot.create_list(:delivery_response, 60, mail_queue: mq)
 
     get "/api/v1/mail_queues/#{mq.id}", params: { include: 'responses' }, headers: auth_headers
@@ -51,7 +51,7 @@ RSpec.describe 'Api::V1::MailQueues include responses', type: :request do
   end
 
   it 'honors responses_limit param up to the maximum' do
-    mq = FactoryBot.create(:mail_queue)
+    mq = FactoryBot.create(:mail_queue, token: token)
     FactoryBot.create_list(:delivery_response, 120, mail_queue: mq)
 
     get "/api/v1/mail_queues/#{mq.id}", params: { include: 'responses', responses_limit: 200 }, headers: auth_headers
@@ -61,7 +61,7 @@ RSpec.describe 'Api::V1::MailQueues include responses', type: :request do
   end
 
   it 'honors custom responses_limit below max' do
-    mq = FactoryBot.create(:mail_queue)
+    mq = FactoryBot.create(:mail_queue, token: token)
     FactoryBot.create_list(:delivery_response, 120, mail_queue: mq)
 
     get "/api/v1/mail_queues/#{mq.id}", params: { include: 'responses', responses_limit: 75 }, headers: auth_headers
@@ -71,7 +71,7 @@ RSpec.describe 'Api::V1::MailQueues include responses', type: :request do
   end
 
   it 'falls back to default for responses_limit=0' do
-    mq = FactoryBot.create(:mail_queue)
+    mq = FactoryBot.create(:mail_queue, token: token)
     FactoryBot.create_list(:delivery_response, 120, mail_queue: mq)
 
     get "/api/v1/mail_queues/#{mq.id}", params: { include: 'responses', responses_limit: 0 }, headers: auth_headers
@@ -81,7 +81,7 @@ RSpec.describe 'Api::V1::MailQueues include responses', type: :request do
   end
 
   it 'falls back to default for negative responses_limit' do
-    mq = FactoryBot.create(:mail_queue)
+    mq = FactoryBot.create(:mail_queue, token: token)
     FactoryBot.create_list(:delivery_response, 120, mail_queue: mq)
 
     get "/api/v1/mail_queues/#{mq.id}", params: { include: 'responses', responses_limit: -1 }, headers: auth_headers
@@ -91,7 +91,7 @@ RSpec.describe 'Api::V1::MailQueues include responses', type: :request do
   end
 
   it 'ignores responses_limit param for include=responses:latest' do
-    mq = FactoryBot.create(:mail_queue)
+    mq = FactoryBot.create(:mail_queue, token: token)
     FactoryBot.create_list(:delivery_response, 10, mail_queue: mq)
 
     get "/api/v1/mail_queues/#{mq.id}", params: { include: 'responses:latest', responses_limit: 5 }, headers: auth_headers
