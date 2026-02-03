@@ -2,7 +2,6 @@
 
 require 'rails_helper'
 require 'net/http'
-require_relative '../../../lib/verbena/http_delivery'
 
 RSpec.describe Verbena::HttpDelivery do
   let(:url) { 'http://example.test/api/v1/mail_queues' }
