@@ -10,7 +10,7 @@ class AddTokenIdToMailQueues < ActiveRecord::Migration[8.1]
 
   def up
     # 1. まずは null: true でカラムを追加
-    add_reference :mail_queues, :token, null: true, foreign_key: true
+    add_reference :mail_queues, :token, null: true, foreign_key: { on_delete: :restrict }
 
     # 2. 既存データがある場合のみ、紐付け用のトークンを用意して更新
     if MigrationMailQueue.exists?
