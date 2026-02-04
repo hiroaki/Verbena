@@ -10,7 +10,10 @@ namespace :verbena do
     def parse_extras(args = nil)
       return {} unless args && args.extras
       args.extras.each_with_object({}) do |entry, memo|
-        next unless entry.include?(':')
+        unless entry.include?(':')
+          $stderr.puts "WARNING: Ignoring argument '#{entry}' - expected key:value format (e.g., token:KEY or timer_at:TIME)"
+          next
+        end
         k, v = entry.split(':', 2)
         memo[k.to_s.downcase] = v
       end

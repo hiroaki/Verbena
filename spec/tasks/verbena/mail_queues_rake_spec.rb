@@ -29,6 +29,42 @@ RSpec.describe 'verbena:mail_queues tasks' do
     ENV.delete('VERBENA_TOKEN')
   end
 
+  describe 'parse_extras helper' do
+    it 'warns when positional arguments without colon are provided' do
+      file = Tempfile.new(['test', '.eml'])
+      begin
+        file.write("From: example\n\nHello")
+        file.close
+
+        allow_any_instance_of(Verbena::MailQueuesService).to receive(:create_mail_queues_from_file!).and_return([1])
+
+        expect {
+          task_add.invoke(file.path, 'SOMETOKEN')
+        }.to output(/WARNING: Ignoring argument 'SOMETOKEN' - expected key:value format/).to_stderr
+
+      ensure
+        file.unlink
+      end
+    end
+
+    it 'accepts key:value format without warnings' do
+      file = Tempfile.new(['test', '.eml'])
+      begin
+        file.write("From: example\n\nHello")
+        file.close
+
+        allow_any_instance_of(Verbena::MailQueuesService).to receive(:create_mail_queues_from_file!).and_return([1])
+
+        expect {
+          task_add.invoke(file.path, 'token:SOMETOKEN')
+        }.not_to output(/WARNING/).to_stderr
+
+      ensure
+        file.unlink
+      end
+    end
+  end
+
   describe 'add' do
 
     it 'prints error and calls exit when eml path is missing' do
