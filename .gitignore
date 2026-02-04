@@ -51,4 +51,3 @@ coverage
 # `./bin/rails dartsass:install` added this.
 /app/assets/builds/*
 !/app/assets/builds/.keep
-Gemfile.orig
