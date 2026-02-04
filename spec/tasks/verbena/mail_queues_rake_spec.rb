@@ -30,12 +30,13 @@ RSpec.describe 'verbena:mail_queues tasks' do
   end
 
   describe 'add' do
+
     it 'prints error and calls exit when eml path is missing' do
       allow(Kernel).to receive(:exit)
 
       expect {
         task_add.invoke(nil)
-      }.to output(/ERROR: add failed/).to_stderr
+      }.to output(/ERROR: verbena:mail_queues:add failed/).to_stderr
 
       expect(Kernel).to have_received(:exit).with(1)
     end
@@ -45,7 +46,7 @@ RSpec.describe 'verbena:mail_queues tasks' do
 
       expect {
         task_add.invoke('/path/does/not/exist.eml')
-      }.to output(/ERROR: add failed/).to_stderr
+      }.to output(/ERROR: verbena:mail_queues:add failed/).to_stderr
 
       expect(Kernel).to have_received(:exit).with(1)
     end
@@ -73,7 +74,7 @@ RSpec.describe 'verbena:mail_queues tasks' do
 
       expect {
         task_add_raw.invoke(nil, nil, nil)
-      }.to output(/ERROR: add_raw failed/).to_stderr
+      }.to output(/ERROR: verbena:mail_queues:add_raw failed/).to_stderr
 
       expect(Kernel).to have_received(:exit).with(1)
     end
@@ -101,7 +102,7 @@ RSpec.describe 'verbena:mail_queues tasks' do
 
       expect {
         task_delete.invoke(nil)
-      }.to output(/ERROR: delete failed/).to_stderr
+      }.to output(/ERROR: verbena:mail_queues:delete failed/).to_stderr
 
       expect(Kernel).to have_received(:exit).with(1)
     end
