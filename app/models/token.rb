@@ -24,7 +24,11 @@ class Token < ApplicationRecord
   validates :key, presence: true, on: :create
   validate :prevent_key_change, on: :update
 
-  has_many :mail_queues, dependent: :restrict_with_error
+  # Raise an exception when attempting to delete a Token that still has
+  # associated MailQueue records. This aligns model-level behavior with the
+  # DB foreign-key `on_delete: :restrict` constraint, providing a clear,
+  # exception-based failure mode for callers that attempt destructive actions.
+  has_many :mail_queues, dependent: :restrict_with_exception
 
   scope :active, -> { where(revoked_at: nil).where("expires_at > ?", Time.current) }
   scope :expired, -> { where(revoked_at: nil).where("expires_at <= ?", Time.current) }

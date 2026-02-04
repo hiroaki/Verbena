@@ -40,7 +40,8 @@ RSpec.describe 'verbena:mail_queues tasks' do
 
         expect {
           task_add.invoke(file.path, 'SOMETOKEN')
-        }.to output(/WARNING: Ignoring argument 'SOMETOKEN' - expected key:value format/).to_stderr
+        }.to output(/Successfully added/).to_stdout
+         .and output(/WARNING: Ignoring argument 'SOMETOKEN'/).to_stderr
 
       ensure
         file.unlink
@@ -57,7 +58,7 @@ RSpec.describe 'verbena:mail_queues tasks' do
 
         expect {
           task_add.invoke(file.path, 'token:SOMETOKEN')
-        }.not_to output(/WARNING/).to_stderr
+        }.to output(/Successfully added/).to_stdout
 
       ensure
         file.unlink
@@ -97,7 +98,7 @@ RSpec.describe 'verbena:mail_queues tasks' do
 
         expect {
           task_add.invoke(file.path)
-        }.to output(/Successfully added \d+ mail_queue\(s\) from #{Regexp.escape(file.path)}/).to_stdout
+        }.to output(/Successfully added \d+ mail_queue\(s\) from #{Regexp.escape(file.path)} \(Token: #{Regexp.escape(token.label)}\)/).to_stdout
       ensure
         file.unlink
       end
@@ -125,7 +126,7 @@ RSpec.describe 'verbena:mail_queues tasks' do
 
         expect {
           task_add_raw.invoke(file.path, 'from@example.com', 'to@example.com')
-        }.to output(/Successfully added mail_queue \(123\) with envelope from from@example.com to to@example.com/).to_stdout
+        }.to output(/Successfully added mail_queue \(123\) with envelope from from@example.com to to@example.com \(Token: #{Regexp.escape(token.label)}\)/).to_stdout
       ensure
         file.unlink
       end
