@@ -105,6 +105,34 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
         end
       end
 
+        # WORKAROUND: FIXME: 実装コードに依存したテストです。
+        # 都合により EmlSource を先に作って利用しているので、 EmlSource に関するテストはここではできません。
+        describe '4件のうち最後の 1件の create で例外が発生した場合' do
+          before do
+            eml_source = FactoryBot.create(:eml_source)
+            return_values = [true, true, true, false]
+            allow(eml_source.mail_queues).to receive(:create!).exactly(4).times do
+              if return_values.shift
+                FactoryBot.create(:mail_queue, eml_source: eml_source)
+              else
+                raise(ActiveRecord::StatementInvalid)
+              end
+            end
+            allow(EmlSource).to receive(:create!).and_return(eml_source)
+
+            begin
+              @result = instance.create_mail_queues_by_eml!(eml)
+            rescue
+            end
+          end
+
+          describe '作成されるレコードについて' do
+            it 'mail_queues が 0件 作成される' do
+              expect(MailQueue.all.count).to eq 0
+            end
+          end
+        end
+
       context 'Date: が記述されていないメールの場合' do
         let!(:eml) do
           <<~EML1
