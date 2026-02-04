@@ -111,9 +111,9 @@ RSpec.describe Verbena::MailQueuesService, type: :service do
           before do
             eml_source = FactoryBot.create(:eml_source)
             return_values = [true, true, true, false]
-            allow(eml_source.mail_queues).to receive(:create!).exactly(4).times do
+            allow(token.mail_queues).to receive(:create!).exactly(4).times do
               if return_values.shift
-                FactoryBot.create(:mail_queue, eml_source: eml_source)
+                FactoryBot.create(:mail_queue, eml_source: eml_source, token: token)
               else
                 raise(ActiveRecord::StatementInvalid)
               end
