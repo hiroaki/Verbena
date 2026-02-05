@@ -41,7 +41,7 @@ RSpec.describe 'verbena:mail_queues tasks' do
         expect {
           task_add.invoke(file.path, 'SOMETOKEN')
         }.to output(/Successfully added/).to_stdout
-         .and output(/WARNING: Ignoring argument 'SOMETOKEN'/).to_stderr
+         .and output(/WARNING: Ignoring extra argument without key:value format/).to_stderr
 
       ensure
         file.unlink
