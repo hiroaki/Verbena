@@ -4,8 +4,15 @@ module Verbena
 
     class NoRecipientsError < StandardError; end
 
+    # @param options [Hash]
+    # @option options [Token] :token (Required) 操作の主体となる Token オブジェクト。
+    #   このサービス内では、この Token に紐づく MailQueue のみを作成・操作します。
+    #   Note: Service内ではTokenの有効期限チェック(active?)は行いません。
+    #   呼出元(Controller, Rake task)の責任で有効なTokenを渡してください。
     def initialize(options = {})
       super
+      @token = options[:token]
+      raise ArgumentError, "Token is required for this service" if @token.nil?
     end
 
     # ファイルパス path から EML形式のファイルを読み込み、MailQueue レコードを作成します。
@@ -48,7 +55,9 @@ module Verbena
         eml_source = EmlSource.create!(eml: eml)
 
         destinations.each do |envelope_to|
-          mq = eml_source.mail_queues.create!(
+          # @token.mail_queues 経由で作成して紐付けを保証
+          mq = @token.mail_queues.create!(
+            eml_source: eml_source,
             timer_at: timer_at,
             envelope_from: envelope_from,
             envelope_to: envelope_to,
@@ -71,7 +80,9 @@ module Verbena
 
       MailQueue.transaction do
         eml_source = EmlSource.create!(eml: eml)
-        mq = eml_source.mail_queues.create!(
+        # @token.mail_queues 経由で作成して紐付けを保証
+        mq = @token.mail_queues.create!(
+          eml_source: eml_source,
           timer_at: timer_at,
           envelope_from: envelope_from,
           envelope_to: envelope_to,
@@ -86,9 +97,11 @@ module Verbena
     #
     # @param id [Integer] 削除する MailQueue の ID
     # @return [MailQueue] 削除された MailQueue オブジェクト
-    # @raise [ActiveRecord::RecordNotFound] 指定された id のレコードが存在しない場合
+    # @raise [ActiveRecord::RecordNotFound] 指定された id のレコードが存在しない場合、または現在のトークンに属していない場合
     def destroy_mail_queue_by_id!(id)
-      destroy_mail_queue!(MailQueue.find(id))
+      # 現在のトークンに紐づくレコードのみを検索対象とする
+      mail_queue = @token.mail_queues.find(id)
+      destroy_mail_queue!(mail_queue)
     end
 
     # 指定された MailQueue レコードを削除します。

@@ -8,6 +8,7 @@ FactoryBot.define do
     locked_until { nil }
     last_attempted_at { nil }
     association :eml_source
+    association :token
 
     # Traits reflect current `delivery_status` semantics.
     # 未着手（まだジョブがキューに入っているだけ）
