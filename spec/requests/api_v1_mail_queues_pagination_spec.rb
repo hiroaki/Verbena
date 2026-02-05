@@ -22,6 +22,7 @@ RSpec.describe 'Api::V1::MailQueues pagination', type: :request do
   end
 
   it 'returns default page (limit=50, offset=0) ordered by id desc' do
+    expect(Token).to receive(:authenticate).with('sekret').and_call_original
     get '/api/v1/mail_queues', headers: auth_headers
     expect(response).to have_http_status(:ok)
     expect(json).to be_a(Array)

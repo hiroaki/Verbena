@@ -225,6 +225,13 @@ RSpec.describe Token, type: :model do
         end
       end
 
+      it 'updates last_used_at when authenticate is called' do
+        tok = FactoryBot.create(:token, key: 'auth-update', expires_at: 1.day.from_now, revoked_at: nil, last_used_at: nil)
+        result = described_class.authenticate('auth-update')
+        expect(result).to eq(tok)
+        expect(tok.reload.last_used_at).to be_within(5.seconds).of(Time.current)
+      end
+
       context 'when last_used_at update fails' do
         let!(:key) { 'log-key' }
         it 'returns true and logs a warning' do

@@ -21,7 +21,7 @@ RSpec.describe 'verbena:mail_queues tasks' do
     task_add.reenable
     task_add_raw.reenable
     task_delete.reenable
-    allow(Token).to receive(:authenticate).and_return(token)
+    allow(Token).to receive(:authenticate).with('sekret').and_return(token)
     ENV['VERBENA_TOKEN'] = 'sekret'
   end
 
@@ -55,6 +55,8 @@ RSpec.describe 'verbena:mail_queues tasks' do
         file.close
 
         allow_any_instance_of(Verbena::MailQueuesService).to receive(:create_mail_queues_from_file!).and_return([1])
+
+        expect(Token).to receive(:authenticate).with('SOMETOKEN').and_return(token)
 
         expect {
           task_add.invoke(file.path, 'token:SOMETOKEN')
@@ -127,6 +129,44 @@ RSpec.describe 'verbena:mail_queues tasks' do
         expect {
           task_add_raw.invoke(file.path, 'from@example.com', 'to@example.com')
         }.to output(/Successfully added mail_queue \(123\) with envelope from from@example.com to to@example.com \(Token: #{Regexp.escape(token.label)}\)/).to_stdout
+      ensure
+        file.unlink
+      end
+    end
+
+    it 'passes parsed timer_at when provided as timer_at:key' do
+      file = Tempfile.new(['test_raw', '.eml'])
+      begin
+        file.write("From: example\nTo: to@example.com\n\nHello")
+        file.close
+
+        time_str = '2026-02-05T12:34:56Z'
+        expected_time = Time.zone.parse(time_str)
+
+        expect_any_instance_of(Verbena::MailQueuesService).to receive(:create_mail_queue_from_file_with_envelope!).with(file.path, 'from@example.com', 'to@example.com', expected_time).and_return(double('MailQueue', id: 321))
+
+        expect {
+          task_add_raw.invoke(file.path, 'from@example.com', 'to@example.com', "timer_at:#{time_str}")
+        }.to output(/Successfully added mail_queue \(321\)/).to_stdout
+      ensure
+        file.unlink
+      end
+    end
+
+    it 'passes parsed timer_at when provided as at:key' do
+      file = Tempfile.new(['test_raw', '.eml'])
+      begin
+        file.write("From: example\nTo: to@example.com\n\nHello")
+        file.close
+
+        time_str = '2026-02-06T01:02:03Z'
+        expected_time = Time.zone.parse(time_str)
+
+        expect_any_instance_of(Verbena::MailQueuesService).to receive(:create_mail_queue_from_file_with_envelope!).with(file.path, 'from@example.com', 'to@example.com', expected_time).and_return(double('MailQueue', id: 654))
+
+        expect {
+          task_add_raw.invoke(file.path, 'from@example.com', 'to@example.com', "at:#{time_str}")
+        }.to output(/Successfully added mail_queue \(654\)/).to_stdout
       ensure
         file.unlink
       end

@@ -27,5 +27,39 @@ RSpec.describe 'API token authentication', type: :request do
       json = JSON.parse(response.body)
       expect(json['code']).to eq('unauthorized')
     end
+
+    it 'associates created mail queues with the authenticated token and isolates tokens' do
+      # token A and token B
+      FactoryBot.create(:token, key: 'token-a', expires_at: 1.day.from_now, revoked_at: nil)
+      FactoryBot.create(:token, key: 'token-b', expires_at: 1.day.from_now, revoked_at: nil)
+
+      eml = <<~EML
+        From: sender@example.com
+        To: recipient@example.com
+        Subject: Hello
+        Date: Thu, 1 Jan 1970 00:00:00 +0000
+
+        Body
+      EML
+
+      # Create a mail queue as token-b
+      post '/api/v1/mail_queues', params: { mail_queue: { eml: eml } }, headers: auth_headers('token-b')
+      expect(response).to have_http_status(:ok)
+      created = JSON.parse(response.body)
+      expect(created['message']).to eq('ok')
+      created_id = created['ids'].first
+
+      # token-b should see the created mail queue
+      get '/api/v1/mail_queues', headers: auth_headers('token-b')
+      expect(response).to have_http_status(:ok)
+      ids_b = JSON.parse(response.body).map { |h| h['id'] }
+      expect(ids_b).to include(created_id)
+
+      # token-a must NOT see token-b's mail queue even immediately after creation
+      get '/api/v1/mail_queues', headers: auth_headers('token-a')
+      expect(response).to have_http_status(:ok)
+      ids_a = JSON.parse(response.body).map { |h| h['id'] }
+      expect(ids_a).not_to include(created_id)
+    end
   end
 end
