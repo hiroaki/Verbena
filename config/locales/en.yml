@@ -45,3 +45,37 @@ en:
       eml_too_large: "EML file is too large (max %{max} bytes)."
       eml_too_large_simple: "EML file is too large."
       invalid_address: "Invalid email address format is included."
+  activerecord:
+    models:
+      token: "Token"
+      mail_queue: "Mail queue"
+      eml_source: "EML source"
+    attributes:
+      token:
+        label: "Label"
+        key: "Key"
+        expires_at: "Expires at"
+        revoked_at: "Revoked at"
+        last_used_at: "Last used at"
+        key_digest_hash: "Key digest"
+      mail_queue:
+        timer_at: "Scheduled at"
+        envelope_from: "Envelope from"
+        envelope_to: "Envelope to"
+        delivery_status: "Delivery status"
+        attempts_count: "Attempts"
+        last_attempted_at: "Last attempted at"
+        locked_until: "Locked until"
+        claimed_at: "Claimed at"
+        token: "Token"
+        eml_source: "EML source"
+      eml_source:
+        eml: "EML"
+    errors:
+      models:
+        token:
+          attributes:
+            key:
+              invalid: "cannot be changed; revoke and recreate instead"
+            base:
+              taken: "has already been taken"

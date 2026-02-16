@@ -45,3 +45,37 @@ ja:
       eml_too_large: "EMLファイルが大きすぎます (最大 %{max} バイト)"
       eml_too_large_simple: "EMLファイルが大きすぎます"
       invalid_address: "不正なメールアドレス形式が含まれています"
+  activerecord:
+    models:
+      token: "トークン"
+      mail_queue: "メールキュー"
+      eml_source: "EMLソース"
+    attributes:
+      token:
+        label: "ラベル"
+        key: "キー"
+        expires_at: "有効期限"
+        revoked_at: "無効化日時"
+        last_used_at: "最終使用日時"
+        key_digest_hash: "キーダイジェスト"
+      mail_queue:
+        timer_at: "配信予定日時"
+        envelope_from: "エンベロープFrom"
+        envelope_to: "エンベロープTo"
+        delivery_status: "配信ステータス"
+        attempts_count: "試行回数"
+        last_attempted_at: "最終試行日時"
+        locked_until: "ロック期限"
+        claimed_at: "取得日時"
+        token: "トークン"
+        eml_source: "EMLソース"
+      eml_source:
+        eml: "EML"
+    errors:
+      models:
+        token:
+          attributes:
+            key:
+              invalid: "変更できません。取り消して再作成してください"
+            base:
+              taken: "既に使用されています"
