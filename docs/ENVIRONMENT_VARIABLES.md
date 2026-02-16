@@ -1,104 +1,104 @@
-# Verbena 環境変数リファレンス
+# Verbena Environment Variable Reference
 
-Verbena アプリケーションの設定に用いられる環境変数を説明します。
+This document describes the environment variables used to configure the Verbena application.
 
-開発者向けの情報として、詳細な挙動や型、値の正規化については `config/initializers/verbena_env.rb` を参照してください。
+For developer-oriented details, such as behavior, types, and value normalization, see `config/initializers/verbena_env.rb`.
 
-## データベース設定
+## Database Settings
 
-データベース接続情報は Rails の [config/database.yml](../config/database.yml) で参照されます。
+Database connection information is referenced by Rails in [config/database.yml](../config/database.yml).
 
-| 変数名 | 用途 | 必須/任意 | 既定値 | 説明 |
-|--------|------|-----------|--------|------|
-| DATABASE_ADAPTER | アダプタ選択 | 任意 (Compose は自動設定) | なし | mysql2 / postgresql / sqlite3 のいずれか。ローカルで直接 Rails を起動する場合は必須 |
-| DATABASE_NAME | DB ベース名 | 任意 | verbena | `#{DATABASE_NAME}_<environment>` の規約で各環境の DB 名を決定します |
-| DATABASE_HOST | DB ホスト | 任意 | 127.0.0.1 | DB ホスト名/アドレス。Compose では自動的にコンテナ名を指定します |
-| DATABASE_PORT | DB ポート | 任意 | アダプタ既定 (mysql2: 3306, postgresql: 5432) | DB ポート番号 |
-| DATABASE_FILE | SQLite ファイル | 任意 | storage/verbena_<environment>.sqlite3 | SQLite 使用時の DB ファイルパス |
+| Variable Name | Purpose | Required/Optional | Default | Description |
+|--------------|---------|------------------|---------|-------------|
+| DATABASE_ADAPTER | Adapter selection | Optional (auto-set by Compose) | None | One of mysql2 / postgresql / sqlite3. Required if running Rails directly locally |
+| DATABASE_NAME | DB base name | Optional | verbena | Determines the DB name for each environment as `#{DATABASE_NAME}_<environment>` |
+| DATABASE_HOST | DB host | Optional | 127.0.0.1 | DB hostname/address. Compose automatically sets the container name |
+| DATABASE_PORT | DB port | Optional | Adapter default (mysql2: 3306, postgresql: 5432) | DB port number |
+| DATABASE_FILE | SQLite file | Optional | storage/verbena_<environment>.sqlite3 | DB file path when using SQLite |
 
-| 変数名 | 用途 | 必須/任意 | 既定値 | 説明 |
-|--------|------|-----------|--------|------|
-| VERBENA_DATABASE_USER | DBユーザー | 本番必須 | なし | DB接続ユーザー名 |
-| VERBENA_DATABASE_PASSWORD | DBパスワード | 本番必須 | なし | DB接続パスワード |
+| Variable Name | Purpose | Required/Optional | Default | Description |
+|--------------|---------|------------------|---------|-------------|
+| VERBENA_DATABASE_USER | DB user | Required in production | None | DB connection username |
+| VERBENA_DATABASE_PASSWORD | DB password | Required in production | None | DB connection password |
 
-開発環境（Docker Compose）では `VERBENA_DATABASE_*` を省略しても、各 DB オーバーレイがアダプタ固有の認証情報（例: MySQL なら `MYSQL_USER` / `MYSQL_PASSWORD`、PostgreSQL なら `POSTGRES_USER` / `POSTGRES_PASSWORD`）を設定するため、そのまま動作します。
+In development (Docker Compose), you can omit `VERBENA_DATABASE_*` because each DB overlay sets adapter-specific credentials (e.g., `MYSQL_USER` / `MYSQL_PASSWORD` for MySQL, `POSTGRES_USER` / `POSTGRES_PASSWORD` for PostgreSQL), so it works as is.
 
-**注意**: 本番環境や Docker Compose を使わない環境などで initdb スクリプトを使わない場合は、アプリ側の DB 接続情報として `VERBENA_DATABASE_USER` / `VERBENA_DATABASE_PASSWORD` を設定してください。
+**Note**: In production or environments not using Docker Compose (where initdb scripts are not used), set `VERBENA_DATABASE_USER` / `VERBENA_DATABASE_PASSWORD` for the app's DB connection.
 
-## 配送設定
+## Delivery Settings
 
-### 基本設定
+### Basic Settings
 
-| 変数名 | 用途 | 必須/任意 | 既定値 | 説明 |
-|--------|------|-----------|--------|------|
-| VERBENA_DELIVERY_METHOD | 配送方式 | 任意 | test（開発）/smtp（本番） | smtp / test / file |
-| VERBENA_ENVELOPE_FROM_OVERRIDE | Envelope-From上書き | 任意 | なし | SMTPのenvelope-from強制上書き |
-| VERBENA_DELIVERY_MAX_RETRIES | 配送リトライ回数 | 任意 | 5 | ネットワークエラーや一時的なSMTP 4xx エラー発生時にジョブを再試行する最大回数（ActiveJob の `retry_on` に渡されます） |
-| VERBENA_DELIVERY_LOCK_TTL_SECONDS | 配送処理のロック基本期間（秒） | 任意 | 300 | 配信処理が `MailQueue.locked_until` として設定する基本のロック時間（秒）。試行回数に応じて乗算されます（attempt 1 => base * 1）。 |
-| VERBENA_DELIVERY_LOCK_MAX_SECONDS | 配送処理のロック最大期間（秒） | 任意 | 3600 | `VERBENA_DELIVERY_LOCK_TTL_SECONDS` を試行回数で乗算した値に対する上限（秒）。長時間の送信処理でもロックが過度に伸びないよう制限します。 |
+| Variable Name | Purpose | Required/Optional | Default | Description |
+|--------------|---------|------------------|---------|-------------|
+| VERBENA_DELIVERY_METHOD | Delivery method | Optional | test (development) / smtp (production) | smtp / test / file |
+| VERBENA_ENVELOPE_FROM_OVERRIDE | Envelope-From override | Optional | None | Force override of SMTP envelope-from |
+| VERBENA_DELIVERY_MAX_RETRIES | Delivery retry count | Optional | 5 | Maximum number of retries for network errors or temporary SMTP 4xx errors (passed to ActiveJob's `retry_on`) |
+| VERBENA_DELIVERY_LOCK_TTL_SECONDS | Base lock period for delivery (seconds) | Optional | 300 | Base lock time (seconds) set as `MailQueue.locked_until` for delivery processing. Multiplied by attempt count (attempt 1 => base * 1). |
+| VERBENA_DELIVERY_LOCK_MAX_SECONDS | Max lock period for delivery (seconds) | Optional | 3600 | Upper limit (seconds) for the value of `VERBENA_DELIVERY_LOCK_TTL_SECONDS` multiplied by attempt count. Prevents excessive lock extension for long sends. |
 
-### SMTP設定
+### SMTP Settings
 
-SMTP配送（`VERBENA_DELIVERY_METHOD=smtp`）を使用する場合に必要な設定です。
+These settings are required when using SMTP delivery (`VERBENA_DELIVERY_METHOD=smtp`).
 
-| 変数名 | 用途 | 必須/任意 | 既定値 | 説明 |
-|--------|------|-----------|--------|------|
-| VERBENA_DELIVERY_SMTP_ADDRESS | SMTPサーバ | smtp時必須 | なし | SMTP配送時のサーバアドレス |
-| VERBENA_DELIVERY_SMTP_PORT | SMTPポート | smtp時必須 | なし | SMTP配送時のポート番号 |
-| VERBENA_DELIVERY_SMTP_DOMAIN | SMTPドメイン | smtp時必須 | なし | SMTP配送時のHELOドメイン |
-| VERBENA_DELIVERY_SMTP_USER_NAME | SMTPユーザ名 | smtp時必須 | なし | SMTP認証ユーザ名 |
-| VERBENA_DELIVERY_SMTP_PASSWORD | SMTPパスワード | smtp時必須 | なし | SMTP認証パスワード |
-| VERBENA_DELIVERY_SMTP_AUTHENTICATION | SMTP認証方式 | smtp時必須 | なし | plain / login など |
-| VERBENA_DELIVERY_SMTP_ENABLE_STARTTLS_AUTO | STARTTLS有効 | 任意 | true | SMTPでSTARTTLSを有効化 |
+| Variable Name | Purpose | Required/Optional | Default | Description |
+|--------------|---------|------------------|---------|-------------|
+| VERBENA_DELIVERY_SMTP_ADDRESS | SMTP server | Required for smtp | None | Server address for SMTP delivery |
+| VERBENA_DELIVERY_SMTP_PORT | SMTP port | Required for smtp | None | Port number for SMTP delivery |
+| VERBENA_DELIVERY_SMTP_DOMAIN | SMTP domain | Required for smtp | None | HELO domain for SMTP delivery |
+| VERBENA_DELIVERY_SMTP_USER_NAME | SMTP username | Required for smtp | None | SMTP authentication username |
+| VERBENA_DELIVERY_SMTP_PASSWORD | SMTP password | Required for smtp | None | SMTP authentication password |
+| VERBENA_DELIVERY_SMTP_AUTHENTICATION | SMTP authentication method | Required for smtp | None | plain / login, etc. |
+| VERBENA_DELIVERY_SMTP_ENABLE_STARTTLS_AUTO | Enable STARTTLS | Optional | true | Enable STARTTLS for SMTP |
 
-### ファイル配送設定
+### File Delivery Settings
 
-ファイル配送（`VERBENA_DELIVERY_METHOD=file`）を使用する場合の設定です。
+Settings for file delivery (`VERBENA_DELIVERY_METHOD=file`).
 
-| 変数名 | 用途 | 必須/任意 | 既定値 | 説明 |
-|--------|------|-----------|--------|------|
-| VERBENA_FILE_DELIVERY_DIR | ファイル配送先 | file時任意 | tmp/mails | fileモード時の保存先 |
+| Variable Name | Purpose | Required/Optional | Default | Description |
+|--------------|---------|------------------|---------|-------------|
+| VERBENA_FILE_DELIVERY_DIR | File delivery destination | Optional for file | tmp/mails | Save destination in file mode |
 
-## API設定
+## API Settings
 
-### ページネーション
+### Pagination
 
-API で MailQueues のインデックスを取得する際のページネーション・パラメータの設定です。
+Settings for pagination parameters when retrieving MailQueues index via API.
 
-| 変数名 | 用途 | 必須/任意 | 既定値 | 説明 |
-|--------|------|-----------|--------|------|
-| VERBENA_API_PAGINATION_DEFAULT_LIMIT | APIページネーション既定件数 | 任意 | 50 | APIレスポンスのデフォルト件数 |
-| VERBENA_API_PAGINATION_LIMIT_CAP | APIページネーション上限 | 任意 | 1000 | APIレスポンスの最大件数 |
-| VERBENA_API_PAGINATION_DEFAULT_OFFSET | APIページネーション既定オフセット | 任意 | 0 | APIレスポンスのデフォルトオフセット |
+| Variable Name | Purpose | Required/Optional | Default | Description |
+|--------------|---------|------------------|---------|-------------|
+| VERBENA_API_PAGINATION_DEFAULT_LIMIT | API pagination default count | Optional | 50 | Default number of items in API response |
+| VERBENA_API_PAGINATION_LIMIT_CAP | API pagination upper limit | Optional | 1000 | Maximum number of items in API response |
+| VERBENA_API_PAGINATION_DEFAULT_OFFSET | API pagination default offset | Optional | 0 | Default offset in API response |
 
-### レスポンス埋め込み（responses）上限
+### Response Embedding (responses) Limit
 
-API で MailQueue のレコードを取得する際に、その配送レスポンスの情報（DeliveryResponses）を含める場合（パラメータに `include=responses` を指定した場合）の、その件数についての設定です。
+Settings for the number of delivery responses (DeliveryResponses) included when retrieving MailQueue records via API (when `include=responses` parameter is specified).
 
-| 変数名 | 用途 | 必須/任意 | 既定値 | 説明 |
-|--------|------|-----------|--------|------|
-| VERBENA_API_RESPONSES_DEFAULT_LIMIT | 既定件数 | 任意 | 50 | 含める `responses` の既定取得件数。0 以下の値や未指定時はこの値が使われます |
-| VERBENA_API_RESPONSES_LIMIT_CAP | 取得上限 | 任意 | 100 | `responses_limit` パラメータが指定された場合の最大許容件数。これを超えるような再送信の試行が認められる場合は、リトライの設定を見直してください |
+| Variable Name | Purpose | Required/Optional | Default | Description |
+|--------------|---------|------------------|---------|-------------|
+| VERBENA_API_RESPONSES_DEFAULT_LIMIT | Default count | Optional | 50 | Default number of `responses` to include. Used if value is 0 or not specified |
+| VERBENA_API_RESPONSES_LIMIT_CAP | Upper limit | Optional | 100 | Maximum allowed if `responses_limit` parameter is specified. If more retries are needed, review retry settings |
 
-## データ保守
+## Data Maintenance
 
-### サイズ制限
+### Size Limit
 
-| 変数名 | 用途 | 必須/任意 | 既定値 | 説明 |
-|--------|------|-----------|--------|------|
-| VERBENA_EML_MAX_BYTES | EML最大サイズ | 任意 | 10485760 | 受信EMLの最大バイト数 |
+| Variable Name | Purpose | Required/Optional | Default | Description |
+|--------------|---------|------------------|---------|-------------|
+| VERBENA_EML_MAX_BYTES | Max EML size | Optional | 10485760 | Maximum bytes for received EML |
 
-### クリーンアップ
+### Cleanup
 
-| 変数名 | 用途 | 必須/任意 | 既定値 | 説明 |
-|--------|------|-----------|--------|------|
-| VERBENA_CLEANUP_TTL_DAYS | クリーンアップ保持日数 | 任意 | 30 | 配送済みデータの保持日数 |
+| Variable Name | Purpose | Required/Optional | Default | Description |
+|--------------|---------|------------------|---------|-------------|
+| VERBENA_CLEANUP_TTL_DAYS | Cleanup retention days | Optional | 30 | Retention days for delivered data |
 
-## システム設定
+## System Settings
 
-| 変数名 | 用途 | 必須/任意 | 既定値 | 説明 |
-|--------|------|-----------|--------|------|
-| VERBENA_LOG_FORMAT | ログ出力形式 | 任意 | text | text / json |
-| VERBENA_ADMIN_USERNAME | 管理者ユーザー名 | 任意 | なし | Basic認証のユーザー名。未設定時は管理画面にアクセスできません |
-| VERBENA_ADMIN_PASSWORD | 管理者パスワード | 任意 | なし | Basic認証のパスワード。未設定時は管理画面にアクセスできません |
-| VERBENA_TOKEN | タスク用トークン | タスク実行時必須 | なし | `verbena:mail_queues:*` Rake タスクで使用する API トークン鍵 |
+| Variable Name | Purpose | Required/Optional | Default | Description |
+|--------------|---------|------------------|---------|-------------|
+| VERBENA_LOG_FORMAT | Log output format | Optional | text | text / json |
+| VERBENA_ADMIN_USERNAME | Admin username | Optional | None | Username for Basic authentication. If unset, cannot access admin UI |
+| VERBENA_ADMIN_PASSWORD | Admin password | Optional | None | Password for Basic authentication. If unset, cannot access admin UI |
+| VERBENA_TOKEN | Token for tasks | Required for task execution | None | API token key used in `verbena:mail_queues:*` Rake tasks |

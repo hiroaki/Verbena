@@ -1,225 +1,225 @@
-(Claude Sonnet 4.5 作成)
+(Created by Claude Sonnet 4.5)
 ---
 
-# バウンス管理機能の設計
+# Bounce Management Feature Design
 
-## 概要
+## Overview
 
-このドキュメントは将来実装予定の機能について記述したものです。現在のバージョンには含まれていません。
+This document describes features planned for future implementation. They are not included in the current version.
 
-## なぜバウンス管理が必要か
+## Why Bounce Management Is Needed
 
-### 現状の制約
+### Current Limitations
 
-Verbenaは現在「SMTP配送先サーバへの引き渡しまで」を保証しますが、以下のケースは検知できません：
+Currently, Verbena guarantees "handoff to the destination SMTP server," but cannot detect the following cases:
 
-- リレー先サーバでのバウンス（5xx恒久エラー、4xx一時エラー）
-- スパムフィルタによるドロップ
-- メールボックスが満杯で受け取れない
-- ユーザーアカウントが存在しない
+- Bounces at relay servers (5xx permanent errors, 4xx temporary errors)
+- Drops by spam filters
+- Mailbox full and cannot receive
+- User account does not exist
 
-### バウンス管理によるメリット
+### Benefits of Bounce Management
 
-1. **配信効率の向上**: 恒久的に配信不能なアドレスへの無駄な再送を回避
-2. **スパム判定リスクの軽減**: バウンス率が高いとSMTPサーバの信頼性が低下
-3. **運用可視性の向上**: 「どの宛先がなぜ配信不能か」を記録・分析
-4. **データ品質の改善**: 無効なアドレスをデータベースから識別・除外
+1. **Improved delivery efficiency**: Avoids unnecessary retries to permanently undeliverable addresses
+2. **Reduced spam risk**: High bounce rates lower SMTP server reputation
+3. **Improved operational visibility**: Records and analyzes "which recipients are undeliverable and why"
+4. **Improved data quality**: Identifies and excludes invalid addresses from the database
 
-## アーキテクチャ方針
+## Architecture Policy
 
-### 単一アプリ構成（Verbenaに統合）
+### Single-App Structure (Integrated into Verbena)
 
-バウンス管理機能はVerbenaに組み込む方針とします。
+The bounce management feature will be integrated into Verbena.
 
-**理由**:
-- システム構成がシンプル（DB・デプロイ・管理が一元化）
-- 小〜中規模用途では運用負荷が低い
-- 配信時のブラックリストチェックが容易
+**Reasons:**
+- Simple system structure (DB, deployment, management are unified)
+- Low operational burden for small to medium scale use
+- Easy blacklist checking at delivery time
 
-**将来の拡張性**:
-- ブラックリスト部分は疎結合に設計し、必要に応じて切り出し可能にする
-- API公開により、他システムからのブラックリスト参照も可能
-- Verbenaの配信機能を使わず、ブラックリスト管理だけを利用することも可能
+**Future extensibility:**
+- Design the blacklist part loosely coupled, so it can be separated if needed
+- API publication allows other systems to reference the blacklist
+- Possible to use only blacklist management without using Verbena's delivery features
 
-## 段階的実装計画
+## Phased Implementation Plan
 
-### Phase 1: 最小構成（手動運用）
+### Phase 1: Minimal (Manual Operation)
 
-配信前チェックと手動管理の基盤を構築します。
+Build the foundation for pre-delivery checks and manual management.
 
-**実装内容**:
+**Implementation:**
 
-1. **`bounced_addresses` テーブル**
+1. **`bounced_addresses` table**
    ```ruby
    create_table :bounced_addresses do |t|
      t.string :email, null: false, index: { unique: true }
-     t.string :reason          # 'user_unknown', 'mailbox_full', 'spam_detected' など
+     t.string :reason          # 'user_unknown', 'mailbox_full', 'spam_detected', etc.
      t.boolean :is_permanent, default: false
      t.datetime :bounced_at
-     t.text :details           # バウンスメールの詳細（オプション）
+     t.text :details           # Details of the bounce email (optional)
      t.timestamps
    end
    ```
 
-2. **配信前チェック機能**
-   - `DeliveryService#perform_one` 内でブラックリストを確認
-   - 該当する場合は配送をスキップし、ログに記録
-   - スキップしたレコードは `DeliveryResponse` に status 550（またはカスタムコード）で記録
+2. **Pre-delivery check**
+   - Check the blacklist in `DeliveryService#perform_one`
+   - If matched, skip delivery and log it
+   - Skipped records are recorded in `DeliveryResponse` with status 550 (or custom code)
 
-3. **管理画面（Rails Admin / ActiveAdmin 等）**
-   - バウンスアドレスの一覧・検索
-   - 手動登録・削除
-   - 理由（reason）の編集
+3. **Admin UI (Rails Admin / ActiveAdmin, etc.)**
+   - List/search bounced addresses
+   - Manual add/delete
+   - Edit reason
 
-**ゴール**: 運用者が手動でブラックリストを管理し、配信時に参照できる状態
+**Goal**: Operators can manually manage the blacklist and reference it at delivery time
 
 ---
 
-### Phase 2: 自動化（Sisimai統合）
+### Phase 2: Automation (Sisimai Integration)
 
-バウンスメールの自動解析とブラックリストへの自動登録を実装します。
+Implement automatic parsing of bounce emails and automatic registration to the blacklist.
 
-**実装内容**:
+**Implementation:**
 
-1. **Sisimaiの導入**
+1. **Introduce Sisimai**
    ```ruby
    # Gemfile
    gem 'sisimai'
    ```
 
-2. **バウンス受信用メールアドレスの設定**
-   - 専用のバウンス受信アドレス（例: `bounce@example.com`）を用意
-   - 配信時の Return-Path をこのアドレスに統一（または VERP で個別化）
+2. **Set up bounce receiving email address**
+   - Prepare a dedicated bounce receiving address (e.g., `bounce@example.com`)
+   - Unify Return-Path at delivery to this address (or individualize with VERP)
 
-3. **バウンス収集・解析バッチ**
-   - cronで定期実行（例: 毎時）
-   - IMAP/POP3 または mbox ファイルからバウンスメールを取得
-   - Sisimaiで解析し、以下を抽出：
-     - バウンスした宛先アドレス
-     - エラー理由（reason）
-     - 恒久的/一時的エラーの判定（deliverystatus）
-   - 恒久的エラー（5xx）は `bounced_addresses` に自動登録
-   - 一時的エラー（4xx）は記録のみ（再送ロジックで対応）
+3. **Bounce collection/analysis batch**
+   - Run periodically with cron (e.g., hourly)
+   - Retrieve bounce emails via IMAP/POP3 or from mbox file
+   - Parse with Sisimai and extract:
+     - Bounced recipient address
+     - Error reason
+     - Permanent/temporary error determination (deliverystatus)
+   - Automatically register permanent errors (5xx) to `bounced_addresses`
+   - Record only temporary errors (4xx) (handled by retry logic)
 
-4. **Rakeタスク**
+4. **Rake tasks**
    ```bash
-   # バウンス収集・解析
+   # Collect and analyze bounces
    rails verbena:bounce:collect
 
-   # ドライラン（登録せずに解析結果のみ表示）
+   # Dry run (show analysis results only, no registration)
    rails verbena:bounce:collect[true]
    ```
 
-5. **再送ロジックの改善**
-   - 4xxエラーは一定回数・期間まで再送
-   - 再送上限に達した場合は管理者通知
+5. **Improve retry logic**
+   - Retry 4xx errors up to a certain count/period
+   - Notify admin when retry limit is reached
 
-**ゴール**: バウンスメールを自動解析し、恒久的エラーアドレスをブラックリストに自動登録
+**Goal**: Automatically parse bounce emails and automatically register permanent error addresses to the blacklist
 
 ---
 
-### Phase 3: 高度化
+### Phase 3: Advanced
 
-外部連携やレポート機能を追加します。
+Add external integration and reporting features.
 
-**実装内容**:
+**Implementation:**
 
-1. **ブラックリスト参照API**
+1. **Blacklist reference API**
    ```ruby
    # GET /api/v1/bounced_addresses?email=test@example.com
    # => { "bounced": true, "reason": "user_unknown", "bounced_at": "..." }
    ```
 
-2. **バウンス統計・レポート**
-   - バウンス率の推移グラフ
-   - 理由別の集計
-   - ドメイン別のバウンス傾向
+2. **Bounce statistics/reports**
+   - Graph of bounce rate trends
+   - Aggregation by reason
+   - Bounce trends by domain
 
-3. **他システムへの通知**
-   - Webhook: バウンス検出時に外部システムへ通知
-   - Slack/Email通知: 閾値を超えた場合のアラート
+3. **Notification to other systems**
+   - Webhook: Notify external systems when a bounce is detected
+   - Slack/Email notification: Alert when threshold is exceeded
 
-4. **ホワイトリスト機能**
-   - 誤検知されたアドレスを除外
-   - 一時的にブラックリストを無効化
+4. **Whitelist feature**
+   - Exclude addresses that were falsely detected
+   - Temporarily disable blacklist
 
-**ゴール**: エンタープライズ用途でも使える高機能なバウンス管理基盤
+**Goal**: Highly functional bounce management platform suitable for enterprise use
 
-## 技術的考慮事項
+## Technical Considerations
 
-### Return-Path の設定
+### Return-Path Setting
 
-バウンスを確実に受信するため、以下の設定が必要です：
+To reliably receive bounces, the following settings are required:
 
-**現状の実装**:
+**Current implementation:**
 ```ruby
 mail.smtp_envelope_from(mail_queue.envelope_from)
 ```
 
-**バウンス管理対応**:
+**Bounce management support:**
 ```ruby
-# 環境変数で指定したバウンス受信用アドレスを使用
+# Use bounce receiving address specified by environment variable
 bounce_address = ENV['VERBENA_BOUNCE_ADDRESS'] || mail_queue.envelope_from
 mail.smtp_envelope_from(bounce_address)
 ```
 
-または VERP（Variable Envelope Return Path）方式：
+Or VERP (Variable Envelope Return Path) method:
 ```ruby
-# 配送ごとにユニークなReturn-Pathを生成
-# 例: bounce+12345@example.com (12345 = mail_queue.id)
+# Generate a unique Return-Path for each delivery
+# Example: bounce+12345@example.com (12345 = mail_queue.id)
 verp_address = "bounce+#{mail_queue.id}@example.com"
 mail.smtp_envelope_from(verp_address)
 ```
 
-### ブラックリストチェックのタイミング
+### Timing of Blacklist Check
 
-**推奨**: `DeliveryService#perform_one` 内でチェック
+**Recommended**: Check inside `DeliveryService#perform_one`
 
 ```ruby
 def perform_one(mail_queue)
-  # ブラックリストチェック
+  # Blacklist check
   if BouncedAddress.exists?(email: mail_queue.envelope_to)
     logger.info("Skipped: #{mail_queue.envelope_to} is blacklisted")
     mail_queue.delivery_responses.create!(
-      status: 550, # または独自コード 999
+      status: 550, # or custom code 999
       contents: 'Skipped: address is in bounce blacklist',
       responded_at: Time.current
     )
     return
   end
 
-  # ... 既存の配送ロジック
+  # ... existing delivery logic
 end
 ```
 
-この方式のメリット：
-- スキップしたレコードのログが残る
-- 柔軟な判定ロジック（例: 一時エラーは除外、恒久エラーのみブロック）
+Benefits of this approach:
+- Logs skipped records
+- Flexible logic (e.g., exclude temporary errors, block only permanent errors)
 
-### Sisimai の使い方（サンプル）
+### How to Use Sisimai (Sample)
 
 ```ruby
-# バウンスメール収集・解析サービス
+# Bounce mail collection/analysis service
 class BounceCollectorService
   def perform
-    # IMAP接続（例）
+    # IMAP connection (example)
     imap = Net::IMAP.new('imap.example.com', 993, true)
     imap.login('bounce@example.com', 'password')
     imap.select('INBOX')
 
-    # 未読メールを取得
+    # Get unread emails
     message_ids = imap.search(['UNSEEN'])
 
     message_ids.each do |msg_id|
-      # メール本文を取得
+      # Get email body
       msg = imap.fetch(msg_id, 'RFC822')[0].attr['RFC822']
 
-      # Sisimaiで解析
+      # Parse with Sisimai
       results = Sisimai.make(msg)
       next if results.nil? || results.empty?
 
       results.each do |bounce|
-        # 恒久的エラー（5xx）のみブラックリスト登録
+        # Register only permanent errors (5xx) to blacklist
         if bounce.deliverystatus.start_with?('5.')
           BouncedAddress.find_or_create_by(email: bounce.recipient) do |record|
             record.reason = bounce.reason
@@ -232,7 +232,7 @@ class BounceCollectorService
         end
       end
 
-      # 既読にする
+      # Mark as read
       imap.store(msg_id, '+FLAGS', [:Seen])
     end
 
@@ -242,27 +242,27 @@ class BounceCollectorService
 end
 ```
 
-## 運用フロー
+## Operational Flow
 
-### 日常運用（Phase 2 以降）
+### Daily Operation (Phase 2 and later)
 
-1. cronでバウンス収集バッチを定期実行（毎時）
-2. 恒久的エラーアドレスが自動的にブラックリスト登録される
-3. 配信時に自動的にスキップされる
-4. 管理画面でバウンス状況を確認・手動調整
+1. Run bounce collection batch periodically with cron (hourly)
+2. Permanent error addresses are automatically registered to the blacklist
+3. Automatically skipped at delivery time
+4. Check and manually adjust bounce status in the admin UI
 
-### トラブルシューティング
+### Troubleshooting
 
-- バウンスが正しく解析されない → Sisimai のログを確認、対応MTAを追加
-- 誤検知でブラックリスト登録された → 管理画面から削除、またはホワイトリスト機能で除外
-- バウンス率が急増 → レポートで原因特定（ドメイン・理由別集計）
+- Bounce not parsed correctly → Check Sisimai logs, add supported MTA
+- Falsely blacklisted → Remove from admin UI or exclude with whitelist feature
+- Sudden increase in bounce rate → Identify cause with reports (aggregate by domain/reason)
 
-## まとめ
+## Summary
 
-バウンス管理機能を段階的に実装することで、Verbenaは「SMTP配送管理」から「実質的な到達性管理」へと進化します。
+By implementing the bounce management feature in phases, Verbena will evolve from "SMTP delivery management" to "practical deliverability management."
 
-- **Phase 1**: 最小限の手動管理で即効性
-- **Phase 2**: 自動化で運用負荷削減
-- **Phase 3**: エンタープライズ用途への対応
+- **Phase 1**: Immediate effect with minimal manual management
+- **Phase 2**: Reduced operational burden through automation
+- **Phase 3**: Support for enterprise use
 
-単一アプリ構成を維持しつつ、疎結合な設計により将来の拡張性も確保します。
+While maintaining a single-app structure, loosely coupled design ensures future extensibility.

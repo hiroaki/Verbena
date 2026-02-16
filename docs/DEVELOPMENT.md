@@ -1,29 +1,30 @@
-# Verbena 開発ガイド
 
-このドキュメントは Verbena の開発者向けの情報をまとめています。環境構築、テスト、アーキテクチャ設計、技術的な意思決定の背景などを記載しています。
+# Verbena Development Guide
 
-## 目次
+This document provides information for Verbena developers, including environment setup, testing, architecture design, and the background of technical decisions.
 
-- [開発環境のセットアップ](#開発環境のセットアップ)
-- [I18n / ロケール](#i18n--ロケール)
-- [テスト](#テスト)
-- [アーキテクチャ](#アーキテクチャ)
-- [データベース設計](#データベース設計)
-- [トークン運用ルール](#トークン運用ルール)
+## Table of Contents
+
+- [Development Environment Setup](#development-environment-setup)
+- [I18n / Locale](#i18n--locale)
+- [Testing](#testing)
+- [Architecture](#architecture)
+- [Database Design](#database-design)
+- [Token Operation Rules](#token-operation-rules)
 
 ---
 
-## 開発環境のセットアップ
+## Development Environment Setup
 
-### 前提条件
+### Prerequisites
 
-- Docker と Docker Compose
+- Docker and Docker Compose
 - Git
 
 
-### 初回セットアップ
+### Initial Setup
 
-1. **リポジトリのクローン**
+1. **Clone the repository**
 
 ```sh
 $ git clone https://github.com/hiroaki/Verbena.git
@@ -31,23 +32,23 @@ $ cd Verbena
 $ git checkout develop
 ```
 
-2. **環境変数の設定**
+2. **Set environment variables**
 
-※ コンテナ起動前に「データベース初期化用の環境変数」の設定が必要です。詳細は後述セクション（「データベース初期化用の環境変数」）を参照してください。
+*Before starting containers, you must set the "database initialization environment variables". See the later section ("Database Initialization Environment Variables") for details.*
 
-環境変数は `.env` ファイル、`compose.yml`、各種 `compose.*.yml` などで管理できます。
+Environment variables can be managed in `.env` files, `compose.yml`, and various `compose.*.yml` files.
 
-`.env` ファイルは必須ではありません。必要に応じて外部ファイルで管理したい場合のみ、以下のように作成・編集してください。
+The `.env` file is not required. Create or edit it only if you want to manage variables in an external file as needed.
 
 ```sh
 $ cp dot.env.sample .env
 ```
 
-`.env` ファイルを使わず、`compose.yml` や各種 `compose.*.yml` に直接環境変数を記載している場合は `.env` は不要です。ご自身の運用に合わせて選択してください。
+If you specify environment variables directly in `compose.yml` or `compose.*.yml`, the `.env` file is unnecessary. Choose according to your operational needs.
 
-3. **データベースの選択**
+3. **Select the database**
 
-Verbena の Docker Compose 構成は「共通 (compose.yml) + DB オーバーレイ」を組み合わせて利用します。使用したいデータベースに合わせて、以下のようにファイルを指定してください。
+Verbena's Docker Compose setup uses a combination of "common (compose.yml) + DB overlay". Specify the files according to the database you want to use:
 
 ```sh
 # MySQL / MariaDB
@@ -56,82 +57,82 @@ $ docker compose -f compose.yml -f compose.mysql.yml up -d
 # PostgreSQL
 $ docker compose -f compose.yml -f compose.postgresql.yml up -d
 
-# SQLite (DB サービスは不要)
+# SQLite (no DB service required)
 $ docker compose -f compose.yml -f compose.sqlite.yml up -d
 ```
 
-以降のコマンド例では MySQL オーバーレイ（`compose.mysql.yml`）を使用しています。PostgreSQL や SQLite を利用する場合は、適宜ファイル名を読み替えてください。
+The following command examples use the MySQL overlay (`compose.mysql.yml`). If you use PostgreSQL or SQLite, replace the file names as appropriate.
 
-4. **コンテナのビルドと起動**
+4. **Build and start containers**
 
 ```sh
 $ docker compose -f compose.yml -f compose.mysql.yml build
 $ docker compose -f compose.yml -f compose.mysql.yml up -d
 ```
 
-5. **データベースの初期化**
+5. **Initialize the database**
 
 ```sh
 $ docker compose -f compose.yml -f compose.mysql.yml exec web rails db:migrate:reset
 ```
 
-### データベース初期化用の環境変数
+### Database Initialization Environment Variables
 
-初回起動時、データベースコンテナは `./initdb` 配下のスクリプトを自動実行してデータベースユーザーの権限を設定します。
+On first startup, the database container automatically runs scripts under `./initdb` to set database user privileges.
 
 #### MySQL / MariaDB
 
-以下の環境変数が必要です（`.env` または `compose.mysql.yml` で指定）：
+The following environment variables are required (specify in `.env` or `compose.mysql.yml`):
 
-| 変数名               | 説明 |
-|----------------------|------|
-| `MYSQL_ROOT_PASSWORD`| MySQL rootユーザーのパスワード。初期化スクリプト用。必須。 |
-| `MYSQL_USER`         | アプリ用DBユーザー名。必須。 |
-| `MYSQL_PASSWORD`     | アプリ用DBユーザーパスワード。必須。 |
-| `DATABASE_NAME`      | データベース名のベース。既定値: `verbena` |
+| Variable Name         | Description |
+|----------------------|-------------|
+| `MYSQL_ROOT_PASSWORD`| MySQL root user password. Required for initialization scripts. Required. |
+| `MYSQL_USER`         | DB username for the app. Required. |
+| `MYSQL_PASSWORD`     | DB user password for the app. Required. |
+| `DATABASE_NAME`      | Base name for the database. Default: `verbena` |
 
-`.env` で `DATABASE_NAME` を指定すると、その値をベース名として開発用 DB を `${DATABASE_NAME}_development` という規約で自動作成します。
+If you specify `DATABASE_NAME` in `.env`, the development DB will be automatically created as `${DATABASE_NAME}_development`.
 
 #### PostgreSQL
 
-以下の環境変数を利用します（未設定時は表のデフォルト値を使用）：
+The following environment variables are used (if not set, the table defaults are used):
 
-| 変数名 | 説明 |
-|--------|------|
-| `POSTGRES_USER` | PostgreSQL スーパーユーザー名。既定: `postgres` |
-| `POSTGRES_PASSWORD` | 上記スーパーユーザーのパスワード。既定: `postgres` |
-| `VERBENA_DATABASE_USER` | Rails アプリ用の DB ユーザー名。既定: `POSTGRES_USER` と同じ |
-| `VERBENA_DATABASE_PASSWORD` | 上記アプリ用ユーザーのパスワード。既定: `POSTGRES_PASSWORD` と同じ |
-| `DATABASE_NAME` | データベース名のベース。既定値: `verbena` |
+| Variable Name | Description |
+|---------------|-------------|
+| `POSTGRES_USER` | PostgreSQL superuser name. Default: `postgres` |
+| `POSTGRES_PASSWORD` | Password for the above superuser. Default: `postgres` |
+| `VERBENA_DATABASE_USER` | DB username for the Rails app. Default: same as `POSTGRES_USER` |
+| `VERBENA_DATABASE_PASSWORD` | Password for the above app user. Default: same as `POSTGRES_PASSWORD` |
+| `DATABASE_NAME` | Base name for the database. Default: `verbena` |
 
-特に指定しない場合、アプリケーションユーザーと PostgreSQL スーパーユーザーは同じ資格情報になりますが、セキュリティ要件に応じて別々の値を設定できます。
+If not specified, the application user and PostgreSQL superuser will use the same credentials, but you can set them separately for security requirements.
 
 #### SQLite
 
-SQLite はファイルベースのため、DB サーバ用の環境変数は不要です。`storage/` ディレクトリに自動的にファイルが作成されます。
+SQLite is file-based, so no DB server environment variables are needed. Files are automatically created in the `storage/` directory.
 
-#### 注意事項
+#### Notes
 
-- ボリュームに既存のデータがある場合は初期化スクリプトが実行されません
-- 完全に初期状態へ戻す場合は「データベースの完全リセット」セクションを参照してください
+- If there is existing data in the volume, the initialization script will not run.
+- To return to a completely initial state, see the "Full Database Reset" section.
 
-### データベースの完全リセット
+### Full Database Reset
 
-開発中にデータベースを完全に初期状態に戻したい場合はボリュームを削除し、再作成してください：
+If you want to return the database to a completely initial state during development, delete and recreate the volume:
 
-1. **コンテナを停止してボリュームを削除**
+1. **Stop containers and delete the volume**
 
 ```sh
 $ docker compose -f compose.yml -f compose.mysql.yml down -v
 ```
 
-2. **コンテナを再起動**
+2. **Restart containers**
 
 ```sh
 $ docker compose -f compose.yml -f compose.mysql.yml up -d
 ```
 
-3. **データベースを再作成**
+3. **Recreate the database**
 
 ```sh
 $ docker compose -f compose.yml -f compose.mysql.yml exec web rails db:migrate:reset
@@ -139,44 +140,44 @@ $ docker compose -f compose.yml -f compose.mysql.yml exec web rails db:migrate:r
 
 ---
 
-## I18n / ロケール
+## I18n / Locale
 
-Verbena は日本語 (ja) / 英語 (en) の 2 言語に対応します。既定は英語です。
+Verbena supports two languages: Japanese (ja) and English (en). The default is English.
 
-- 既定ロケール: `en`
-- フォールバック: `ja -> en`
-- 設定場所: `config/application.rb`
-- ロケールファイル: `config/locales/*.yml`
-- 標準翻訳: `rails-i18n` gem を利用
+- Default locale: `en`
+- Fallback: `ja -> en`
+- Configuration: `config/application.rb`
+- Locale files: `config/locales/*.yml`
+- Standard translations: Uses the `rails-i18n` gem
 
-### 追加・更新の方針
+### Addition/Update Policy
 
-- 画面文言は `t("...")` を利用し、`config/locales/en.yml` と `config/locales/ja.yml` の両方にキーを追加します。
-- モデル名/属性名/エラーメッセージは `activerecord.*` 配下に整理します。
-- API メッセージは英語固定の方針です。
+- UI strings should use `t("...")`, and keys should be added to both `config/locales/en.yml` and `config/locales/ja.yml`.
+- Model names/attribute names/error messages are organized under `activerecord.*`.
+- API messages are fixed in English.
 
 ---
 
-## テスト
+## Testing
 
-### テストの実行
+### Running Tests
 
-テストは RSpec を利用しています：
+Tests use RSpec:
 
 ```sh
-# 全テストを実行
+# Run all tests
 $ docker compose -f compose.yml -f compose.mysql.yml exec web bundle exec rspec
 
-# 特定ファイルだけ実行
+# Run only a specific file
 $ docker compose -f compose.yml -f compose.mysql.yml exec web bundle exec rspec spec/tasks/verbena/mail_queues_rake_spec.rb
 
-# 特定の行だけ実行
+# Run only a specific line
 $ docker compose -f compose.yml -f compose.mysql.yml exec web bundle exec rspec spec/models/mail_queue_spec.rb:42
 ```
 
-### カバレッジレポート
+### Coverage Report
 
-テストを実行すると `coverage` ディレクトリにカバレッジレポートが出力されます：
+When you run tests, a coverage report is output to the `coverage` directory:
 
 ```sh
 $ open coverage/index.html
@@ -184,118 +185,118 @@ $ open coverage/index.html
 
 ---
 
-## アーキテクチャ
+## Architecture
 
-### システムの責務範囲
+### System Responsibility Scope
 
-#### 配送のスコープ
+#### Delivery Scope
 
-Verbena は **SMTP 配送先サーバへの引き渡しまで** を担当します。
+Verbena is responsible **up to handing off to the destination SMTP server**.
 
-- **担当する範囲**: アプリケーションから配送先SMTPサーバへのメール配信が成功したこと（SMTP応答 `250 OK` の受信）
-- **担当しない範囲**:
-  - リレー先サーバでの配送失敗（バウンス）
-  - スパムフィルタによるブロック
-  - 最終的な受信箱への到達
-  - ユーザーによる開封・閲覧
+- **In scope**: Successful delivery from the application to the destination SMTP server (receiving SMTP response `250 OK`)
+- **Out of scope**:
+  - Delivery failure at relay servers (bounces)
+  - Blocking by spam filters
+  - Final inbox delivery
+  - User opening/reading
 
-この責務範囲の定義は、SMTP プロトコルの技術的特性に基づいています：
+This definition of responsibility is based on the technical characteristics of the SMTP protocol:
 
-- SMTP の「250 OK」応答は、そのサーバがメールを受理したことのみを意味します
-- その後のリレーや最終配送での失敗は、即時には検知できません
-- 後続のバウンスは通常「バウンスメール（DSN）」として送信元に返送されます
+- The SMTP "250 OK" response only means that the server has accepted the email
+- Failures in subsequent relays or final delivery cannot be detected immediately
+- Subsequent bounces are usually returned to the sender as "bounce emails (DSN)"
 
-SMTP プロトコルの仕様上、配送先サーバが `250 OK` を返した時点で「受理した」ことのみが確認できます。その後のリレーや最終的な受信箱への到達、バウンス発生については、配送元から即時に把握する手段はありません。
+According to the SMTP protocol specification, when the destination server returns `250 OK`, only "acceptance" is confirmed. There is no way for the sender to immediately know about subsequent relays, final inbox delivery, or bounces.
 
-また、バウンス（配信不能通知）は配送先サーバが後から送信元に返す仕組みであり、非同期かつ必ずしも返送されるとは限りません。そのため、リアルタイムな到達確認や再送制御は SMTP の標準的な仕組みでは実現されていません。
+Also, bounces (delivery failure notifications) are sent back to the sender by the destination server later, asynchronously, and not always guaranteed. Therefore, real-time delivery confirmation and retry control are not implemented in standard SMTP mechanisms.
 
-### 設計原則
+### Design Principles
 
-#### 1. 並行処理の安全性
+#### 1. Safe Concurrency
 
-- **SolidQueue** を採用し、標準的な非同期ジョブ基盤上でスケーラブルな並行処理を実現
-- `DeliveryJob` によるジョブ単位での安定した配送実行
-- ジョブのリトライ機構を利用した堅牢なエラーハンドリング
+- Uses **SolidQueue** to achieve scalable concurrency on a standard asynchronous job platform
+- Stable delivery execution per job via `DeliveryJob`
+- Robust error handling using job retry mechanisms
 
-#### 2. 追跡可能性
+#### 2. Traceability
 
-- すべての配送試行を `DeliveryResponse` に記録
-- 構造化ログによる配送プロセスの可視化
-- `Message-ID` によるメール追跡
+- All delivery attempts are recorded in `DeliveryResponse`
+- Delivery process is visualized with structured logs
+- Email tracking via `Message-ID`
 
-#### 3. 柔軟な配送制御
+#### 3. Flexible Delivery Control
 
-- タイマーベース配送（遅延配信）：`ScheduledDeliveryJob` によるポーリングとエンキュー
-- 4xxステータスの再送管理：エラー時の再送処理による自動リカバリ
-- バッチサイズ・並行数の調整可能
+- Timer-based delivery (delayed delivery): polling and enqueueing via `ScheduledDeliveryJob`
+- Retry management for 4xx statuses: automatic recovery via retry processing on errors
+- Adjustable batch size and concurrency
 
-#### 4. 運用容易性
+#### 4. Operational Ease
 
-- Docker環境での完結した開発・テスト
-- Rakeタスクによる日常運用
-- 設定の環境変数管理
+- Complete development and testing in Docker environment
+- Daily operations via Rake tasks
+- Environment variable management for configuration
 
-### システム構成
+### System Structure
 
-#### コアモデル
+#### Core Models
 
-Verbena のコアモデルは、メール配送処理の各段階を明確に分離して管理します。
+Verbena's core models clearly separate and manage each stage of the email delivery process.
 
-- **EmlSource**: 受信した EML ファイル（生メールデータ）を保存します。1通の EML につき1レコード。添付ファイルやヘッダ情報も含め、元のメール内容をそのまま保持します。
+- **EmlSource**: Stores received EML files (raw email data). One record per EML. Retains the original email content, including attachments and header information.
 
-- **MailQueue**: 配送対象ごと（受信者ごと）に配送キューを生成します。1つの EML から複数の MailQueue が作成されることもあります（例: 複数受信者への同報送信）。配送予定時刻やステータス、リトライ回数などの管理も行います。
+- **MailQueue**: Generates a delivery queue for each recipient. Multiple MailQueues may be created from one EML (e.g., broadcast to multiple recipients). Also manages scheduled delivery time, status, retry count, etc.
 
-- **DeliveryResponse**: 各配送試行の結果を記録します。SMTP サーバへの配送ごとに1レコードが作成され、応答内容（例: 250 OK やエラーコード）、配送日時、リトライ情報などを保持します。
+- **DeliveryResponse**: Records the result of each delivery attempt. One record is created for each delivery to an SMTP server, storing response content (e.g., 250 OK or error code), delivery time, retry info, etc.
 
-モデル間の関係は以下の通りです：
+The relationships between models are as follows:
 
 ```
-EmlSource (生EML保存)
-  └─<1対多>─> MailQueue (配送キュー、受信者ごと)
-      └─<1対多>─> DeliveryResponse (配送結果)
+EmlSource (raw EML storage)
+  └─<1-to-many>─> MailQueue (delivery queue, per recipient)
+      └─<1-to-many>─> DeliveryResponse (delivery result)
 ```
 
-この構造により、1通のメール（EML）から複数受信者への個別配送、各配送のリトライや結果追跡が柔軟に行えます。
+This structure allows flexible individual delivery to multiple recipients from a single email (EML), as well as retry and result tracking for each delivery.
 
-#### 配送フロー
+#### Delivery Flow
 
-Verbena の配送フローは、EML ファイルの受信から配送完了・後処理まで、以下の段階で構成されています。
+Verbena's delivery flow consists of the following stages, from receiving the EML file to delivery completion and post-processing.
 
-1. **Ingest（取り込み）**
-  - ユーザーや外部システムから EML ファイル（生メールデータ）がアップロードまたは投入されます。
-  - `MailQueuesService` が EML を解析し、宛先ごとに `MailQueue` レコードを生成します。
-  - これにより、1通のメールから複数受信者への個別配送が可能になります。
+1. **Ingest**
+  - EML files (raw email data) are uploaded or submitted by users or external systems.
+  - `MailQueuesService` parses the EML and generates `MailQueue` records for each recipient.
+  - This enables individual delivery to multiple recipients from a single email.
 
-2. **Scheduling（配送スケジューリング）**
-  - 各 `MailQueue` には配送予定時刻や即時配送フラグが設定されます。
-  - 即時配送の場合は、`MailQueue` 作成直後に `DeliveryJob` がエンキューされます。
-  - 予約配送の場合は、`ScheduledDeliveryJob` が定期的に実行され、配送予定時刻に達したキューを検知して `DeliveryJob` をエンキューします。
-  - これにより、遅延配信やバッチ配送など柔軟なスケジューリングが可能です。
+2. **Scheduling**
+  - Each `MailQueue` is assigned a scheduled delivery time or immediate delivery flag.
+  - For immediate delivery, `DeliveryJob` is enqueued immediately after `MailQueue` creation.
+  - For scheduled delivery, `ScheduledDeliveryJob` runs periodically, detects queues whose scheduled time has arrived, and enqueues `DeliveryJob`.
+  - This enables flexible scheduling such as delayed or batch delivery.
 
-3. **Deliver（配送実行）**
-  - `DeliveryJob` がキューごとに起動し、`DeliveryService` を通じて SMTP サーバへの配送処理を行います。
-  - 配送の成否や SMTP 応答内容は `DeliveryResponse` に記録されます。
-  - エラー発生時はリトライ制御も行われ、再配送が必要な場合は再度ジョブがエンキューされます。
+3. **Deliver**
+  - `DeliveryJob` is started for each queue and performs delivery to the SMTP server via `DeliveryService`.
+  - The success/failure and SMTP response are recorded in `DeliveryResponse`.
+  - If an error occurs, retry control is performed, and if redelivery is needed, the job is enqueued again.
 
-4. **Cleanup（後処理・クリーンアップ）**
-  - 配送が完了した `MailQueue` や、参照されなくなった `EmlSource` の削除（クリーンアップ）は、ユーザーが任意のタイミングで Rake タスク（例: `verbena:cleanup:weekly` など）を実行することで行います。
-  - 定期的な自動実行は標準では設定されていません。必要に応じて cron 等でスケジューリングしてください。
+4. **Cleanup**
+  - Cleanup (deletion) of completed `MailQueue` and unreferenced `EmlSource` is performed by running Rake tasks (e.g., `verbena:cleanup:weekly`) at any time by the user.
+  - Periodic automatic execution is not set by default. Schedule with cron, etc., as needed.
 
 
-この一連のフローにより、EML の受信から多宛先への個別配送、配送結果の記録までを自動化し、データ保持・削除の運用は利用者の裁量に委ねています。
+This flow automates everything from EML reception to individual delivery to multiple recipients and recording delivery results, while leaving data retention/deletion operations to the user's discretion.
 
-#### メールデータ入力の仕組み
+#### Email Data Input Mechanism
 
-Verbena では、配送対象となるメールデータ（EML形式）は `eml_sources` テーブルに保存されます。それと同時に EMLのヘッダ `To:` `Cc:` `Bcc:` に記載された各宛先ごとに、配送キューとして `mail_queues` テーブルのレコードが作成されます（重複は除外）。
+In Verbena, email data to be delivered (EML format) is stored in the `eml_sources` table. At the same time, for each recipient listed in the EML headers `To:`, `Cc:`, and `Bcc:`, a record is created in the `mail_queues` table as a delivery queue (duplicates are excluded).
 
-##### 入力方法
+##### Input Methods
 
-- Rakeタスク経由: EMLファイルのパスを指定して `verbena:mail_queues:add` を実行
-- Web API経由: EMLデータをPOST（`Authorization`ヘッダにトークン必須）
+- Via Rake task: Specify the EML file path and run `verbena:mail_queues:add`
+- Via Web API: POST EML data (token required in `Authorization` header)
 
-いずれの場合も、EMLの宛先ヘッダに基づき複数の `mail_queues` レコードが生成されます。
+In either case, multiple `mail_queues` records are generated based on the EML recipient headers.
 
-例：
+Example:
 
 ```sh
 Date: Tue, 1 Jul 2003 10:52:37 +0200
@@ -306,123 +307,123 @@ Bcc: saburo@example.com
 Subject: ...
 Content-Type: text/plain; charset="UTF-8"
 
-こんにちは。
+Hello.
 ```
 
-この場合、4件の `mail_queues` レコードが作成されます。
+In this case, four `mail_queues` records are created.
 
-各レコードの違いは、実際の送信先となるメールアドレスが格納される `envelope_to` カラムのみです。配送処理は `mail_queues` の各レコード単位で行われ、EMLのヘッダ上の複数宛先情報は関係なく、`envelope_to` の宛先にのみ送信されます。
+The only difference between each record is the `envelope_to` column, which stores the actual recipient email address. Delivery processing is performed per record in `mail_queues`, and only the address in `envelope_to` is used, regardless of multiple recipients in the EML header.
 
-また、EMLのヘッダ `Date:` の値は「配送予約時刻」として `mail_queues` テーブルの `timer_at` カラムに格納されます。`Date:` が省略された場合は、`timer_at` には現在時刻が設定されます。
+Also, the value of the EML header `Date:` is stored in the `timer_at` column of the `mail_queues` table as the "scheduled delivery time". If `Date:` is omitted, the current time is set in `timer_at`.
 
 
-### 将来の拡張計画
+### Future Expansion Plans
 
-#### バウンス管理機能（次期マイルストーン）
+#### Bounce Management Feature (Next Milestone)
 
-配送後のバウンスを管理することで、実質的な到達性を向上させます。
-詳細は [BOUNCE_MANAGEMENT.md](BOUNCE_MANAGEMENT.md) を参照してください。
+Managing bounces after delivery will improve actual deliverability.
+See [BOUNCE_MANAGEMENT.md](BOUNCE_MANAGEMENT.md) for details.
 
-#### 想定される拡張機能
+#### Expected Expansion Features
 
-- 配信速度制御（レート制限）
-- 宛先ドメインごとの同時接続数制限
-- DKIM署名サポート
-- 配信統計ダッシュボード
-- Webhook通知
+- Delivery rate control (rate limiting)
+- Limit on concurrent connections per recipient domain
+- DKIM signature support
+- Delivery statistics dashboard
+- Webhook notifications
 
 ---
 
-## データベース設計
+## Database Design
 
-### 対応データベース
+### Supported Databases
 
-Verbena は複数のデータベースシステムをサポートします：
+Verbena supports multiple database systems:
 
-| Database | Version | Status |
-|----------|---------|--------|
-| MySQL    | 8.0+    | ✅ Supported |
-| MariaDB  | 10.6+   | ✅ Supported |
-| PostgreSQL | 13+   | ✅ Supported |
-| SQLite   | 3.x     | ✅ Supported |
+| Database   | Version | Status        |
+|------------|---------|---------------|
+| MySQL      | 8.0+    | ✅ Supported  |
+| MariaDB    | 10.6+   | ✅ Supported  |
+| PostgreSQL | 13+     | ✅ Supported  |
+| SQLite     | 3.x     | ✅ Supported  |
 
-### マイグレーションの互換性
+### Migration Compatibility
 
-すべてのマイグレーション（`db/migrate/`）は、以下の原則に従い、複数のデータベースで動作するように設計されています：
+All migrations (`db/migrate/`) are designed to work with multiple databases according to the following principles:
 
-- **MySQL 専用オプション（`after:`、`charset:`、`collation:`）は使用しない**: MySQL 固有の `after:` などでカラム並び順を制御・前提とせず、実際の並び順は各データベース実装に依存するものとして、ポータブルな Rails マイグレーション構文を採用
-- **型固有のオプションはアダプタ非依存**: `:text` 型に対する MySQL 固有のサイズ指定オプション（`limit:` など）のように、DB ごとに挙動が異なる指定は使わず、すべての DB で解釈可能なプレーンな型指定のみを使用
-- **SQL の直接記述を避ける**: `execute()` 句で vendor-specific SQL を使わないよう注意
+- **Do not use MySQL-specific options (`after:`, `charset:`, `collation:`)**: Do not control or assume column order with MySQL-specific options like `after:`; use portable Rails migration syntax, and treat actual order as DB-dependent.
+- **Type-specific options are adapter-independent**: Do not use DB-specific options like MySQL's size specifier for `:text` (`limit:`), only use plain type specifiers that are interpreted by all DBs.
+- **Avoid direct SQL**: Do not use vendor-specific SQL in `execute()` clauses.
 
-### データベースの可搬性に関する注意
+### Notes on Database Portability
 
-本プロジェクトの `db/schema.rb` は MySQL 環境を基準（リファレンス）として生成されています。そのため `charset: "utf8mb4"` などの MySQL 固有オプションが含まれています。
+This project's `db/schema.rb` is generated based on the MySQL environment (as reference). Therefore, MySQL-specific options like `charset: "utf8mb4"` are included.
 
-PostgreSQL や SQLite などの他データベースを使用する場合、`bin/rails db:schema:load`（または `bin/setup` 内の `db:prepare`）を実行するとこれらの固有オプションが原因でエラーになる可能性があります。
+If you use PostgreSQL or SQLite, running `bin/rails db:schema:load` (or `db:prepare` in `bin/setup`) may cause errors due to these options.
 
-**MySQL 以外のデータベースで環境構築を行う場合は、`db:schema:load` を介さない以下のコマンド（マイグレーションからの構築）を使用してください：**
+**When setting up the environment with databases other than MySQL, use the following commands (build from migrations) instead of `db:schema:load`:**
 
 ```sh
-# PostgreSQL / SQLite の場合
+# For PostgreSQL / SQLite
 $ bin/rails db:create
 $ bin/rails db:migrate
 ```
 
-### タイムゾーン方針 (UTC)
+### Timezone Policy (UTC)
 
-Verbena は一貫して UTC で動作するように設計されています：
+Verbena is designed to operate consistently in UTC:
 
-- **Rails アプリケーション**: 常に UTC で動作（`config.time_zone = 'UTC'`）
-- **データベース OS**: タイムゾーンを UTC（`TZ=UTC`）に固定
-- **MySQL/MariaDB**: `config/database.yml` で `init_command: "SET time_zone = '+00:00'"` を指定し、セッションのタイムゾーンを UTC に固定
-- **PostgreSQL**: `config/database.yml` で `variables: { timezone: 'UTC' }` を指定し、セッションタイムゾーンを UTC に固定
-- **SQLite**: セッション／データベースのタイムゾーン設定はなし。日時は Rails 側で UTC として生成・管理
+- **Rails application**: Always operates in UTC (`config.time_zone = 'UTC'`)
+- **Database OS**: Timezone fixed to UTC (`TZ=UTC`)
+- **MySQL/MariaDB**: Specify `init_command: "SET time_zone = '+00:00'"` in `config/database.yml` to fix session timezone to UTC
+- **PostgreSQL**: Specify `variables: { timezone: 'UTC' }` in `config/database.yml` to fix session timezone to UTC
+- **SQLite**: No session/database timezone setting. Datetimes are generated/managed as UTC on the Rails side
 
-#### プログラミングガイドライン
+#### Programming Guidelines
 
-- DB内の `NOW()` や `CURRENT_TIMESTAMP` などのタイムゾーンが影響する関数は使わず、Rails で生成した日時値をバインドして利用してください
-- 日時は常に UTC として扱い、表示時のみユーザーのタイムゾーンに変換します
+- Do not use DB functions affected by timezone such as `NOW()` or `CURRENT_TIMESTAMP`; always bind datetime values generated by Rails
+- Always treat datetimes as UTC, and convert to the user's timezone only when displaying
 
-### EML データの保存方針
+### EML Data Storage Policy
 
-EML (Raw email format) は `eml_sources.eml` カラムに保存されます。
+EML (Raw email format) is stored in the `eml_sources.eml` column.
 
-#### 現在の方針（互換性優先）
+#### Current Policy (Compatibility Priority)
 
-- データベースに保存する EML は plain `:text` 型を使用し、すべてのデータベースで互換性を確保しています
-- MySQL の `TEXT` 型は約 64 KiB、PostgreSQL と SQLite の `text` は事実上無制限です
-- 添付ファイルがない、または小さいメール（通常のビジネスメール）であれば、この制限内で対応可能です
+- EML stored in the database uses plain `:text` type for compatibility with all databases
+- MySQL's `TEXT` type is about 64 KiB; PostgreSQL and SQLite `text` is effectively unlimited
+- For emails without attachments or with small attachments (typical business emails), this is sufficient
 
-#### 将来の拡張計画（オブジェクトストレージ対応予定）
+#### Future Expansion Plan (Object Storage Support Planned)
 
-- より大きな EML ファイル（大きな添付ファイル付き）をサポートするために、オブジェクトストレージの利用を検討しています
-- その際は、EML 本体をストレージに保存し、DB にはメタデータと小さなプレビューのみを保持します
+- To support larger EML files (with large attachments), we are considering using object storage
+- In that case, the EML body will be stored in storage, and only metadata and a small preview will be kept in the DB
 
-## トークン運用ルール
+## Token Operation Rules
 
-Verbena のメールデータ入力（Rake/Web API）には Bearer トークン認証が必要です。トークン管理・運用上の注意点は以下の通りです。
+Bearer token authentication is required for Verbena's email data input (Rake/Web API). The following are notes on token management and operation.
 
-- トークンの発行・更新は管理者のみが行います。利用者は配布された `key` のみ使用し、作成や更新はできません。
-- 発行時はモデルのファクトリメソッド `Token.create_unique!` を使用してください。
-- `key` の値は機密情報です。対象利用者以外に見られないよう保護してください。
-- `label` は利用者の目印としてユニークな値を設定します。
-- 有効期限は `expires_at` に設定し、その時刻まで有効です（必須）。
-- 無効化は物理削除ではなく `revoked_at` をセットすることで行ってください（監査のため）。
-- 発行後の `key` の更新は禁止されています（UNIQUE制約違反時に他人のkeyの存在が推測できるため、セキュリティ上の理由です）。変更が必要な場合は既存トークンを `revoke!` して無効化し、新しいトークンを作成してください。
-- 期限切れトークンの一括無効化は Rake タスク `verbena:tokens:revoke_expired` を利用してください。
+- Only administrators can issue or update tokens. Users may only use the distributed `key` and cannot create or update tokens themselves.
+- When issuing, use the model factory method `Token.create_unique!`.
+- The value of `key` is confidential. Protect it so that it is not seen by anyone other than the intended user.
+- Set a unique value for `label` as a marker for the user.
+- Set the expiration date in `expires_at`; it is valid until that time (required).
+- Invalidate by setting `revoked_at` instead of physical deletion (for audit purposes).
+- Updating the `key` after issuance is prohibited (for security reasons, as the existence of another's key could be inferred from UNIQUE constraint violations). If a change is needed, revoke the existing token with `revoke!` and create a new one.
+- To bulk-revoke expired tokens, use the Rake task `verbena:tokens:revoke_expired`.
 
-作成例：
+Example:
 
 ```ruby
 Token.create_unique!(label: "hoge", key: "user-secret", expires_at: 1.year.from_now)
 ```
 
-期限切れトークンの無効化：
+Invalidate expired tokens:
 
 ```sh
-# ドライラン（何件無効化されるかを確認）
+# Dry run (check how many will be invalidated)
 $ bundle exec rake verbena:tokens:revoke_expired[dry]
 
-# 実行（expires_at を過ぎ、まだ revoked されていないトークンを revoked にする）
+# Execute (set tokens to revoked if expires_at has passed and not yet revoked)
 $ bundle exec rake verbena:tokens:revoke_expired
 ```
