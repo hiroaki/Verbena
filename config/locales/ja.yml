@@ -1,0 +1,47 @@
+ja:
+  app:
+    name: "Verbena"
+  pages:
+    top:
+      title: "TOPページ"
+    eml_inputs:
+      title: "EML投入（デモ用）"
+      subtitle: "EMLファイルをアップロード、または各項目を入力して送信します。"
+      labels:
+        eml_file: "EMLファイル"
+        from: "From"
+        to: "To"
+        cc: "Cc"
+        bcc: "Bcc"
+        subject: "Subject"
+        body: "本文"
+        sent_at: "送信日時"
+        token: "Token (Authorization)"
+      placeholders:
+        from: "sender@example.com"
+        to: "user@example.com, other@example.com"
+        cc: "cc@example.com"
+        bcc: "bcc@example.com"
+        subject: "Subject text"
+        body: "本文を入力してください"
+        token: "API Token"
+      help:
+        sent_at: "※フィールド入力時は未指定なら現在時刻になります。アップロード時は未指定ならEML内のDateが使われます。"
+        upload_priority: "※EMLファイルがアップロードされている場合はそちらが優先されます"
+      actions:
+        submit: "送信"
+  flash:
+    eml_inputs:
+      sent: "送信しました (作成ID: %{ids})"
+      failed: "送信に失敗しました: %{error}"
+      system_error: "システムエラーが発生しました"
+      failed_generic: "送信に失敗しました"
+  errors:
+    eml_inputs:
+      token_blank: "Tokenを入力してください"
+      upload_blank: "EMLファイルを選択してください"
+      upload_ext: "EMLファイル（.eml）を選択してください"
+      eml_empty: "EMLが空です"
+      eml_too_large: "EMLファイルが大きすぎます (最大 %{max} バイト)"
+      eml_too_large_simple: "EMLファイルが大きすぎます"
+      invalid_address: "不正なメールアドレス形式が含まれています"

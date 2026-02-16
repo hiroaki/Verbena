@@ -1,33 +1,47 @@
-# Files in the config/locales directory are used for internationalization
-# and are automatically loaded by Rails. If you want to use locales other
-# than English, add the necessary files in this directory.
-#
-# To use the locales, use `I18n.t`:
-#
-#     I18n.t "hello"
-#
-# In views, this is aliased to just `t`:
-#
-#     <%= t("hello") %>
-#
-# To use a different locale, set it with `I18n.locale`:
-#
-#     I18n.locale = :es
-#
-# This would use the information in config/locales/es.yml.
-#
-# The following keys must be escaped otherwise they will not be retrieved by
-# the default I18n backend:
-#
-# true, false, on, off, yes, no
-#
-# Instead, surround them with single quotes.
-#
-# en:
-#   "true": "foo"
-#
-# To learn more, please read the Rails Internationalization guide
-# available at https://guides.rubyonrails.org/i18n.html.
-
 en:
-  hello: "Hello world"
+  app:
+    name: "Verbena"
+  pages:
+    top:
+      title: "Top"
+    eml_inputs:
+      title: "EML Input (Demo)"
+      subtitle: "Upload an EML file or fill the fields to send."
+      labels:
+        eml_file: "EML file"
+        from: "From"
+        to: "To"
+        cc: "Cc"
+        bcc: "Bcc"
+        subject: "Subject"
+        body: "Body"
+        sent_at: "Sent at"
+        token: "Token (Authorization)"
+      placeholders:
+        from: "sender@example.com"
+        to: "user@example.com, other@example.com"
+        cc: "cc@example.com"
+        bcc: "bcc@example.com"
+        subject: "Subject text"
+        body: "Enter body text"
+        token: "API Token"
+      help:
+        sent_at: "If omitted in fields mode, uses the current time. If omitted in upload mode, uses the Date in the EML."
+        upload_priority: "If an EML file is uploaded, it takes priority."
+      actions:
+        submit: "Send"
+  flash:
+    eml_inputs:
+      sent: "Sent (created IDs: %{ids})"
+      failed: "Failed to send: %{error}"
+      system_error: "A system error occurred."
+      failed_generic: "Failed to send."
+  errors:
+    eml_inputs:
+      token_blank: "Please enter a token."
+      upload_blank: "Please select an EML file."
+      upload_ext: "Please select an EML file (.eml)."
+      eml_empty: "EML is empty."
+      eml_too_large: "EML file is too large (max %{max} bytes)."
+      eml_too_large_simple: "EML file is too large."
+      invalid_address: "Invalid email address format is included."
