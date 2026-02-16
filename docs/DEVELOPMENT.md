@@ -5,6 +5,7 @@
 ## 目次
 
 - [開発環境のセットアップ](#開発環境のセットアップ)
+- [I18n / ロケール](#i18n--ロケール)
 - [テスト](#テスト)
 - [アーキテクチャ](#アーキテクチャ)
 - [データベース設計](#データベース設計)
@@ -135,6 +136,24 @@ $ docker compose -f compose.yml -f compose.mysql.yml up -d
 ```sh
 $ docker compose -f compose.yml -f compose.mysql.yml exec web rails db:migrate:reset
 ```
+
+---
+
+## I18n / ロケール
+
+Verbena は日本語 (ja) / 英語 (en) の 2 言語に対応します。既定は英語です。
+
+- 既定ロケール: `en`
+- フォールバック: `ja -> en`
+- 設定場所: `config/application.rb`
+- ロケールファイル: `config/locales/*.yml`
+- 標準翻訳: `rails-i18n` gem を利用
+
+### 追加・更新の方針
+
+- 画面文言は `t("...")` を利用し、`config/locales/en.yml` と `config/locales/ja.yml` の両方にキーを追加します。
+- モデル名/属性名/エラーメッセージは `activerecord.*` 配下に整理します。
+- API メッセージは英語固定の方針です。
 
 ---
 
