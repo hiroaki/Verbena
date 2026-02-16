@@ -1,20 +1,18 @@
-# Contributing to Verbena
+# Contributing
 
-Thanks for your interest in contributing!
+Thanks for your interest!
 
-- Development happens on GitHub via pull requests.
-- Before large changes, please open an issue to discuss scope and approach.
-- Keep changes small and focused; prefer multiple small PRs.
-- Include tests for behavior changes; ensure `bin/rspec` passes.
-- Follow the ENV-first configuration pattern (no credentials).
-- Use English for code/log messages; docs can be JP/EN.
+1. Open an Issue first to discuss your proposal.
+2. Fork the repository.
+3. Create a new branch from `develop`.
 
-## Setup
-- Copy `dot.env.sample` to `.env` and adjust values.
-- Use Docker (see README) or your local Ruby environment.
+   git checkout develop
+   git checkout -b your-feature
 
-## Reporting Issues
-- Provide steps to reproduce, expected vs actual behavior, and environment info.
+4. Add or update tests (RSpec) and make sure they pass:
 
-## License
-- By contributing, you agree your changes are licensed under the repository's 0BSD license.
+   bin/rspec
+
+5. Open a Pull Request against `develop` and reference the related Issue.
+
+Please keep changes small and focused.

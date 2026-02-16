@@ -1,4 +1,4 @@
-(Claude Sonnet 4.5 作成)
+(Claude Sonnet 4.5 作成、 GPT-5.2-Codex 修正)
 ---
 
 # Verbena FAQ
@@ -66,21 +66,21 @@ Verbenaの責務範囲は「SMTP配送管理」であり、開封追跡は対象
 
 ### Q. 一時的なエラー（4xx）と恒久的なエラー（5xx）はどう扱いますか？
 
-**A. 一時的エラーは再送、恒久的エラーはブラックリスト登録が基本方針です。**
+**A. 将来的には「一時的エラーは再送、恒久的エラーはブラックリスト登録」が基本方針です。**
 
 **4xx（一時的エラー）の例**:
 - 450 Mailbox full（メールボックス満杯）
 - 451 Temporary local problem（一時的な問題）
 - 452 Insufficient storage（サーバ側の容量不足）
 
-→ 一定期間・回数まで再送を試みます
+→ 将来的に一定期間・回数まで再送を試みます
 
 **5xx（恒久的エラー）の例**:
 - 550 User unknown（ユーザー不明）
 - 551 User not local（ユーザーが存在しない）
 - 554 Message rejected（スパム判定等）
 
-→ ブラックリストに登録し、以降の配信を停止します
+→ 将来的にブラックリストへ登録し、以降の配信を停止します
 
 ## システム設計について
 
@@ -106,19 +106,21 @@ Verbenaの責務範囲は「SMTP配送管理」であり、開封追跡は対象
 
 **A. SolidQueue のワーカー数などの並行数を調整することで、スケールします。**
 
-以下のような環境変数で調整可能です：
+以下の設定で調整可能です：
 
-```bash
-# SolidQueueのワーカー数やスレッド数など
-SOLID_QUEUE_WORKER_CONCURRENCY=5
-SOLID_QUEUE_WORKER_THREADS=3
+```yaml
+# config/queue.yml
+workers:
+   - queues: "*"
+      threads: 3
+      processes: <%= ENV.fetch("JOB_CONCURRENCY", 1) %>
 ```
 
 実際のスループットは、SMTPサーバの性能やネットワーク環境に依存します。
 
 ### Q. 処理が止まったジョブはどうなりますか？
 
-**A. SolidQueue が管理し、失敗したジョブは `failed_execution_jobs` テーブルに記録されます。**
+**A. SolidQueue が管理し、失敗したジョブは `solid_queue_failed_executions` テーブルに記録されます。**
 
 以下の手段で確認・再試行が可能です：
 
@@ -135,8 +137,8 @@ SolidQueue::FailedExecution.last.retry
 
 **A. JSON形式の構造化ログ出力に対応しています。**
 
-`config/initializers/log_format.rb` で `Verbena::JsonLogFormatter` を設定することで、
-ログを JSON Lines 形式で出力できます。これにより、Fluentd / Logstash / CloudWatch Logs などでの集約・分析が容易になります。
+環境変数 `VERBENA_LOG_FORMAT=json` を設定すると JSON Lines 形式で出力できます。
+これにより、Fluentd / Logstash / CloudWatch Logs などでの集約・分析が容易になります。
 
 ```json
 {"event":"deliver.result","level":"info","mail_queue_id":42,"message_id":"<xyz@example.com>","smtp_status":"250","message":"OK sending..."}
@@ -172,7 +174,6 @@ SolidQueue::FailedExecution.last.retry
    DeliveryResponse.where('created_at > ?', 1.hour.ago).group(:status).count
    ```
 
-
 ### Q. Docker環境でビルドが失敗します
 
 **よくある原因**:
@@ -180,5 +181,3 @@ SolidQueue::FailedExecution.last.retry
 1. **ネットワーク不通**: rubygems.org や Docker Hub へのアクセスが必要です
 2. **DB起動待ち**: `docker compose up -d` 後、約60秒待ってから `rails db:migrate` を実行
 3. **ポート競合**: ポート3000が既に使われていないか確認
-
-詳細は [README.md](README.md) の「トラブルシューティング」セクションを参照してください。

@@ -1,369 +1,182 @@
 # Verbena
 
-Verbena は、クライアント（送信元アプリケーションやバッチなど）からメール送信を委譲し、外部 SMTP サーバへの送信と送信結果の記録を担当する**独立したメール配送ゲートウェイ**です。
+Verbena は、複数のクライアントアプリケーションから EML 形式のメールを受け取り、外部 SMTP サーバへの配送と結果記録を一元管理する**メール配送ゲートウェイ**です。
 
-基本的なフロー:
-
-- クライアントが EML を生成する
-- クライアントが Verbena の API に EML を送る
-- Verbena が外部 SMTP サーバへ送信し、結果を宛先単位で記録する
-
-注意: Verbena が担当するのは、外部 SMTP サーバへの引き渡しまでです（最終的な受信箱への到達やバウンスの把握は外部要因になります）。
-
-## 目的と解決する課題
+## 目的
 
 Verbena は各クライアントの「メールを配送する」責務を分離するための独立したアプリケーションです。クライアントは EML を Verbena に渡すだけで、配送の実行・記録・再試行を Verbena 側に委譲できます。
 
-次のような課題の解決を担います：
+ただし SMTP サーバへの引き渡しまでを責務としており、最終的な受信箱への到達やバウンス管理は対象外です。
 
-- クライアントごとに実装・運用している外部 SMTP との通信や失敗時の取り扱いをまとめたい
-- 複数宛先の一部失敗を正確に把握し、失敗した宛先だけを再送したい
+**解決する課題：**
 
-それらの課題に対処するため、Verbena は次の機能を提供します：
+- クライアントごとに実装・運用している外部 SMTP との通信や失敗時の取り扱いを一元化したい
+- 複数宛先への送信で一部が失敗した場合、失敗した宛先だけを正確に把握して再送したい
 
-- 宛先単位での送信結果の記録
-- 一時エラー時の再送管理
-- 指定時刻での配送制御（予約日時によるフィルタリング）
-- 失敗した宛先のみを対象にした再送
+**提供する機能：**
 
-※配送処理は、アプリケーション起動時に自動的に開始されるバックグラウンドジョブが担当します。
+- **配送責務の分離**: クライアントは EML を渡すだけ。配送・再送・記録は Verbena が担当
+- **宛先単位の管理**: 複数宛先への送信を個別に記録し、失敗した宛先のみ再送可能
+- **自動再送**: 一時エラー時の再送をバックグラウンドジョブで自動処理
+- **配送予約**: 指定時刻まで配送を待機
 
-## 開発環境構築手順
+## 準備
 
-開発環境は Docker Compose を利用します。
+### 1. トークンの作成
 
-### 初回セットアップ
-
-ローカル PC の任意のディレクトリに、 GitHub からリポジトリをクローンします。
-
-```sh
-$ git clone https://github.com/hiroaki/Verbena.git
-```
-
-そのディレクトリへ入り、開発ブランチ `develop` をチェックアウトします。
-
-```sh
-$ cd Verbena
-$ git checkout develop
-```
-
-環境変数ファイルを作成します:
-
-```sh
-$ cp dot.env.sample .env
-```
-
-`.env` ファイルを編集して、データベースの認証情報を設定します。
-
-#### データベース初期化用の環境変数
-
-初回起動時、データベースコンテナは `./initdb` 配下のスクリプトを自動実行してデータベースユーザーの権限を設定します。この際、**以下の環境変数が必要です**（`.env` または `compose.mysql.yml` で指定）：
-
-| 変数名               | 説明 |
-|----------------------|------|
-| `MYSQL_ROOT_PASSWORD`| MySQL rootユーザーのパスワード。初期化スクリプト用。必須。 |
-| `MYSQL_USER`         | アプリ用DBユーザー名。必須。 |
-| `MYSQL_PASSWORD`     | アプリ用DBユーザーパスワード。必須。 |
-
-PostgreSQL オーバーレイ (`compose.postgresql.yml`) を使用する場合は、以下の環境変数を利用します。`POSTGRES_*` は PostgreSQL のスーパーユーザー用、`VERBENA_DATABASE_*` は Rails アプリが接続に使用するアプリケーションユーザー用です（未設定時は表のデフォルト値を使用）：
-
-| 変数名 | 説明 |
-|--------|------|
-| `POSTGRES_USER` | PostgreSQL スーパーユーザー名。既定: `postgres` |
-| `POSTGRES_PASSWORD` | 上記スーパーユーザーのパスワード。既定: `postgres` |
-| `VERBENA_DATABASE_USER` | Rails アプリ用の DB ユーザー名。既定: `POSTGRES_USER` と同じ（`postgres`） |
-| `VERBENA_DATABASE_PASSWORD` | 上記アプリ用ユーザーのパスワード。既定: `POSTGRES_PASSWORD` と同じ（`postgres`） |
-
-特に指定しない場合、アプリケーションユーザーと PostgreSQL スーパーユーザーは同じ資格情報になりますが、セキュリティ要件に応じて別々の値を設定できます。
-
-PostgreSQL オーバーレイも `DATABASE_NAME` をベースに `${DATABASE_NAME}_development` という規約でデータベース名を決定します。任意の名前を利用したい場合は `.env` で `DATABASE_NAME` を設定してください。
-
-`.env` で `DATABASE_NAME` を指定すると、その値をベース名として（未設定時は `verbena`）開発用 DB を `${DATABASE_NAME}_development` という規約で自動作成します。Rails も同じ規約で `development/test/production` 各環境の DB 名を解決するため、不整合が起こりません。
-
-なお、ボリュームに既存のデータがある場合は初期化スクリプトが実行されません（完全に初期状態へ戻す場合は「データベースの完全リセット」を参照してください）。
-
-#### Compose オーバーレイの選択
-
-Verbena の Docker Compose 構成は「共通 (compose.yml) + DB オーバーレイ」を組み合わせて利用します。使用したいデータベースに合わせて、以下のようにファイルを指定してください。
-
-```sh
-# MySQL / MariaDB
-$ docker compose -f compose.yml -f compose.mysql.yml up -d
-
-# PostgreSQL
-$ docker compose -f compose.yml -f compose.postgresql.yml up -d
-
-# SQLite (DB サービスは不要)
-$ docker compose -f compose.yml -f compose.sqlite.yml up -d
-```
-
-以降のコマンド例では MySQL オーバーレイ（`compose.mysql.yml`）を使用しています。PostgreSQL や SQLite を利用する場合は、適宜ファイル名を読み替えてください。
-
-イメージを作成し、そのコンテナを起動します。
-
-```sh
-$ docker compose -f compose.yml -f compose.mysql.yml build
-$ docker compose -f compose.yml -f compose.mysql.yml up -d
-```
-
-サービス "web" からデータベースを作成します。
-
-```sh
-$ docker compose -f compose.yml -f compose.mysql.yml exec web rails db:migrate:reset
-```
-
-#### マルチデータベース環境での注意点
-
-本プロジェクトの `db/schema.rb` は MySQL 環境を基準（リファレンス）として生成されています。そのため `charset: "utf8mb4"` などの MySQL 固有オプションが含まれています。
-
-PostgreSQL や SQLite などの他データベースを使用する場合、`bin/rails db:schema:load`（または `bin/setup` 内の `db:prepare`）を実行するとこれらの固有オプションが原因でエラーになる可能性があります。
-
-MySQL 以外のデータベースで環境構築を行う場合は、`db:schema:load` を介さない以下のコマンド（マイグレーションからの構築）を使用してください：
-
-```sh
-# PostgreSQL / SQLite の場合
-$ bin/rails db:create
-$ bin/rails db:migrate
-```
-
-## 設定
-
-### トークンの用意
-
-メールデータ入力のための Web API へのアクセスには Bearer トークンによる認証が必要です。そのために、利用者ごとに Token レコードを作成してください：
+EML登録（Rake/Web API）には Bearer トークン認証が必要です。管理者が利用者ごとにトークンを発行します：
 
 ```ruby
-Token.create_unique!(label: "hoge", key: "user-secret", expires_at: 1.year.from_now)
+Token.create_unique!(label: "client-name", key: "secret-key", expires_at: 1.year.from_now)
 ```
 
-- `key` の値は機密情報です。そのレコードの対象としている利用者以外に見られないよう保護してください。
-- `label` は利用者の目印としてユニークな値を設定します。
-- 有効期限は `expires_at` に設定し、その時刻まで有効です（必須）。
-- 無効化は物理削除ではなく `revoked_at` をセットすることで行ってください（監査のため）。
-- 作成時はモデルのファクトリ・メソッド `Token.create_unique!` を使用してください。
 
-運用上の注意:
+**運用上の注意:**
+- トークンの発行・更新は管理者のみが行います。利用者は配布された `key` のみ使用し、作成や更新はできません。
+- 発行後の `key` の更新は禁止されています。変更が必要な場合は既存トークンを `revoke!` して無効化し、新しいトークンを作成してください。
+- 期限切れトークンの一括無効化は Rake タスク `verbena:tokens:revoke_expired` を利用してください。
 
-- トークンは管理者のみが発行・更新を行います。利用者は管理者から配布される `key` を使用するのみで、作成や更新はできません。
-- 発行後の `key` の更新は設計で禁止しています。変更する必要が生じた場合は、既存トークンを `revoke!` して無効化し、新しいトークンを作成してください。
-- 期限切れトークンを一括で無効化する Rake タスクを用意しています：
+### 2. 環境変数の設定
 
-  ```sh
-  # ドライラン（何件無効化されるかを確認）
-  $ bundle exec rake verbena:tokens:revoke_expired[dry]
+主要な設定項目：
 
-  # 実行（expires_at を過ぎ、まだ revoked されていないトークンを revoked にする）
-  $ bundle exec rake verbena:tokens:revoke_expired
-  ```
+| 変数名 | 説明 | 既定値 |
+|--------|------|--------|
+| `VERBENA_DELIVERY_METHOD` | 配送方式 (smtp/test/file) | test (開発) / smtp (本番) |
+| `VERBENA_DELIVERY_SMTP_ADDRESS` | SMTP サーバアドレス | - |
+| `VERBENA_DELIVERY_SMTP_PORT` | SMTP ポート | - |
+| `VERBENA_DELIVERY_SMTP_USER_NAME` | SMTP 認証ユーザ | - |
+| `VERBENA_DELIVERY_SMTP_PASSWORD` | SMTP 認証パスワード | - |
 
-### 環境変数の設定
-
-Verbena の設定は環境変数で行います。主な環境変数は次のとおりです。
-
-| 変数名 | 説明 |
-|--------|------|
-| `DATABASE_ADAPTER` | 使用するデータベースアダプタ（mysql2 / postgresql / sqlite3）。Docker Compose オーバーレイが自動設定しますが、ローカル実行時は必須。 |
-| `VERBENA_DELIVERY_METHOD` | メール配送方式。smtp / test / file。既定値: test（開発）/smtp（本番）。 |
-| `VERBENA_DELIVERY_SMTP_ADDRESS` | SMTP配送時のサーバアドレス。既定値: なし。 |
-| `VERBENA_DELIVERY_SMTP_PORT` | SMTP配送時のポート番号。既定値: なし。 |
-| `VERBENA_DELIVERY_SMTP_DOMAIN` | SMTP配送時のHELOドメイン。既定値: なし。 |
-| `VERBENA_DELIVERY_SMTP_USER_NAME` | SMTP認証ユーザ名。既定値: なし。 |
-| `VERBENA_DELIVERY_SMTP_PASSWORD` | SMTP認証パスワード。既定値: なし。 |
-| `VERBENA_DELIVERY_SMTP_AUTHENTICATION` | SMTP認証方式。plain / login など。既定値: なし。 |
-
-これらのほかにも、本番環境や Docker Compose を使わない環境など、initdb スクリプトを使わない場合は、アプリ側の DB 接続情報として `VERBENA_DATABASE_USER` / `VERBENA_DATABASE_PASSWORD` を設定してください。
-
-詳細・全項目は [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) を参照してください。
+全項目は [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) を参照してください。
 
 
-## 実行方法
+## 使い方
 
-### メールデータ入力
+### サーバーの起動
 
-送信対象のメールはテーブル `mail_queues` のレコードです（１レコード＝１通）。配送するメールの登録は、このレコードを作ることになります。
-
-手元の環境から Rake タスク経由での登録、または外部のシステムから Web 経由で登録できます。いずれのインタフェースも、入力データ・フォーマットはメール・メッセージのソースである EML 形式である必要があります。
-
-Rake タスクの場合は EML ファイルのパスを指定しながら、タスク "verbena:mail_queues:add" を実行します：
+Verbena を起動するには以下のコマンドを実行します：
 
 ```sh
-$ bin/rails verbena:mail_queues:add[/path/to/source.eml]
+$ bin/dev
 ```
 
-一方、外部のシステムから `mail_queues` へデータを入力するには Web API を経ます。エンドポイントに EML 形式のデータを POST することで、テーブル `mail_queues` のレコードが作成されます。このとき、リクエストヘッダ `Authorization` に、作成したトークンを含めて送る必要があります。
+このコマンドで Rails サーバーと配送処理のためのバックグラウンドジョブプロセスが同時に起動します。
 
-次の例は、メールのソース `/path/to/source.eml` を入力します：
+### メール入力
+
+EML 形式のメールはそのまま `eml_sources` テーブルに保存され、同時に各宛先ごとに配送キュー（`mail_queues` テーブルのレコード）が作成されます。
+
+登録方法は 2 つあります：
+
+**Rake タスク経由**
 
 ```sh
-$ curl -D - -H 'Authorization: Bearer user-secret' -X POST \
+# 環境変数でトークンを指定
+$ VERBENA_TOKEN=your-secret-key bin/rails verbena:mail_queues:add[/path/to/source.eml]
+
+# または引数でトークンを指定
+$ bin/rails verbena:mail_queues:add[/path/to/source.eml,token:your-secret-key]
+```
+
+**Web API 経由**
+
+```sh
+$ curl -H 'Authorization: Bearer your-token' -X POST \
     -F 'mail_queue[eml]=@/path/to/source.eml' \
     http://localhost:23000/api/v1/mail_queues
 ```
 
-いずれの場合でも、入力したメールのヘッダ "To:" "Cc:" "Bcc:" に記されたメールアドレスの数だけ（重複は除外して）`mail_queues` が作成されます。例えば `/path/to/source.eml` が次の内容であったとした場合、そのヘッダ "To:" "Cc:" "Bcc:" に基づき 4 件の `mail_queues` レコードが作成されます。
+EML のヘッダ `To:`, `Cc:`, `Bcc:` に記載された各宛先ごとに `mail_queues` レコードが作成されます（重複は除外）。
 
-```sh
-Date: Tue, 1 Jul 2003 10:52:37 +0200
-From: me@example.com
-To: you@example.com
-Cc: ichiro@example.com, jirou@example.com
-Bcc: saburo@example.com
-Subject: =?UTF-8?Q?=E3=81=94=E6=8C=A8=E6=8B=B6?=
-Content-Type: text/plain; charset="UTF-8"
-
-こんにちは。
-```
-
-それらレコードの違いは、実際の送信先となるメールアドレスが格納されるカラム `envelope_to` のみです。メール配送はテーブル `mail_queues` のレコードごとに行われ、 EML データの内容に関わらず（ヘッダには複数の宛先が記載されていますが、それらは関係なく）、カラム `envelope_to` の宛先に送られます。
-
-また、ヘッダ "Date:" は、作成される `mail_queue` レコードのタイマー時刻 `timer_at` カラムの値に使用されます。この入力の段階に於いては "Date:" は省略可能で、その際は `timer_at` の値には現在時刻が使用されます。
+また、ヘッダ `Date:` の値は「配送予約時刻」として同テーブルの `timer_at` 列に格納されます。
 
 ### メール配送
 
-メール配送は、Verbena が起動している間、バックグラウンドジョブ（SolidQueue）によって自動的に行われます。
-テーブル `mail_queues` にあるレコードのうち、`timer_at` の日時が経過しているものが順次処理されます。
+配送は SolidQueue バックグラウンドジョブが自動実行します。`timer_at` が経過したレコードが順次処理され、結果は `delivery_responses` テーブルに記録されます。
 
-配送結果はテーブル `delivery_responses` に追記されます。
-
-なお開発環境では、`VERBENA_DELIVERY_METHOD` の既定値は `test` のため、SMTP 送信は行われません（`Mail::TestMailer` に送られます）。
-
-### 手動再送（トラブルシューティング）
-
-特定のレコードを強制的に再送キューに入れる必要がある場合などに利用する Rake タスクです。
-
-通常、再送処理や結果監視は自動で行われますが、メンテナンス時などに手動でリカバリを行うための操作です。
-
-```sh
-# 直近の配送がステータス4xxであったメッセージを再送キューに入れる
-$ bin/rails verbena:delivery:prepare_retry
-
-# 配送結果が無い、かつ24時間以上前のメッセージを配送キューに入れる
-$ bin/rails verbena:delivery:reset_undelivered
-
-# 配送結果が無い、かつ1時間以上前（--older-than-hours 指定）のメッセージを配送キューに入れる
-$ bin/rails verbena:delivery:reset_undelivered[1]
-```
+開発環境では `VERBENA_DELIVERY_METHOD=test` のため実際の送信は行われません。
 
 ## ジョブ管理画面
 
-ジョブ管理の Web インタフェースとして `mission_control-jobs` (gem) を組み込んでいます。ジョブキューや現在のキューで待機中のジョブを確認したり、失敗したジョブを調べて再試行または破棄したりできます。
-
-ジョブ管理画面には Basic 認証がかけられており、ユーザ名とパスワードの設定は環境変数 `VERBENA_ADMIN_USERNAME` と `VERBENA_ADMIN_PASSWORD` で行います。それら環境変数をセットした "web" コンテナを起動したのち、次の URL にアクセスしてください。
+ジョブ管理には Mission Control Jobs を利用します。Basic 認証（環境変数 `VERBENA_ADMIN_USERNAME` / `VERBENA_ADMIN_PASSWORD` で設定）が必要です。
 
 http://localhost:23000/admin/jobs
 
 
-## メンテナンス - 古いレコードの削除
+## メンテナンス
 
-各テーブルのレコードは送信処理後も残り続け、ディスク容量を圧迫して行く一方なので、定期的に削除するようにしてください。削除のための Rake タスクがあります。
+### 古いレコードの削除
 
-例えば、配送処理か一週間を経過したメールを削除するには次のコマンドを実行します：
+配送済みレコードは蓄積し続けるため、定期的に削除してください：
 
 ```sh
+# 一週間経過したレコードを削除
 $ bin/rails verbena:cleanup:weekly
 
-```
-
-期限については `weekly` のほかにも `daily`, `monthly` や `now` もあります。
-
-環境変数で保持期間を制御することもできます。`VERBENA_CLEANUP_TTL_DAYS`（既定 30）に日数を指定し、次のタスクを実行します。
-
-```sh
+# TTL（既定30日）で削除
 $ VERBENA_CLEANUP_TTL_DAYS=45 bin/rails verbena:cleanup:by_ttl
-```
 
-実行前に削除件数だけを確認したい場合は dry-run が利用できます（削除は行われません）。
-
-```sh
+# ドライラン（削除件数のみ確認）
 $ bin/rails verbena:cleanup:weekly[true]
-$ bin/rails verbena:cleanup:by_ttl[true]
 ```
 
-## 開発に関して
+### 手動再送（トラブルシューティング）
 
-### テストの実行
+通常は配送失敗時に自動で再送処理（バックグラウンドジョブによるリトライ）が行われます。
+自動再送の上限を超えた場合や、管理者判断で再送したい場合は、下記の手動コマンドを利用できます。
 
-テストは rspec を利用しています：
+#### 1. 4xx系一時エラーの再送
+
+直近の配送結果が4xx系（一時的エラー）のメッセージのみを再送キューに入れます。5xx系（恒久的エラー）は対象外です。
 
 ```sh
-# 全テストを実行
-docker compose -f compose.yml -f compose.mysql.yml exec web bundle exec rspec
-
-# 特定ファイルだけ実行
-docker compose -f compose.yml -f compose.mysql.yml exec web bundle exec rspec spec/tasks/verbena/mail_queues_rake_spec.rb
+$ bin/rails verbena:delivery:prepare_retry
 ```
 
-テストを実行すると `coverage` ディレクトリにカバレッジ・レポートが出力されますので、 `coverage/index.html` をブラウザで開いて、内容を確認してください。
+> **注意:** 5xx系エラーは恒久的なため、復旧の前に原因を確認し、必要に応じて新しいメッセージを登録してください。
 
-### データベースの完全リセット
+#### 2. 未配送メッセージのリセット
 
-開発中にデータベースを完全に初期状態に戻したい場合は、以下の手順を実行します：
+配送結果が1件も存在しない（24時間以上配送されていない）メッセージをリセットします。エラー種別は関係ありません。
 
-1. コンテナを停止してボリュームを削除:
-  ```sh
-  $ docker compose -f compose.yml -f compose.mysql.yml down -v
-  ```
+```sh
+$ bin/rails verbena:delivery:reset_undelivered
+```
 
-2. コンテナを再起動:
-  ```sh
-  $ docker compose -f compose.yml -f compose.mysql.yml up -d
-  ```
+## 開発
 
-3. データベースを再作成:
-  ```sh
-  $ docker compose -f compose.yml -f compose.mysql.yml exec web rails db:migrate:reset
-  ```
+### クイックスタート
 
-### タイムゾーン方針 (UTC)
+```sh
+# リポジトリをクローン
+$ git clone https://github.com/hiroaki/Verbena.git
+$ cd Verbena
 
-- Verbena（Rails）は常に UTC で動作するように設定します。
-- データベースは OS タイムゾーンを UTC（`TZ=UTC`）に固定します。
-- **MySQL/MariaDB**: `config/database.yml` の設定の中で `init_command: "SET time_zone = '+00:00'"` を指定し、セッションのタイムゾーンを UTC に固定します。
-- **PostgreSQL**: `config/database.yml` の設定の中で `variables: { timezone: 'UTC' }` を指定し、セッションタイムゾーンを UTC に固定します。
-- **SQLite**: セッション／データベースのタイムゾーン設定はありません。日時は Rails 側で UTC として生成・管理し、その値を保存してください。
-- **共通ガイドライン**: プログラミングに於いて DB内の `NOW()` や `CURRENT_TIMESTAMP` などのタイムゾーンが影響する関数は使わず、 Rails で生成した日時値をバインドして利用してください。
+# 環境変数ファイルを作成
+$ cp dot.env.sample .env
 
+# データベースを選択してコンテナを起動（MySQL の例）
+$ docker compose -f compose.yml -f compose.mysql.yml build
+$ docker compose -f compose.yml -f compose.mysql.yml up -d
 
-### データベース互換性とストレージ方針
+# データベースを初期化
+$ docker compose -f compose.yml -f compose.mysql.yml exec web rails db:migrate:reset
 
-#### 対応データベース
+# テスト実行
+$ docker compose -f compose.yml -f compose.mysql.yml exec web bundle exec rspec
+```
 
-Verbena は複数のデータベースシステムをサポートします：
+**対応データベース**: MySQL 8.0+, MariaDB 10.6+, PostgreSQL 13+, SQLite 3.x
 
-| Database | Version | Status |
-|----------|---------|--------|
-| MySQL    | 8.0+    | ✅ Supported |
-| MariaDB  | 10.6+   | ✅ Supported |
-| PostgreSQL | 13+   | ✅ Planned (in progress) |
-| SQLite   | 3.x     | ✅ Planned (in progress) |
+### 詳細ドキュメント
 
-#### EML データの保存方針
+開発環境の詳細、アーキテクチャ設計、技術的な意思決定については以下を参照してください：
 
-EML (Raw email format) は `eml_sources.eml` カラムに保存されます。
+- **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** - 開発環境構築、テスト、アーキテクチャ、データベース設計
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - 貢献ガイドライン
+---
 
-- **現在の方針（互換性優先）**:
-  - データベースに保存する EML は plain `:text` 型を使用し、すべてのデータベースで互換性を確保しています。
-  - MySQL の `TEXT` 型は約 64 KiB、PostgreSQL と SQLite の `text` は事実上無制限です。
-  - 添付ファイルがない、または小さいメール（通常のビジネスメール）であれば、この制限内で対応可能です。
+## ライセンス
 
-- **将来の拡張計画（オブジェクトストレージ対応予定）**:
-  - より大きな EML ファイル（大きな添付ファイル付き）をサポートするために、オブジェクトストレージ（Amazon S3 等）の利用を検討しています。
-  - その際は、EML 本体をストレージに保存し、DB には メタデータと小さなプレビューのみを保持します。
-
-#### マイグレーションの互換性
-
-すべてのマイグレーション（`db/migrate/`）は、以下の原則に従い、複数のデータベースで動作するように設計されています：
-
-- **MySQL 専用オプション（`after:`、`charset:`、`collation:`）は使用しない**：MySQL 固有の `after:` などでカラム並び順を制御・前提とせず、実際の並び順は各データベース実装に依存するものとして、ポータブルな Rails マイグレーション構文を採用。
-- **型固有のオプションはアダプタ非依存**：`:text` 型に対する MySQL 固有のサイズ指定オプション（`limit:` など）のように、DB ごとに挙動が異なる指定は使わず、すべての DB で解釈可能なプレーンな型指定のみを使用。
-- **SQL の直接記述を避ける**：`execute()` 句で vendor-specific SQL を使わないよう注意。
-
-
-## Contributing
-
-Contributions are welcome! Please see `CONTRIBUTING.md` for guidelines.
-
-
-## License
-
-This project is licensed under the 0BSD license. See `LICENSE`.
+This project is licensed under the 0BSD license. See [LICENSE](LICENSE).
