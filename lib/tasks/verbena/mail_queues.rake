@@ -19,7 +19,7 @@ namespace :verbena do
       end
     end
 
-    desc 'mail_queues に eml ファイルの内容を登録する'
+    desc 'Register an EML file into mail_queues'
     task :add, [:eml] => :environment do |task, args|
       begin
         extras = parse_extras(args)
@@ -36,7 +36,7 @@ namespace :verbena do
       end
     end
 
-    desc 'mail_queues に eml, envelope_from, envelope_to を登録する'
+    desc 'Register eml, envelope_from, and envelope_to into mail_queues'
     task :add_raw, [:eml, :envelope_from, :envelope_to] => :environment do |task, args|
       begin
         extras = parse_extras(args)
@@ -63,7 +63,7 @@ namespace :verbena do
       end
     end
 
-    desc 'mail_queues から指定した id のレコードを削除する'
+    desc 'Delete a mail_queue record by id'
     task :delete, [:mail_queue_id] => :environment do |task, args|
       begin
         extras = parse_extras(args)
