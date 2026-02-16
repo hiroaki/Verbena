@@ -1,6 +1,6 @@
 namespace :verbena do
   namespace :delivery do
-    desc '直近の配送がステータス4xxであったメッセージを再送キューに入れる'
+    desc 'Enqueue retryable messages whose last status was 4xx'
     task :prepare_retry => :environment do |_task, _args|
       puts "Searching for retryable messages (last status 4xx)..."
       count = 0
@@ -33,7 +33,7 @@ namespace :verbena do
       puts "\nEnqueued #{count} #{count == 1 ? 'job' : 'jobs'} for retry."
     end
 
-    desc '配送結果が無いメッセージを配送キューに入れる'
+    desc 'Enqueue messages with no delivery responses'
     task :reset_undelivered, [:older_than_hours] => :environment do |_task, args|
       older_than_arg = args[:older_than_hours]
       older_than_hours =

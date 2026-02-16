@@ -1,12 +1,12 @@
 <%# Combined form body partial. locals: fields_values, token, sent_at %>
 
-<h2 class="subtitle">EMLファイルをアップロード、または各項目を入力して送信します。</h2>
+<h2 class="subtitle"><%= t("pages.eml_inputs.subtitle") %></h2>
 
 <div class="box">
   <!-- Upload first -->
   <div class="field is-horizontal">
     <div class="field-label is-normal">
-      <%= label_tag 'upload[eml_file]', 'EMLファイル', class: 'label' %>
+      <%= label_tag 'upload[eml_file]', t("pages.eml_inputs.labels.eml_file"), class: 'label' %>
     </div>
     <div class="field-body">
       <div class="field">
@@ -22,66 +22,66 @@
   <!-- Fields to build EML when no upload -->
   <div class="field is-horizontal">
     <div class="field-label is-normal">
-      <%= label_tag 'fields[from]', 'From', class: 'label' %>
+      <%= label_tag 'fields[from]', t("pages.eml_inputs.labels.from"), class: 'label' %>
     </div>
     <div class="field-body">
       <div class="field"><div class="control">
-        <%= text_field_tag 'fields[from]', fields_values[:from], placeholder: 'sender@example.com', class: 'input' %>
+        <%= text_field_tag 'fields[from]', fields_values[:from], placeholder: t("pages.eml_inputs.placeholders.from"), class: 'input' %>
       </div></div>
     </div>
   </div>
 
   <div class="field is-horizontal">
     <div class="field-label is-normal">
-      <%= label_tag 'fields[to]', 'To', class: 'label' %>
+      <%= label_tag 'fields[to]', t("pages.eml_inputs.labels.to"), class: 'label' %>
     </div>
     <div class="field-body">
       <div class="field"><div class="control">
-        <%= text_field_tag 'fields[to]', fields_values[:to], placeholder: 'user@example.com, other@example.com', class: 'input' %>
+        <%= text_field_tag 'fields[to]', fields_values[:to], placeholder: t("pages.eml_inputs.placeholders.to"), class: 'input' %>
       </div></div>
     </div>
   </div>
 
   <div class="field is-horizontal">
     <div class="field-label is-normal">
-      <%= label_tag 'fields[cc]', 'Cc', class: 'label' %>
+      <%= label_tag 'fields[cc]', t("pages.eml_inputs.labels.cc"), class: 'label' %>
     </div>
     <div class="field-body">
       <div class="field"><div class="control">
-        <%= text_field_tag 'fields[cc]', fields_values[:cc], placeholder: 'cc@example.com', class: 'input' %>
+        <%= text_field_tag 'fields[cc]', fields_values[:cc], placeholder: t("pages.eml_inputs.placeholders.cc"), class: 'input' %>
       </div></div>
     </div>
   </div>
 
   <div class="field is-horizontal">
     <div class="field-label is-normal">
-      <%= label_tag 'fields[bcc]', 'Bcc', class: 'label' %>
+      <%= label_tag 'fields[bcc]', t("pages.eml_inputs.labels.bcc"), class: 'label' %>
     </div>
     <div class="field-body">
       <div class="field"><div class="control">
-        <%= text_field_tag 'fields[bcc]', fields_values[:bcc], placeholder: 'bcc@example.com', class: 'input' %>
+        <%= text_field_tag 'fields[bcc]', fields_values[:bcc], placeholder: t("pages.eml_inputs.placeholders.bcc"), class: 'input' %>
       </div></div>
     </div>
   </div>
 
   <div class="field is-horizontal">
     <div class="field-label is-normal">
-      <%= label_tag 'fields[subject]', 'Subject', class: 'label' %>
+      <%= label_tag 'fields[subject]', t("pages.eml_inputs.labels.subject"), class: 'label' %>
     </div>
     <div class="field-body">
       <div class="field"><div class="control">
-        <%= text_field_tag 'fields[subject]', fields_values[:subject], placeholder: 'Subject text', class: 'input' %>
+        <%= text_field_tag 'fields[subject]', fields_values[:subject], placeholder: t("pages.eml_inputs.placeholders.subject"), class: 'input' %>
       </div></div>
     </div>
   </div>
 
   <div class="field is-horizontal">
     <div class="field-label is-normal">
-      <%= label_tag 'fields[body]', '本文', class: 'label' %>
+      <%= label_tag 'fields[body]', t("pages.eml_inputs.labels.body"), class: 'label' %>
     </div>
     <div class="field-body">
       <div class="field"><div class="control">
-        <%= text_area_tag 'fields[body]', fields_values[:body], rows: 6, placeholder: '本文を入力してください', class: 'textarea' %>
+        <%= text_area_tag 'fields[body]', fields_values[:body], rows: 6, placeholder: t("pages.eml_inputs.placeholders.body"), class: 'textarea' %>
       </div></div>
     </div>
   </div>
@@ -91,26 +91,26 @@
 <div class="box">
   <div class="field is-horizontal">
     <div class="field-label is-normal">
-      <%= label_tag :sent_at, '送信日時', class: 'label' %>
+      <%= label_tag :sent_at, t("pages.eml_inputs.labels.sent_at"), class: 'label' %>
     </div>
     <div class="field-body">
       <div class="field">
         <div class="control">
           <%= datetime_local_field_tag :sent_at, sent_at, class: 'input' %>
         </div>
-        <p class="help">※フィールド入力時は未指定なら現在時刻になります。アップロード時は未指定ならEML内のDateが使われます。</p>
+        <p class="help"><%= t("pages.eml_inputs.help.sent_at") %></p>
       </div>
     </div>
   </div>
 
   <div class="field is-horizontal">
     <div class="field-label is-normal">
-      <%= label_tag :token, 'Token (Authorization)', class: 'label' %>
+      <%= label_tag :token, t("pages.eml_inputs.labels.token"), class: 'label' %>
     </div>
     <div class="field-body">
       <div class="field">
         <div class="control">
-          <%= text_field_tag :token, token, placeholder: 'API Token', class: 'input', required: true %>
+          <%= text_field_tag :token, token, placeholder: t("pages.eml_inputs.placeholders.token"), class: 'input', required: true %>
         </div>
       </div>
     </div>
@@ -118,8 +118,8 @@
 
   <div class="field">
     <div class="control">
-      <%= submit_tag '送信', class: 'button is-primary is-fullwidth' %>
+      <%= submit_tag t("pages.eml_inputs.actions.submit"), class: 'button is-primary is-fullwidth' %>
     </div>
-    <p class="help">※EMLファイルがアップロードされている場合はそちらが優先されます</p>
+    <p class="help"><%= t("pages.eml_inputs.help.upload_priority") %></p>
   </div>
 </div>

@@ -1,183 +1,183 @@
-(Claude Sonnet 4.5 作成、 GPT-5.2-Codex 修正)
+(Created by Claude Sonnet 4.5, revised by GPT-5.2-Codex)
 ---
 
 # Verbena FAQ
 
-## 配送保証について
+## Delivery Guarantees
 
-### Q. 最終的にユーザーの受信箱に届いたか分かりますか？
+### Q. Can I know if the email actually reached the user's inbox?
 
-**A. いいえ、Verbenaが保証するのは「配送先SMTPサーバへの引き渡しまで」です。**
+**A. No, Verbena only guarantees delivery up to the destination SMTP server.**
 
-SMTPプロトコルの仕様上、以下のような制約があります：
+Due to the SMTP protocol specification, there are the following limitations:
 
-1. SMTPサーバが「250 OK」を返した時点で、そのサーバがメールを受理したことになります
-2. その後のリレー先での配送や、最終的な受信箱への格納は、受け取ったサーバ側の責任です
-3. リレー先でのバウンスや受信箱到達は、Verbenaからは直接検知できません
+1. When the SMTP server returns "250 OK", it means the server has accepted the email
+2. Subsequent relaying and final inbox delivery are the responsibility of the receiving server
+3. Bounces or inbox delivery at relay servers cannot be directly detected by Verbena
 
-これはVerbenaに限らず、ほぼすべてのメール配信システム（商用SaaS含む）に共通する制約です。
+This is a limitation common to almost all email delivery systems (including commercial SaaS), not just Verbena.
 
-### Q. それではユーザーに届かなくても分からないのですか？
+### Q. So, does that mean I can't know if the user actually received the email?
 
-**A. バウンス（配送失敗通知）を管理することで、実質的な到達性を高められます。**
+**A. By managing bounces (delivery failure notifications), you can improve practical deliverability.**
 
-リレー先で配送に失敗した場合、通常は「バウンスメール（DSN: Delivery Status Notification）」が Return-Path アドレスに返送されます。
+If delivery fails at a relay, a "bounce email" (DSN: Delivery Status Notification) is usually returned to the Return-Path address.
 
-Verbenaでは、次期マイルストーンとして **バウンス管理機能** の実装を計画しています：
+Verbena plans to implement a **bounce management feature** as a future milestone:
 
-1. バウンスメールを自動的に収集・解析（[Sisimai](https://sisimai.org/) を使用）
-2. 配送不能アドレスをブラックリストに登録
-3. 次回配信時に自動的に除外
+1. Automatically collect and parse bounce emails (using [Sisimai](https://sisimai.org/))
+2. Register undeliverable addresses to a blacklist
+3. Automatically exclude them from future deliveries
 
-詳細は [BOUNCE_MANAGEMENT.md](BOUNCE_MANAGEMENT.md) を参照してください。
+See [BOUNCE_MANAGEMENT.md](BOUNCE_MANAGEMENT.md) for details.
 
-### Q. メールを開封したかどうか追跡できますか？
+### Q. Can I track whether an email was opened?
 
-**A. Verbenaには開封追跡機能はありません。**
+**A. Verbena does not have an open tracking feature.**
 
-メール開封の追跡には、以下のような別の仕組みが必要です：
+Tracking email opens requires other mechanisms, such as:
 
-- HTMLメール内にトラッキングピクセル（透明な1x1画像）を埋め込む
-- リンククリックの計測（URLを独自のトラッキングサーバ経由に変換）
+- Embedding a tracking pixel (transparent 1x1 image) in HTML emails
+- Measuring link clicks (converting URLs to go through a tracking server)
 
-ただし、これらの方法には限界があります：
+However, these methods have limitations:
 
-- メーラーが画像を自動表示しない設定の場合、検知できない
-- プライバシー保護機能（iOS Mail Privacy Protection等）で無効化される
-- 法的規制（GDPRなど）への配慮が必要
+- If the mail client is set not to display images automatically, opens cannot be detected
+- Privacy protection features (such as iOS Mail Privacy Protection) can disable tracking
+- Legal regulations (such as GDPR) must be considered
 
-Verbenaの責務範囲は「SMTP配送管理」であり、開封追跡は対象外としています。
+Verbena's responsibility is "SMTP delivery management"; open tracking is out of scope.
 
-## バウンス管理について
+## Bounce Management
 
-### Q. バウンスはリアルタイムで検知できますか？
+### Q. Can bounces be detected in real time?
 
-**A. SMTPレベルの即時エラー（4xx/5xx）は検知できますが、リレー先でのバウンスは遅延があります。**
+**A. Immediate SMTP-level errors (4xx/5xx) can be detected, but bounces at relay servers are delayed.**
 
-**即時に検知できるもの**:
-- 配送先SMTPサーバからの即時拒否（例: 554 Relay access denied）
-- アドレス形式不正による例外（Net::SMTPSyntaxError）
+**Detected immediately:**
+- Immediate rejection from the destination SMTP server (e.g., 554 Relay access denied)
+- Exceptions due to invalid address format (Net::SMTPSyntaxError)
 
-**遅延して検知されるもの**:
-- リレー先サーバでのバウンス（数分〜数時間後）
-- スパムフィルタによるドロップ（バウンスが返らない場合も）
+**Detected with delay:**
+- Bounces at relay servers (minutes to hours later)
+- Drops by spam filters (sometimes no bounce is returned)
 
-バウンス管理機能では、定期的（例: 毎時）にバウンスメールを収集・解析する方式を想定しています。
+The bounce management feature is expected to periodically (e.g., hourly) collect and parse bounce emails.
 
-### Q. 一時的なエラー（4xx）と恒久的なエラー（5xx）はどう扱いますか？
+### Q. How are temporary errors (4xx) and permanent errors (5xx) handled?
 
-**A. 将来的には「一時的エラーは再送、恒久的エラーはブラックリスト登録」が基本方針です。**
+**A. The basic policy is: temporary errors are retried, permanent errors are blacklisted (planned for the future).**
 
-**4xx（一時的エラー）の例**:
-- 450 Mailbox full（メールボックス満杯）
-- 451 Temporary local problem（一時的な問題）
-- 452 Insufficient storage（サーバ側の容量不足）
+**Examples of 4xx (temporary errors):**
+- 450 Mailbox full
+- 451 Temporary local problem
+- 452 Insufficient storage
 
-→ 将来的に一定期間・回数まで再送を試みます
+→ Will be retried for a certain period/number of times in the future
 
-**5xx（恒久的エラー）の例**:
-- 550 User unknown（ユーザー不明）
-- 551 User not local（ユーザーが存在しない）
-- 554 Message rejected（スパム判定等）
+**Examples of 5xx (permanent errors):**
+- 550 User unknown
+- 551 User not local
+- 554 Message rejected
 
-→ 将来的にブラックリストへ登録し、以降の配信を停止します
+→ Will be blacklisted in the future, and further deliveries will be stopped
 
-## システム設計について
+## System Design
 
-### Q. なぜ SolidQueue を採用したのですか？
+### Q. Why did you choose SolidQueue?
 
-**A. Rails標準機能であり、信頼性とメンテナンス性が高いためです。**
+**A. Because it is a Rails standard feature, offering high reliability and maintainability.**
 
-以前は独自のDBポーリングとロック機構（Claim機能）を実装していましたが、Rails 8 で標準搭載された SolidQueue へ移行しました。
-これにより、複雑なロック管理やデッドロック対策のメンテナンスコストを削減し、標準的な非同期処理パターンを利用できるようになりました。
+Previously, we implemented our own DB polling and locking mechanism (Claim feature), but with Rails 8, we migrated to the standard SolidQueue.
+This reduced the maintenance cost of complex lock management and deadlock prevention, and enabled us to use standard asynchronous processing patterns.
 
-### Q. 他の配信システムと連携できますか？
+### Q. Can Verbena integrate with other delivery systems?
 
-**A. バウンスリスト参照については、将来的にAPI公開を予定しています。**
+**A. For bounce list reference, we plan to provide an API in the future.**
 
-バウンス管理機能（Phase 3）では、ブラックリストをREST API経由で参照できるようにする予定です。
-これにより、Verbenaの配信機能を使わず、ブラックリスト管理だけを他システムで利用することも可能になります。
+In the bounce management feature (Phase 3), we plan to make the blacklist accessible via REST API.
+This will allow other systems to use only the blacklist management, even without using Verbena's delivery features.
 
-詳細は [BOUNCE_MANAGEMENT.md](BOUNCE_MANAGEMENT.md) を参照してください。
+See [BOUNCE_MANAGEMENT.md](BOUNCE_MANAGEMENT.md) for details.
 
-## 運用について
+## Operations
 
-### Q. 大量配信時のパフォーマンスはどうですか？
+### Q. How is performance for large-scale delivery?
 
-**A. SolidQueue のワーカー数などの並行数を調整することで、スケールします。**
+**A. It scales by adjusting the number of SolidQueue workers and concurrency.**
 
-以下の設定で調整可能です：
+You can adjust with the following settings:
 
 ```yaml
 # config/queue.yml
 workers:
-   - queues: "*"
-      threads: 3
-      processes: <%= ENV.fetch("JOB_CONCURRENCY", 1) %>
+  - queues: "*"
+    threads: 3
+    processes: <%= ENV.fetch("JOB_CONCURRENCY", 1) %>
 ```
 
-実際のスループットは、SMTPサーバの性能やネットワーク環境に依存します。
+Actual throughput depends on the performance of the SMTP server and network environment.
 
-### Q. 処理が止まったジョブはどうなりますか？
+### Q. What happens to jobs that stop processing?
 
-**A. SolidQueue が管理し、失敗したジョブは `solid_queue_failed_executions` テーブルに記録されます。**
+**A. SolidQueue manages them, and failed jobs are recorded in the `solid_queue_failed_executions` table.**
 
-以下の手段で確認・再試行が可能です：
+You can check and retry with the following methods:
 
 ```ruby
-# 失敗したジョブの確認
+# Check failed jobs
 SolidQueue::FailedExecution.count
 SolidQueue::FailedExecution.last.error
 
-# 失敗したジョブの再試行
+# Retry failed jobs
 SolidQueue::FailedExecution.last.retry
 ```
 
-### Q. ログはどのように管理すれば良いですか？
+### Q. How should I manage logs?
 
-**A. JSON形式の構造化ログ出力に対応しています。**
+**A. Structured JSON log output is supported.**
 
-環境変数 `VERBENA_LOG_FORMAT=json` を設定すると JSON Lines 形式で出力できます。
-これにより、Fluentd / Logstash / CloudWatch Logs などでの集約・分析が容易になります。
+Set the environment variable `VERBENA_LOG_FORMAT=json` to output in JSON Lines format.
+This makes it easy to aggregate and analyze with Fluentd, Logstash, CloudWatch Logs, etc.
 
 ```json
 {"event":"deliver.result","level":"info","mail_queue_id":42,"message_id":"<xyz@example.com>","smtp_status":"250","message":"OK sending..."}
 ```
 
-## トラブルシューティング
+## Troubleshooting
 
-### Q. 配信が止まっているようです
+### Q. Delivery seems to be stuck
 
-**確認事項**:
+**Checklist:**
 
-1. **滞留しているジョブの確認**
+1. **Check for queued jobs**
    ```ruby
    SolidQueue::Job.count
-   SolidQueue::ScheduledExecution.count  # 予約実行待ち
-   SolidQueue::ReadyExecution.count      # 実行待ち
-   SolidQueue::ClaimedExecution.count    # 実行中
+   SolidQueue::ScheduledExecution.count  # Waiting for scheduled execution
+   SolidQueue::ReadyExecution.count      # Waiting for execution
+   SolidQueue::ClaimedExecution.count    # In progress
    ```
 
-2. **失敗したジョブの確認**
+2. **Check for failed jobs**
    ```ruby
    SolidQueue::FailedExecution.count
    ```
-   エラー詳細を確認してください。
+   Check the error details.
 
-3. **ログの確認**
+3. **Check logs**
    ```bash
    tail -f log/production.log | grep deliver
    ```
 
-4. **DeliveryResponse の確認**
+4. **Check DeliveryResponse**
    ```ruby
    DeliveryResponse.where('created_at > ?', 1.hour.ago).group(:status).count
    ```
 
-### Q. Docker環境でビルドが失敗します
+### Q. Build fails in Docker environment
 
-**よくある原因**:
+**Common causes:**
 
-1. **ネットワーク不通**: rubygems.org や Docker Hub へのアクセスが必要です
-2. **DB起動待ち**: `docker compose up -d` 後、約60秒待ってから `rails db:migrate` を実行
-3. **ポート競合**: ポート3000が既に使われていないか確認
+1. **Network unreachable**: Access to rubygems.org and Docker Hub is required
+2. **Waiting for DB startup**: After `docker compose up -d`, wait about 60 seconds before running `rails db:migrate`
+3. **Port conflict**: Make sure port 3000 is not already in use

@@ -30,17 +30,17 @@ class EmlInputsController < ApplicationController
 
     # Try to extract created MailQueue IDs from the API response body (JSON)
     results = parse_results!(response.body)
-    notice = "送信しました (作成ID: #{results.join(',')})"
+    notice = I18n.t("flash.eml_inputs.sent", ids: results.join(','))
 
     flash[:notice] = notice
     redirect_to new_eml_input_path
   rescue InputError, Verbena::HttpDelivery::DeliveryError => ex
     Rails.logger.warn("eml.inputs#create user error: #{ex.class}: #{ex.message}")
-    flash.now[:alert] = "送信に失敗しました: #{ex.message}"
+    flash.now[:alert] = I18n.t("flash.eml_inputs.failed", error: ex.message)
     render_error_restoring_inputs
   rescue => ex
     Rails.logger.error("eml.inputs#create unexpected error: #{ex.class}: #{ex.message}\n#{ex.backtrace.join("\n")}")
-    flash.now[:alert] = "システムエラーが発生しました"
+    flash.now[:alert] = I18n.t("flash.eml_inputs.system_error")
     render_error_restoring_inputs
   end
 
@@ -92,17 +92,17 @@ class EmlInputsController < ApplicationController
   end
 
   def validate_token!(token)
-    raise InputError, 'Tokenを入力してください' if token.blank?
+    raise InputError, I18n.t("errors.eml_inputs.token_blank") if token.blank?
   end
 
   def validate_eml_file!(upload)
-    raise InputError, 'EMLファイルを選択してください' unless upload.present?
+    raise InputError, I18n.t("errors.eml_inputs.upload_blank") unless upload.present?
 
     # 拡張子チェック（ブラウザ側の accept 属性はあてにならないためサーバ側でも確認）
     if upload.respond_to?(:original_filename)
       fname = upload.original_filename.to_s
       if File.extname(fname).downcase != '.eml'
-        raise InputError, 'EMLファイル（.eml）を選択してください'
+        raise InputError, I18n.t("errors.eml_inputs.upload_ext")
       end
     end
 
@@ -113,17 +113,17 @@ class EmlInputsController < ApplicationController
     max_size = MAX_EML_UPLOAD_SIZE
 
     if upload.respond_to?(:size) && !upload.size.nil?
-      raise InputError, 'EMLが空です' if upload.size.to_i == 0
-      raise InputError, "EMLファイルが大きすぎます (最大 #{max_size} バイト)" if upload.size.to_i > max_size
+      raise InputError, I18n.t("errors.eml_inputs.eml_empty") if upload.size.to_i == 0
+      raise InputError, I18n.t("errors.eml_inputs.eml_too_large", max: max_size) if upload.size.to_i > max_size
     else
       if upload.respond_to?(:read)
         content = upload.read(max_size + 1)
-        raise InputError, 'EMLが空です' if content.blank?
-        raise InputError, 'EMLファイルが大きすぎます' if content.bytesize > max_size
+        raise InputError, I18n.t("errors.eml_inputs.eml_empty") if content.blank?
+        raise InputError, I18n.t("errors.eml_inputs.eml_too_large_simple") if content.bytesize > max_size
         upload.rewind if upload.respond_to?(:rewind)
       else
         content = upload.to_s
-        raise InputError, 'EMLが空です' if content.blank?
+        raise InputError, I18n.t("errors.eml_inputs.eml_empty") if content.blank?
       end
     end
   end
@@ -143,7 +143,7 @@ class EmlInputsController < ApplicationController
     @token = params[:token]
     @sent_at = params[:sent_at]
 
-    flash.now[:alert] ||= "送信に失敗しました"
+    flash.now[:alert] ||= I18n.t("flash.eml_inputs.failed_generic")
     render :new, status: :unprocessable_entity
   end
 
@@ -194,7 +194,7 @@ class EmlInputsController < ApplicationController
     return [] if raw.blank?
     Mail::AddressList.new(raw.to_s).addresses.map(&:address).reject(&:blank?)
   rescue Mail::Field::ParseError
-    raise InputError, '不正なメールアドレス形式が含まれています'
+    raise InputError, I18n.t("errors.eml_inputs.invalid_address")
   end
 
   def fields_params
