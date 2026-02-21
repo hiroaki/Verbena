@@ -78,5 +78,7 @@ gem "solid_queue", "~> 1.3"
 gem "mission_control-jobs"
 
 gem "bulma-rails", "~> 1.0.0"
-
 gem "dartsass-rails", "~> 0.5.1"
+
+# Deploy this application anywhere as a Docker container [https://kamal-deploy.org]
+gem 'kamal', require: false
