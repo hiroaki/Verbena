@@ -36,6 +36,10 @@ test:
   <<: *default
   database: <%= resolve_name.call("test") %>
 
+staging:
+  <<: *default
+  database: <%= resolve_name.call("staging") %>
+
 production:
   <<: *default
   database: <%= resolve_name.call("production") %>
