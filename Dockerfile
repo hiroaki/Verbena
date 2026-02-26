@@ -33,4 +33,4 @@ RUN bundle install --jobs=4 --retry=3
 COPY --chown=rails:rails . .
 
 ENTRYPOINT ["/bin/bash", "/verbena/entrypoint.sh"]
-CMD ["/bin/bash"]
+CMD ["/bin/bash", "-lc", "exec bundle exec rails server -b \"${BINDING:-0.0.0.0}\" -p \"${PORT:-3000}\""]

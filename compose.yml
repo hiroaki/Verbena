@@ -8,6 +8,7 @@ services:
       - 'bundle:/usr/local/bundle'
     tty: true
     stdin_open: true
+    command: /bin/bash
     environment:
       BINDING: 0.0.0.0
       PORT: 3000
