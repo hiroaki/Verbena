@@ -7,6 +7,10 @@
 # Ignore bundler config.
 /.bundle
 
+# Ignore all environment files (except templates).
+/.env*
+!/.env*.erb
+
 # Ignore all logfiles and tempfiles.
 /log/*
 /tmp/*
@@ -39,8 +43,6 @@ coverage
 
 # Ignore .DS_Store files created by macOS that store custom attributes of stored folders
 .DS_Store
-
-.env
 
 # Ignore VS Code project settings
 .vscode/
