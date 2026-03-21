@@ -1,0 +1,94 @@
+service: verbena
+
+image: <%= ENV.fetch('DEPLOY_IMAGE') %>
+
+servers:
+  web:
+    hosts:
+      - <%= ENV.fetch('DEPLOY_SERVER_WEB_HOST') %>
+    options:
+      hostname: <%= ENV.fetch('DEPLOY_WEB_HOSTNAME', 'verbena-web') %>
+    proxy: false
+    cmd: "bundle exec rails server"
+  worker:
+    hosts:
+      - <%= ENV.fetch('DEPLOY_SERVER_WORKER_HOST') %>
+    options:
+      hostname: <%= ENV.fetch('DEPLOY_WORKER_HOSTNAME', 'verbena-worker') %>
+    proxy: false
+    cmd: "bundle exec bin/jobs"
+
+registry:
+  server: localhost:5555
+
+builder:
+  arch: amd64
+
+env:
+  clear:
+    RAILS_ENV: staging
+    DATABASE_ADAPTER: mysql2
+    DATABASE_HOST: mysql
+    DATABASE_PORT: "3306"
+    DATABASE_NAME: <%= ENV.fetch('DATABASE_NAME', 'verbena') %>
+    VERBENA_DATABASE_USER: <%= ENV.fetch('VERBENA_DATABASE_USER', 'verbena') %>
+
+    # Delivery settings
+    VERBENA_DELIVERY_METHOD: <%= ENV.fetch('VERBENA_DELIVERY_METHOD', 'smtp') %>
+    VERBENA_DELIVERY_SMTP_ADDRESS: <%= ENV.fetch('VERBENA_DELIVERY_SMTP_ADDRESS') %>
+    VERBENA_DELIVERY_SMTP_PORT: <%= ENV.fetch('VERBENA_DELIVERY_SMTP_PORT') %>
+    VERBENA_DELIVERY_SMTP_DOMAIN: <%= ENV.fetch('VERBENA_DELIVERY_SMTP_DOMAIN') %>
+    VERBENA_DELIVERY_SMTP_USER_NAME: <%= ENV.fetch('VERBENA_DELIVERY_SMTP_USER_NAME') %>
+    VERBENA_DELIVERY_SMTP_AUTHENTICATION: <%= ENV.fetch('VERBENA_DELIVERY_SMTP_AUTHENTICATION', 'login') %>
+    VERBENA_DELIVERY_SMTP_ENABLE_STARTTLS_AUTO: <%= ENV.fetch('VERBENA_DELIVERY_SMTP_ENABLE_STARTTLS_AUTO', 'true') %>
+    VERBENA_ENVELOPE_FROM_OVERRIDE: <%= ENV.fetch('VERBENA_ENVELOPE_FROM_OVERRIDE', '') %>
+    VERBENA_FILE_DELIVERY_DIR: <%= ENV.fetch('VERBENA_FILE_DELIVERY_DIR', 'tmp/mails') %>
+    VERBENA_DELIVERY_MAX_RETRIES: <%= ENV.fetch('VERBENA_DELIVERY_MAX_RETRIES', '5') %>
+    VERBENA_DELIVERY_LOCK_TTL_SECONDS: <%= ENV.fetch('VERBENA_DELIVERY_LOCK_TTL_SECONDS', '300') %>
+    VERBENA_DELIVERY_LOCK_MAX_SECONDS: <%= ENV.fetch('VERBENA_DELIVERY_LOCK_MAX_SECONDS', '3600') %>
+
+    # API settings
+    VERBENA_API_PAGINATION_DEFAULT_LIMIT: <%= ENV.fetch('VERBENA_API_PAGINATION_DEFAULT_LIMIT', '50') %>
+    VERBENA_API_PAGINATION_LIMIT_CAP: <%= ENV.fetch('VERBENA_API_PAGINATION_LIMIT_CAP', '1000') %>
+    VERBENA_API_PAGINATION_DEFAULT_OFFSET: <%= ENV.fetch('VERBENA_API_PAGINATION_DEFAULT_OFFSET', '0') %>
+    VERBENA_API_RESPONSES_DEFAULT_LIMIT: <%= ENV.fetch('VERBENA_API_RESPONSES_DEFAULT_LIMIT', '50') %>
+    VERBENA_API_RESPONSES_LIMIT_CAP: <%= ENV.fetch('VERBENA_API_RESPONSES_LIMIT_CAP', '100') %>
+
+    # Maintenance and system settings
+    VERBENA_EML_MAX_BYTES: <%= ENV.fetch('VERBENA_EML_MAX_BYTES', '10485760') %>
+    VERBENA_CLEANUP_TTL_DAYS: <%= ENV.fetch('VERBENA_CLEANUP_TTL_DAYS', '30') %>
+    VERBENA_LOG_FORMAT: <%= ENV.fetch('VERBENA_LOG_FORMAT', 'text') %>
+    VERBENA_ADMIN_USERNAME: <%= ENV.fetch('VERBENA_ADMIN_USERNAME', '') %>
+  secret:
+    - SECRET_KEY_BASE
+    - VERBENA_DATABASE_PASSWORD
+    - VERBENA_DELIVERY_SMTP_PASSWORD
+    - VERBENA_ADMIN_PASSWORD
+
+ssh:
+  port: <%= ENV.fetch('DEPLOY_SSH_PORT', 22) %>
+  user: <%= ENV.fetch('DEPLOY_SSH_USER') %>
+  keys_only: true
+  keys:
+<% ENV.fetch('DEPLOY_SSH_KEYS').split(',').each do |key| %>
+    - <%= key.strip %>
+<% end %>
+
+accessories:
+  mysql:
+    image: mariadb:10.6.10
+    host: <%= ENV.fetch('DEPLOY_ACCESSORIES_DB_HOST') %>
+    env:
+      clear:
+        TZ: UTC
+        DATABASE_ENVS: staging
+        DATABASE_NAME: <%= ENV.fetch('DATABASE_NAME', 'verbena') %>
+        MYSQL_DATABASE: <%= ENV.fetch('DATABASE_NAME', 'verbena') %>_staging
+        MYSQL_USER: <%= ENV.fetch('VERBENA_DATABASE_USER', 'verbena') %>
+      secret:
+        - MYSQL_ROOT_PASSWORD
+        - MYSQL_PASSWORD
+    directories:
+      - mysql-data:/var/lib/mysql
+    files:
+      - initdb/mysql/00-create-db-users.sh:/docker-entrypoint-initdb.d/00-create-db-users.sh
