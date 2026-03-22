@@ -32,5 +32,9 @@ RUN bundle install --jobs=4 --retry=3
 # Copy application files as rails
 COPY --chown=rails:rails . .
 
+# Precompile assets at image build time to avoid runtime compilation.
+# VERBENA_DELIVERY_METHOD=test prevents SMTP-required boot checks during build.
+RUN SECRET_KEY_BASE_DUMMY=1 RAILS_ENV=production VERBENA_DELIVERY_METHOD=test bundle exec rails assets:precompile
+
 ENTRYPOINT ["/bin/bash", "/verbena/entrypoint.sh"]
 CMD ["/bin/bash", "-lc", "exec bundle exec rails server -b \"${BINDING:-0.0.0.0}\" -p \"${PORT:-3000}\""]
