@@ -77,24 +77,49 @@ module Verbena
 
       # API pagination readers
       def api_pagination_default_limit
-        integer_cast(config.api_pagination_default_limit, 50)
+        integer_setting(
+          config.api_pagination_default_limit,
+          default: 50,
+          env_key: 'VERBENA_API_PAGINATION_DEFAULT_LIMIT',
+          min: 1
+        )
       end
 
       def api_pagination_limit_cap
-        integer_cast(config.api_pagination_limit_cap, 1000)
+        integer_setting(
+          config.api_pagination_limit_cap,
+          default: 1000,
+          env_key: 'VERBENA_API_PAGINATION_LIMIT_CAP',
+          min: 1
+        )
       end
 
       def api_pagination_default_offset
-        integer_cast(config.api_pagination_default_offset, 0)
+        integer_setting(
+          config.api_pagination_default_offset,
+          default: 0,
+          env_key: 'VERBENA_API_PAGINATION_DEFAULT_OFFSET',
+          min: 0
+        )
       end
 
       # API responses include limits
       def api_responses_default_limit
-        integer_cast(config.api_responses_default_limit, 50)
+        integer_setting(
+          config.api_responses_default_limit,
+          default: 50,
+          env_key: 'VERBENA_API_RESPONSES_DEFAULT_LIMIT',
+          min: 1
+        )
       end
 
       def api_responses_limit_cap
-        integer_cast(config.api_responses_limit_cap, 100)
+        integer_setting(
+          config.api_responses_limit_cap,
+          default: 100,
+          env_key: 'VERBENA_API_RESPONSES_LIMIT_CAP',
+          min: 1
+        )
       end
 
       # Mail delivery configs for helpers
@@ -128,29 +153,52 @@ module Verbena
 
       # General readers
       def eml_max_bytes
-        integer_cast(config.eml_max_bytes, 10 * 1024 * 1024) # default 10 MiB
+        integer_setting(
+          config.eml_max_bytes,
+          default: 10 * 1024 * 1024,
+          env_key: 'VERBENA_EML_MAX_BYTES',
+          min: 1
+        )
       end
 
       # Cleanup TTL days (default 30)
       def cleanup_ttl_days
-        days = integer_cast(config.cleanup_ttl_days, 30)
-        days <= 0 ? 30 : days
+        integer_setting(
+          config.cleanup_ttl_days,
+          default: 30,
+          env_key: 'VERBENA_CLEANUP_TTL_DAYS',
+          min: 1
+        )
       end
 
       # Delivery retry attempts (default 5)
       def delivery_max_retries
-        n = integer_cast(config.delivery_max_retries, 5)
-        n <= 0 ? 5 : n
+        integer_setting(
+          config.delivery_max_retries,
+          default: 5,
+          env_key: 'VERBENA_DELIVERY_MAX_RETRIES',
+          min: 0
+        )
       end
 
       # Delivery lock TTL (base seconds)
       def delivery_lock_ttl_seconds
-        integer_cast(config.delivery_lock_ttl_seconds, 300)
+        integer_setting(
+          config.delivery_lock_ttl_seconds,
+          default: 300,
+          env_key: 'VERBENA_DELIVERY_LOCK_TTL_SECONDS',
+          min: 1
+        )
       end
 
       # Delivery lock maximum seconds (cap)
       def delivery_lock_max_seconds
-        integer_cast(config.delivery_lock_max_seconds, 3600)
+        integer_setting(
+          config.delivery_lock_max_seconds,
+          default: 3600,
+          env_key: 'VERBENA_DELIVERY_LOCK_MAX_SECONDS',
+          min: 1
+        )
       end
 
       # Admin authentication readers
@@ -249,9 +297,26 @@ module Verbena
         ActiveModel::Type::Boolean.new.cast(value)
       end
 
-      def integer_cast(value, default = nil)
+      def integer_setting(value, default:, env_key:, min: nil)
+        n = integer_cast(value, default: default, env_key: env_key)
+        if !min.nil? && n < min
+          raise ArgumentError, "[Verbena::Settings] #{env_key} must be >= #{min}, got #{n}"
+        end
+        n
+      end
+
+      def integer_cast(value, default:, env_key:)
         return default if value.nil?
-        value.to_i
+
+        if value.is_a?(String)
+          trimmed = value.strip
+          return default if trimmed.empty?
+          Integer(trimmed, 10)
+        else
+          Integer(value)
+        end
+      rescue ArgumentError, TypeError
+        raise ArgumentError, "[Verbena::Settings] Invalid integer for #{env_key}: #{value.inspect}"
       end
     end
   end
