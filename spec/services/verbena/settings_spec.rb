@@ -32,6 +32,35 @@ RSpec.describe Verbena::Settings do
 
       expect(described_class.file_delivery_dir).to eq('/tmp/mails')
     end
+
+    it 'falls back to defaults for blank numeric values' do
+      described_class.configure(
+        api_pagination_default_limit: '',
+        api_pagination_default_offset: " \t ",
+        delivery_max_retries: '',
+        delivery_lock_ttl_seconds: '',
+        delivery_lock_max_seconds: ''
+      )
+
+      expect(described_class.api_pagination_default_limit).to eq(50)
+      expect(described_class.api_pagination_limit_cap).to eq(1000)
+      expect(described_class.api_pagination_default_offset).to eq(0)
+      expect(described_class.delivery_max_retries).to eq(5)
+      expect(described_class.delivery_lock_ttl_seconds).to eq(300)
+      expect(described_class.delivery_lock_max_seconds).to eq(3600)
+    end
+
+    it 'raises for invalid numeric values' do
+      described_class.configure(api_pagination_limit_cap: 'not-a-number')
+      expect { described_class.api_pagination_limit_cap }
+        .to raise_error(ArgumentError, /VERBENA_API_PAGINATION_LIMIT_CAP/)
+    end
+
+    it 'raises for out-of-range numeric values' do
+      described_class.configure(delivery_lock_ttl_seconds: '0')
+      expect { described_class.delivery_lock_ttl_seconds }
+        .to raise_error(ArgumentError, /VERBENA_DELIVERY_LOCK_TTL_SECONDS/)
+    end
   end
 
   describe 'unknown keys' do

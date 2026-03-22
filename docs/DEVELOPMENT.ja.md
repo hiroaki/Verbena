@@ -5,6 +5,7 @@
 ## 目次
 
 - [開発環境のセットアップ](#開発環境のセットアップ)
+- [デプロイ](#デプロイ)
 - [I18n / ロケール](#i18n--ロケール)
 - [テスト](#テスト)
 - [アーキテクチャ](#アーキテクチャ)
@@ -138,6 +139,69 @@ $ docker compose -f compose.yml -f compose.mysql.yml exec web rails db:migrate:r
 ```
 
 ---
+
+## デプロイ
+
+本プロジェクトでは Kamal + dotenv を利用してデプロイします。
+
+各種設定はすべて環境変数を介して行います。
+
+### 関連ファイルの役割
+
+| ファイル | 役割 | 備考 |
+|---|---|---|
+| `config/deploy.yml` | Kamal 共通設定 | 環境共通のベース定義 |
+| `config/deploy.staging.yml` | staging 固有設定 | サーバー、アクセサリ、env を定義 |
+| `.kamal/secrets.staging` | staging の secret マッピング | 値本体は環境変数から参照 |
+| `dot.env.staging.sample` | dotenv テンプレート | 実運用時は `.env.staging` を作成して使用 |
+
+### 事前準備
+
+1. テンプレートから環境変数ファイルを作成
+
+```sh
+cp dot.env.staging.sample .env.staging
+```
+
+2. `.env.staging` に実値を設定
+  - 例: `DEPLOY_IMAGE`, `DEPLOY_SERVER_WEB_HOST`, `DEPLOY_SERVER_WORKER_HOST`, `DEPLOY_ACCESSORIES_DB_HOST`, `DEPLOY_SSH_*`, `SECRET_KEY_BASE` など
+3. secret 参照キーと `.kamal/secrets.staging` の整合を確認
+
+### デプロイ手順（staging）
+
+事故防止のため `require_destination: true` を有効化しており、 kamal コマンドの実行時には `-d staging` の指定が必須です。
+
+```sh
+# 1) 設定解決結果の確認（必須）
+dotenv -f .env.staging -- kamal config -d staging
+
+# 2) DBアクセサリ起動（初回 / 再作成時）
+dotenv -f .env.staging -- kamal accessory boot mysql -d staging
+
+# 3) アプリ本体デプロイ
+dotenv -f .env.staging -- kamal deploy -d staging
+
+# 4) 必要に応じてマイグレーション
+dotenv -f .env.staging -- kamal app exec -d staging --reuse "bundle exec rails db:migrate RAILS_ENV=staging"
+
+# 5) ログ確認
+dotenv -f .env.staging -- kamal app logs -d staging
+```
+
+### 注意事項
+
+- `DATABASE_HOST` は accessory 名（`mysql`）と一致させること。
+
+### よく使う確認コマンド
+
+```sh
+# 現在の設定を確認
+dotenv -f .env.staging -- kamal config -d staging
+
+# コンテナ状態確認
+dotenv -f .env.staging -- kamal app details -d staging
+dotenv -f .env.staging -- kamal accessory details mysql -d staging
+```
 
 ## I18n / ロケール
 
