@@ -28,7 +28,7 @@ env:
   clear:
     RAILS_ENV: staging
     DATABASE_ADAPTER: mysql2
-    DATABASE_HOST: mysql
+    DATABASE_HOST: verbena-mysql
     DATABASE_PORT: "3306"
     DATABASE_NAME: <%= ENV.fetch('DATABASE_NAME', 'verbena') %>
     VERBENA_DATABASE_USER: <%= ENV.fetch('VERBENA_DATABASE_USER', 'railsuser') %>
