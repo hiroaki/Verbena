@@ -159,10 +159,13 @@ $ docker compose -f compose.yml -f compose.mysql.yml build
 $ docker compose -f compose.yml -f compose.mysql.yml up -d
 
 # Initialize the database
-$ docker compose -f compose.yml -f compose.mysql.yml exec web rails db:migrate:reset
+$ docker compose -f compose.yml -f compose.mysql.yml exec web bin/rails db:migrate:reset
 
 # Run tests
 $ docker compose -f compose.yml -f compose.mysql.yml exec web bundle exec rspec
+
+# Start the server (see Procfile.dev)
+$ docker compose -f compose.yml -f compose.mysql.yml exec web bin/dev
 ```
 
 **Supported Databases**: MySQL 8.0+, MariaDB 10.6+, PostgreSQL 13+, SQLite 3.x

@@ -160,10 +160,13 @@ $ docker compose -f compose.yml -f compose.mysql.yml build
 $ docker compose -f compose.yml -f compose.mysql.yml up -d
 
 # データベースを初期化
-$ docker compose -f compose.yml -f compose.mysql.yml exec web rails db:migrate:reset
+$ docker compose -f compose.yml -f compose.mysql.yml exec web bin/rails db:migrate:reset
 
 # テスト実行
 $ docker compose -f compose.yml -f compose.mysql.yml exec web bundle exec rspec
+
+# 起動（ Procfile.dev を参照）
+$ docker compose -f compose.yml -f compose.mysql.yml exec web bin/dev
 ```
 
 **対応データベース**: MySQL 8.0+, MariaDB 10.6+, PostgreSQL 13+, SQLite 3.x
