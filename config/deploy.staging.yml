@@ -75,7 +75,8 @@ ssh:
 <% end %>
 
 accessories:
-  mysql:
+  mariadb:
+    service: verbena-mysql
     image: mariadb:10.6.10
     host: <%= ENV.fetch('DEPLOY_ACCESSORIES_DB_HOST') %>
     env:
