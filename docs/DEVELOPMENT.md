@@ -119,7 +119,54 @@ SQLite is file-based, so no DB server environment variables are needed. Files ar
 
 ## Deploy
 
-TODO
+This project provides a deployment method using Kamal.
+
+### Architecture
+
+Kamal deploys the following three roles (services). Each role uses the same image, with its function separated by environment variables.
+
+| Role   | Description |
+|--------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| web    | Internal API-only web server. Launched with `VERBENA_ADMIN_ROUTES_ONLY=0`, only API routes are enabled. Not exposed externally; accessible only from other containers. |
+| admin  | Admin UI web server. Launched with `VERBENA_ADMIN_ROUTES_ONLY=1`, only admin routes are enabled. Publishes port 23000 to the host, allowing external access to the admin UI (protected by Basic Auth, etc.). |
+| worker | Background job worker. Operates independently from the API and admin UI. |
+
+### Related Files
+
+| File | Role | Notes |
+|---|---|---|
+| `config/deploy.yml` | Kamal common settings | Base definition shared across environments |
+| `config/deploy.staging.yml` | Staging-specific settings | Defines servers, accessories, and env |
+| `dot.env.staging.sample` | dotenv template | Copy to `.env.staging` for actual use |
+| `.kamal/secrets.staging` | Staging secret mapping | Actual values are referenced from environment variables |
+
+### Preparation
+
+All configuration is done via environment variables. Since there are many variables, use dotenv.
+
+A template is provided; copy and edit it as needed.
+
+```sh
+$ cp -i dot.env.staging.sample .env.staging
+```
+
+### Deployment Steps (staging)
+
+For safety, `require_destination: true` is enabled, so you must specify the `-d staging` option when running Kamal commands.
+
+```sh
+# Check current settings
+$ dotenv -f .env.staging -- kamal config -d staging
+
+# Start DB accessory (first time / when recreating)
+$ dotenv -f .env.staging -- kamal accessory boot mysql -d staging
+
+# Deploy the main app
+$ dotenv -f .env.staging -- kamal deploy -d staging
+
+# View logs
+$ dotenv -f .env.staging -- kamal app logs -d staging
+```
 
 ---
 

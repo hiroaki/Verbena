@@ -9,14 +9,29 @@ servers:
     options:
       hostname: <%= ENV.fetch('DEPLOY_WEB_HOSTNAME', 'verbena-web') %>
     proxy: false
-    cmd: "bundle exec rails server"
+    cmd: "bin/rails server"
+    env:
+      clear:
+        VERBENA_ADMIN_ROUTES_ONLY: 0
+  admin:
+    hosts:
+      - <%= ENV.fetch('DEPLOY_SERVER_WEB_HOST') %>
+    options:
+      hostname: <%= ENV.fetch('DEPLOY_ADMIN_HOSTNAME', 'verbena-admin') %>
+      publish:
+        - "23000:3000"
+    proxy: false
+    cmd: "bin/rails server"
+    env:
+      clear:
+        VERBENA_ADMIN_ROUTES_ONLY: 1
   worker:
     hosts:
       - <%= ENV.fetch('DEPLOY_SERVER_WORKER_HOST') %>
     options:
       hostname: <%= ENV.fetch('DEPLOY_WORKER_HOSTNAME', 'verbena-worker') %>
     proxy: false
-    cmd: "bundle exec bin/jobs"
+    cmd: "bin/jobs"
 
 registry:
   server: localhost:5555
