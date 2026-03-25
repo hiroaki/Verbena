@@ -8,8 +8,8 @@ services:
       POSTGRES_DB: '${DATABASE_NAME:-verbena}_development'
       POSTGRES_INITDB_ARGS: '--encoding=UTF8 --locale=C'
       DATABASE_NAME: '${DATABASE_NAME:-verbena}'
-      APP_USER: '${VERBENA_DATABASE_USER:-postgres}'
-      APP_PASS: '${VERBENA_DATABASE_PASSWORD:-postgres}'
+      VERBENA_DATABASE_USER: '${VERBENA_DATABASE_USER:-railsuser}'
+      VERBENA_DATABASE_PASSWORD: '${VERBENA_DATABASE_PASSWORD:-railspass}'
     ports:
       - '${POSTGRES_FORWARD_PORT:-25432}:5432'
     volumes:
@@ -26,8 +26,8 @@ services:
       DATABASE_ADAPTER: postgresql
       DATABASE_HOST: db
       DATABASE_PORT: 5432
-      VERBENA_DATABASE_USER: ${VERBENA_DATABASE_USER:-${POSTGRES_USER:-postgres}}
-      VERBENA_DATABASE_PASSWORD: ${VERBENA_DATABASE_PASSWORD:-${POSTGRES_PASSWORD:-postgres}}
+      VERBENA_DATABASE_USER: ${VERBENA_DATABASE_USER:-railsuser}
+      VERBENA_DATABASE_PASSWORD: ${VERBENA_DATABASE_PASSWORD:-railspass}
     depends_on:
       db:
         condition: service_healthy

@@ -152,7 +152,7 @@ $ bin/rails verbena:delivery:reset_undelivered
 $ git clone https://github.com/hiroaki/Verbena.git
 $ cd Verbena
 
-# 環境変数ファイルを作成
+# (オプション) 環境変数ファイルを作成、編集
 $ cp dot.env.sample .env
 
 # データベースを選択してコンテナを起動（MySQL の例）
@@ -160,10 +160,13 @@ $ docker compose -f compose.yml -f compose.mysql.yml build
 $ docker compose -f compose.yml -f compose.mysql.yml up -d
 
 # データベースを初期化
-$ docker compose -f compose.yml -f compose.mysql.yml exec web rails db:migrate:reset
+$ docker compose -f compose.yml -f compose.mysql.yml exec web bin/rails db:prepare
 
 # テスト実行
-$ docker compose -f compose.yml -f compose.mysql.yml exec web bundle exec rspec
+$ docker compose -f compose.yml -f compose.mysql.yml exec web bin/rspec
+
+# 起動（ Procfile.dev を参照）
+$ docker compose -f compose.yml -f compose.mysql.yml exec web bin/dev
 ```
 
 **対応データベース**: MySQL 8.0+, MariaDB 10.6+, PostgreSQL 13+, SQLite 3.x

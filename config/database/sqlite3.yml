@@ -21,6 +21,10 @@ test:
   <<: *default
   database: <%= resolve_path.call("test") %>
 
+staging:
+  <<: *default
+  database: <%= resolve_path.call("staging") %>
+
 production:
   <<: *default
   database: <%= resolve_path.call("production") %>

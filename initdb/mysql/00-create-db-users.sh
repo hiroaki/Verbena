@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Database initialization script for Verbena development environment
+# Database initialization script for Verbena environments
 #
 # This script is designed to be idempotent - it can be run multiple times safely
 # without causing side effects. It checks for existing privileges before making changes.
@@ -8,6 +8,13 @@
 # Environment variables required:
 #   MYSQL_ROOT_PASSWORD - Root password for MySQL database
 #   MYSQL_USER - Username for Rails application database access
+#
+# Environment variables optional:
+#   DATABASE_NAME - Base database name (default: verbena)
+#   DATABASE_ENVS - Comma-separated target environments (default: development,test)
+#                   Example: staging
+#                            production
+#                            development,test,staging
 #
 # Note:
 # - MYSQL_PASSWORD is set by MariaDB for MYSQL_USER; this script only grants database privileges
@@ -29,6 +36,13 @@ fi
 # Flag to track if any changes were made (for FLUSH PRIVILEGES optimization)
 SKIP_FLUSH=1
 
+# Helper function: trim leading/trailing spaces
+trim() {
+	value="$1"
+	# shellcheck disable=SC2001
+	echo "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
+}
+
 # Helper function: check if user has any privileges for the given database
 # Returns 0 (success) if privileges exist, 1 (failure) if they don't
 has_privs_for_db() {
@@ -39,31 +53,53 @@ has_privs_for_db() {
 }
 
 DB_BASE=${DATABASE_NAME:-verbena}
-DEV_DB="${DB_BASE}_development"
-TEST_DB="${DB_BASE}_test"
+TARGET_ENVS=${DATABASE_ENVS:-development,test}
 
-echo "initdb: ensuring privileges for user ${MYSQL_USER} on ${DEV_DB} / ${TEST_DB}"
-
-mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "CREATE DATABASE IF NOT EXISTS \`${DEV_DB}\`;"
-mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "CREATE DATABASE IF NOT EXISTS \`${TEST_DB}\`;"
-
-# Check and grant privileges for development database
-if has_privs_for_db "${DEV_DB}"; then
-	echo "initdb: privileges for ${MYSQL_USER} on ${DEV_DB} already present — skipping"
-else
-	echo "initdb: granting privileges on ${DEV_DB} to ${MYSQL_USER}"
-	mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "GRANT ALL PRIVILEGES ON \`${DEV_DB}\`.* TO '${MYSQL_USER}'@'%';"
-	SKIP_FLUSH=0
+if [ -z "$(trim "${TARGET_ENVS}")" ]; then
+	echo "Error: DATABASE_ENVS is empty. Set at least one environment name." >&2
+	exit 1
 fi
 
-# Check and grant privileges for test database
-if has_privs_for_db "${TEST_DB}"; then
-	echo "initdb: privileges for ${MYSQL_USER} on ${TEST_DB} already present — skipping"
-else
-	echo "initdb: granting privileges on ${TEST_DB} to ${MYSQL_USER}"
-	mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "GRANT ALL PRIVILEGES ON \`${TEST_DB}\`.* TO '${MYSQL_USER}'@'%';"
-	SKIP_FLUSH=0
+TARGET_DBS=""
+
+old_ifs=$IFS
+IFS=','
+for raw_env in ${TARGET_ENVS}; do
+	env_name=$(trim "${raw_env}")
+	if [ -z "${env_name}" ]; then
+		continue
+	fi
+
+	if ! echo "${env_name}" | grep -Eq '^[A-Za-z0-9_]+$'; then
+		echo "Error: DATABASE_ENVS contains invalid environment '${env_name}'. Only alphanumeric and underscore are allowed." >&2
+		exit 1
+	fi
+
+	TARGET_DBS="${TARGET_DBS} ${DB_BASE}_${env_name}"
+done
+IFS=$old_ifs
+
+TARGET_DBS=$(trim "${TARGET_DBS}")
+if [ -z "${TARGET_DBS}" ]; then
+	echo "Error: No target databases resolved from DATABASE_ENVS='${TARGET_ENVS}'" >&2
+	exit 1
 fi
+
+echo "initdb: ensuring privileges for user ${MYSQL_USER} on: ${TARGET_DBS}"
+
+for db in ${TARGET_DBS}; do
+	mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "CREATE DATABASE IF NOT EXISTS \`${db}\`;"
+done
+
+for db in ${TARGET_DBS}; do
+	if has_privs_for_db "${db}"; then
+		echo "initdb: privileges for ${MYSQL_USER} on ${db} already present — skipping"
+	else
+		echo "initdb: granting privileges on ${db} to ${MYSQL_USER}"
+		mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "GRANT ALL PRIVILEGES ON \`${db}\`.* TO '${MYSQL_USER}'@'%';"
+		SKIP_FLUSH=0
+	fi
+done
 
 # Only flush privileges if we made changes (optimization)
 if [ "${SKIP_FLUSH}" -eq 0 ]; then

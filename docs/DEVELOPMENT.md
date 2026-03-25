@@ -1,4 +1,3 @@
-
 # Verbena Development Guide
 
 This document provides information for Verbena developers, including environment setup, testing, architecture design, and the background of technical decisions.
@@ -6,6 +5,7 @@ This document provides information for Verbena developers, including environment
 ## Table of Contents
 
 - [Development Environment Setup](#development-environment-setup)
+- [Deploy](#Deploy)
 - [I18n / Locale](#i18n--locale)
 - [Testing](#testing)
 - [Architecture](#architecture)
@@ -20,7 +20,6 @@ This document provides information for Verbena developers, including environment
 
 - Docker and Docker Compose
 - Git
-
 
 ### Initial Setup
 
@@ -73,7 +72,7 @@ $ docker compose -f compose.yml -f compose.mysql.yml up -d
 5. **Initialize the database**
 
 ```sh
-$ docker compose -f compose.yml -f compose.mysql.yml exec web rails db:migrate:reset
+$ docker compose -f compose.yml -f compose.mysql.yml exec web rails db:prepare
 ```
 
 ### Database Initialization Environment Variables
@@ -114,28 +113,59 @@ SQLite is file-based, so no DB server environment variables are needed. Files ar
 #### Notes
 
 - If there is existing data in the volume, the initialization script will not run.
-- To return to a completely initial state, see the "Full Database Reset" section.
+- To return to a completely initial state, delete and recreate the volume.
 
-### Full Database Reset
+---
 
-If you want to return the database to a completely initial state during development, delete and recreate the volume:
+## Deploy
 
-1. **Stop containers and delete the volume**
+This project provides a deployment method using Kamal.
+
+### Architecture
+
+Kamal deploys the following three roles (services). Each role uses the same image, with its function separated by environment variables.
+
+| Role   | Description |
+|--------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| web    | Internal API-only web server. Launched with `VERBENA_ADMIN_ROUTES_ONLY=0`, only API routes are enabled. Not exposed externally; accessible only from other containers. |
+| admin  | Admin UI web server. Launched with `VERBENA_ADMIN_ROUTES_ONLY=1`, only admin routes are enabled. Publishes port 23000 to the host, allowing external access to the admin UI (protected by Basic Auth, etc.). |
+| worker | Background job worker. Operates independently from the API and admin UI. |
+
+### Related Files
+
+| File | Role | Notes |
+|---|---|---|
+| `config/deploy.yml` | Kamal common settings | Base definition shared across environments |
+| `config/deploy.staging.yml` | Staging-specific settings | Defines servers, accessories, and env |
+| `dot.env.staging.sample` | dotenv template | Copy to `.env.staging` for actual use |
+| `.kamal/secrets.staging` | Staging secret mapping | Actual values are referenced from environment variables |
+
+### Preparation
+
+All configuration is done via environment variables. Since there are many variables, use dotenv.
+
+A template is provided; copy and edit it as needed.
 
 ```sh
-$ docker compose -f compose.yml -f compose.mysql.yml down -v
+$ cp -i dot.env.staging.sample .env.staging
 ```
 
-2. **Restart containers**
+### Deployment Steps (staging)
+
+For safety, `require_destination: true` is enabled, so you must specify the `-d staging` option when running Kamal commands.
 
 ```sh
-$ docker compose -f compose.yml -f compose.mysql.yml up -d
-```
+# Check current settings
+$ dotenv -f .env.staging -- kamal config -d staging
 
-3. **Recreate the database**
+# Start DB accessory (first time / when recreating)
+$ dotenv -f .env.staging -- kamal accessory boot mysql -d staging
 
-```sh
-$ docker compose -f compose.yml -f compose.mysql.yml exec web rails db:migrate:reset
+# Deploy the main app
+$ dotenv -f .env.staging -- kamal deploy -d staging
+
+# View logs
+$ dotenv -f .env.staging -- kamal app logs -d staging
 ```
 
 ---
@@ -355,19 +385,17 @@ All migrations (`db/migrate/`) are designed to work with multiple databases acco
 - **Type-specific options are adapter-independent**: Do not use DB-specific options like MySQL's size specifier for `:text` (`limit:`), only use plain type specifiers that are interpreted by all DBs.
 - **Avoid direct SQL**: Do not use vendor-specific SQL in `execute()` clauses.
 
-### Notes on Database Portability
+### Schema Updates
 
-This project's `db/schema.rb` is generated based on the MySQL environment (as reference). Therefore, MySQL-specific options like `charset: "utf8mb4"` are included.
+When you add or change migrations, run bin/rails db:schema:dump in each DB environment and update the corresponding schema file.
 
-If you use PostgreSQL or SQLite, running `bin/rails db:schema:load` (or `db:prepare` in `bin/setup`) may cause errors due to these options.
+| DATABASE_ADAPTER | Schema File              |
+|------------------|--------------------------|
+| mysql2           | db/schema.mysql2.rb      |
+| postgresql       | db/schema.postgresql.rb  |
+| sqlite3          | db/schema.sqlite3.rb     |
 
-**When setting up the environment with databases other than MySQL, use the following commands (build from migrations) instead of `db:schema:load`:**
-
-```sh
-# For PostgreSQL / SQLite
-$ bin/rails db:create
-$ bin/rails db:migrate
-```
+At container startup, the `entrypoint.sh` script places the schema file corresponding to the `DATABASE_ADAPTER` as `db/schema.rb`. Therefore, the `db/schema.rb` file is excluded from version control.
 
 ### Timezone Policy (UTC)
 
@@ -379,7 +407,7 @@ Verbena is designed to operate consistently in UTC:
 - **PostgreSQL**: Specify `variables: { timezone: 'UTC' }` in `config/database.yml` to fix session timezone to UTC
 - **SQLite**: No session/database timezone setting. Datetimes are generated/managed as UTC on the Rails side
 
-#### Programming Guidelines
+### Programming Guidelines
 
 - Do not use DB functions affected by timezone such as `NOW()` or `CURRENT_TIMESTAMP`; always bind datetime values generated by Rails
 - Always treat datetimes as UTC, and convert to the user's timezone only when displaying
@@ -398,6 +426,8 @@ EML (Raw email format) is stored in the `eml_sources.eml` column.
 
 - To support larger EML files (with large attachments), we are considering using object storage
 - In that case, the EML body will be stored in storage, and only metadata and a small preview will be kept in the DB
+
+---
 
 ## Token Operation Rules
 

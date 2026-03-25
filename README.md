@@ -151,7 +151,7 @@ $ bin/rails verbena:delivery:reset_undelivered
 $ git clone https://github.com/hiroaki/Verbena.git
 $ cd Verbena
 
-# Create environment variable file
+# (Optional) Create and edit the environment variable file
 $ cp dot.env.sample .env
 
 # Select database and start containers (example: MySQL)
@@ -159,10 +159,13 @@ $ docker compose -f compose.yml -f compose.mysql.yml build
 $ docker compose -f compose.yml -f compose.mysql.yml up -d
 
 # Initialize the database
-$ docker compose -f compose.yml -f compose.mysql.yml exec web rails db:migrate:reset
+$ docker compose -f compose.yml -f compose.mysql.yml exec web bin/rails db:prepare
 
 # Run tests
-$ docker compose -f compose.yml -f compose.mysql.yml exec web bundle exec rspec
+$ docker compose -f compose.yml -f compose.mysql.yml exec web bin/rspec
+
+# Start the server (see Procfile.dev)
+$ docker compose -f compose.yml -f compose.mysql.yml exec web bin/dev
 ```
 
 **Supported Databases**: MySQL 8.0+, MariaDB 10.6+, PostgreSQL 13+, SQLite 3.x

@@ -101,4 +101,4 @@ Settings for the number of delivery responses (DeliveryResponses) included when 
 | VERBENA_LOG_FORMAT | Log output format | Optional | text | text / json |
 | VERBENA_ADMIN_USERNAME | Admin username | Optional | None | Username for Basic authentication. If unset, cannot access admin UI |
 | VERBENA_ADMIN_PASSWORD | Admin password | Optional | None | Password for Basic authentication. If unset, cannot access admin UI |
-| VERBENA_TOKEN | Token for tasks | Required for task execution | None | API token key used in `verbena:mail_queues:*` Rake tasks |
+| VERBENA_ADMIN_ROUTES_ONLY | Restrict routes to admin UI only | Optional | Not restricted | Set to "1" to expose only the admin UI (no API routes) in this container. Use when you want to publish the admin UI externally without exposing the API server. |

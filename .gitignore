@@ -7,6 +7,10 @@
 # Ignore bundler config.
 /.bundle
 
+# Ignore all environment files (except templates).
+/.env*
+!/.env*.erb
+
 # Ignore all logfiles and tempfiles.
 /log/*
 /tmp/*
@@ -40,8 +44,6 @@ coverage
 # Ignore .DS_Store files created by macOS that store custom attributes of stored folders
 .DS_Store
 
-.env
-
 # Ignore VS Code project settings
 .vscode/
 
@@ -51,3 +53,8 @@ coverage
 # `./bin/rails dartsass:install` added this.
 /app/assets/builds/*
 !/app/assets/builds/.keep
+
+# [Verbena]
+# Ignore files that are generated or overwritten at runtime (such as schema.rb),
+# to avoid accidental commits of environment-specific or temporary files.
+db/schema.rb

@@ -1,17 +1,23 @@
 services:
   web:
-    build: .
-    ports:
-      - '23000:3000'
-    volumes:
-      - '.:/verbena'
-      - 'bundle:/usr/local/bundle'
-    tty: true
-    stdin_open: true
+    build:
+      context: .
+      args:
+        RAILS_ENV: development
+    command: /bin/bash
     environment:
+      DOCKER: 1
+      RAILS_ENV: development
       BINDING: 0.0.0.0
       PORT: 3000
       VERBENA_DELIVERY_METHOD: file
+    ports:
+      - '23000:3000'
+    stdin_open: true
+    tty: true
+    volumes:
+      - .:/rails
+      - bundle:/usr/local/bundle
 
 volumes:
   bundle:

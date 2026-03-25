@@ -11,9 +11,11 @@ Rails.application.routes.draw do
     resources :eml_inputs, only: [:new, :create]
   end
 
-  namespace :api do
-    namespace :v1 do
-      resources :mail_queues, only: [:index, :create, :show, :update, :destroy]
+  unless ActiveModel::Type::Boolean.new.cast(ENV['VERBENA_ADMIN_ROUTES_ONLY'])
+    namespace :api do
+      namespace :v1 do
+        resources :mail_queues, only: [:index, :create, :show, :update, :destroy]
+      end
     end
   end
 
