@@ -53,3 +53,8 @@ coverage
 # `./bin/rails dartsass:install` added this.
 /app/assets/builds/*
 !/app/assets/builds/.keep
+
+# [Verbena]
+# Ignore files that are generated or overwritten at runtime (such as schema.rb),
+# to avoid accidental commits of environment-specific or temporary files.
+db/schema.rb
